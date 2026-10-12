@@ -296,3 +296,62 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   .link-field button { width: 32px; justify-content: center; }
   .private-badge { margin-left: 0; }
 }
+
+/* Dashboard profile editor */
+.avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.modal-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; overflow-y: auto; padding: 20px; background: #0c2118a8; backdrop-filter: blur(5px); animation: veil-in .18s ease-out; }
+.profile-modal { width: min(100%, 490px); max-height: calc(100vh - 40px); overflow-y: auto; padding: 25px; border: 1px solid #e6ece7; border-radius: 18px; background: #fff; box-shadow: 0 24px 90px #07170f55; animation: modal-in .22s ease-out; }
+.modal-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 23px; }
+.modal-heading h2 { margin: 0; color: var(--ink); font: 700 23px var(--serif); letter-spacing: -.5px; }
+.modal-heading .form-eyebrow { margin: 0 0 7px; color: #438867; font-size: 9px; }
+.avatar-picker { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 13px; border: 1px solid #e4eae5; border-radius: 10px; }
+.avatar-picker legend { padding: 0 5px; color: #263a33; font-size: 12px; font-weight: 700; }
+.avatar-presets { display: flex; gap: 9px; }
+.avatar-preset { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #e1e9e2; border-radius: 50%; background: #f7faf7; font-size: 21px; cursor: pointer; }
+.avatar-preset.selected { border-color: #38916c; box-shadow: 0 0 0 3px #dff3e9; }
+.avatar-picker label { color: #66766c; font-size: 10px; }
+.avatar-picker input { height: 40px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 3px; }
+.modal-actions .button { min-height: 42px; font-size: 12px; }
+.modal-privacy { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 17px 0 0; color: #84948a; font-size: 10px; }
+.modal-privacy svg { color: #42886a; }
+.theme-toast { position: fixed; z-index: 30; top: 84px; left: 50%; width: max-content; max-width: calc(100vw - 28px); padding: 13px 17px; border: 1px solid #f2daa0; border-radius: 12px; color: #644a1c; background: #fff8e5; box-shadow: 0 12px 40px #14251a22; font-size: 12px; font-weight: 700; text-align: center; transform: translateX(-50%); animation: toast-in .22s ease-out; }
+@keyframes veil-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* Checkout rocket animation */
+.payment-animation { position: relative; display: flex; min-height: 300px; flex-direction: column; align-items: center; justify-content: flex-end; overflow: hidden; padding: 20px 6px 16px; text-align: center; }
+.moon-target { position: absolute; top: 5px; left: 50%; display: grid; place-items: center; width: 74px; height: 74px; border-radius: 50%; background: #fff5cf; box-shadow: 0 0 0 9px #fff5cf55, 0 0 45px #ffd86c99; font-size: 41px; transform: translateX(-50%); }
+.rocket-flight { position: absolute; top: 155px; left: calc(50% - 14px); font-size: 30px; animation: rocket-launch 1.95s cubic-bezier(.35,.02,.76,.3) forwards; }
+.payment-animation h1 { z-index: 1; margin: 0 0 8px; color: #19392d; font: 700 21px/1.3 var(--serif); }
+.payment-animation p { z-index: 1; margin: 0; color: #849189; font-size: 11px; }
+.paid-badge { z-index: 1; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 19px; padding: 12px 17px; border: 1px solid #cdebd6; border-radius: 999px; color: #216d4c; background: linear-gradient(135deg, #edfff1, #d9f8e3); box-shadow: 0 8px 25px #398f5c22; font-size: 13px; font-weight: 800; animation: paid-arrive .5s cubic-bezier(.2,.8,.2,1.2) both; }
+.paid-badge svg { display: grid; place-items: center; width: 25px; height: 25px; padding: 4px; border-radius: 50%; color: white; background: #43a66f; }
+@keyframes rocket-launch { 0% { opacity: 0; transform: translate(0, 30px) rotate(-38deg) scale(.8); } 15% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(28px, -107px) rotate(-38deg) scale(.52); } }
+@keyframes paid-arrive { from { opacity: 0; transform: translateY(9px) scale(.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* Dark mode is scoped to the signed-in dashboard and its modal. */
+.dark body { color: #e7f1ea; background: #101916; }
+.dark .dashboard-page { color: #e7f1ea; background: #101916; }
+.dark .dashboard-topbar, .dark .stat-card, .dark .transactions-card, .dark .profile-modal { border-color: #2b3b33; color: #e7f1ea; background: #18231f; }
+.dark .dashboard-topbar .brand, .dark .dashboard-welcome h1, .dark .stat-value, .dark .section-title h2, .dark .transaction-main strong, .dark .transaction-amount, .dark .modal-heading h2 { color: #e7f1ea; }
+.dark .dashboard-welcome p, .dark .stat-sub, .dark .section-title p, .dark .transaction-main span, .dark .transaction-state, .dark .dashboard-footer { color: #9eafa5; }
+.dark .icon-button { border-color: #31443a; color: #c4ddce; background: #202e28; }
+.dark .secure-pill { border-color: #33473c; color: #b6d3c1; background: #1c2b24; }
+.dark .stat-icon.green { color: #9ce2b5; background: #244537; }
+.dark .stat-icon.peach { color: #f1bf95; background: #46362c; }
+.dark .stat-icon.lilac { color: #c3baff; background: #352f4a; }
+.dark .text-button, .dark .dashboard-footer button { color: #9ed3b3; }
+.dark .section-title, .dark .transaction-row { border-color: #2b3b33; }
+.dark .transaction-symbol { color: #a3e0b6; background: #244537; }
+.dark .profile-modal .form-stack label, .dark .avatar-picker legend { color: #d4e1d8; }
+.dark .profile-modal input { border-color: #33463b; color: #e7f1ea; background: #121b17; }
+.dark .avatar-picker { border-color: #33463b; }
+.dark .avatar-preset { border-color: #33463b; background: #202e28; }
+.dark .avatar-preset.selected { border-color: #6bc28a; }
+.dark .modal-privacy { color: #a2b3a8; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
