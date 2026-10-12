@@ -9,7 +9,7 @@ type Transaction = { id: string; amount_inr: number; status: string; created_at:
 type DemoTransaction = Transaction & { receiver_id: string; sender_alias: string; status: 'simulated' }
 
 function Brand({ light = false }: { light?: boolean }) {
-  return <Link className={`brand ${light ? 'brand-light' : ''}`} to="/login" aria-label="GhostPay home"><span className="brand-mark"><Shield size={17} strokeWidth={2.4} /></span><span>ghostpay</span></Link>
+  return <Link className={`brand ${light ? 'brand-light' : ''}`} to="/" aria-label="GhostPay home"><span className="brand-mark"><Shield size={17} strokeWidth={2.4} /></span><span>ghostpay</span></Link>
 }
 
 function App() {
@@ -30,7 +30,11 @@ function App() {
 
   useEffect(() => {
     if (!supabase) return
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setAuthReady(true) })
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) setSession(null)
+      else setSession(data.session)
+      setAuthReady(true)
+    }).catch(() => { setSession(null); setAuthReady(true) })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
     return () => listener.subscription.unsubscribe()
   }, [])
@@ -39,38 +43,72 @@ function App() {
 
   return <>
     <Routes>
-    <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
-    <Route path="/signup" element={session ? <Navigate to="/onboarding" replace /> : <SignupPage />} />
-    <Route path="/onboarding" element={session ? <OnboardingPage session={session} /> : <Navigate to="/login" replace />} />
-    <Route path="/dashboard" element={session ? <DashboardPage session={session} theme={theme} onToggleTheme={toggleTheme} /> : <Navigate to="/login" replace />} />
+    <Route path="/" element={session ? <AuthenticatedRedirect session={session} /> : <AuthPage />} />
+    <Route path="/login" element={session ? <AuthenticatedRedirect session={session} /> : <AuthPage initialMode="sign-in" />} />
+    <Route path="/signup" element={session ? <AuthenticatedRedirect session={session} /> : <AuthPage initialMode="create-account" />} />
+    <Route path="/onboarding" element={session ? <OnboardingPage session={session} /> : <Navigate to="/" replace />} />
+    <Route path="/dashboard" element={session ? <DashboardPage session={session} theme={theme} onToggleTheme={toggleTheme} /> : <Navigate to="/" replace />} />
     <Route path="/payment/return" element={<PaymentReturnPage />} />
     <Route path="/payment/success" element={<PaymentSuccessPage />} />
     {/* Public profile route: React Router params must be a full segment, so /:handle supports /@alias. */}
     <Route path="/:handle" element={<PaymentPage />} />
-    <Route path="*" element={<Navigate to={session ? '/dashboard' : '/login'} replace />} />
+    <Route path="*" element={<Navigate to={session ? '/dashboard' : '/'} replace />} />
     </Routes>
   </>
 }
 
-function LoginPage() {
+function AuthPage({ initialMode = 'sign-in' }: { initialMode?: 'sign-in' | 'create-account' }) {
   const navigate = useNavigate()
+  const [mode, setMode] = useState<'sign-in' | 'create-account'>(initialMode)
+  const [handle, setHandle] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function submit(event: FormEvent) {
-    event.preventDefault(); setError('')
+    event.preventDefault(); setError(''); setMessage('')
     if (!supabase) { setError('Connect your Supabase project to continue.'); return }
+    const cleanHandle = handle.trim().replace(/^@+/, '').toLowerCase()
+    if (mode === 'create-account' && !/^[a-z0-9_][a-z0-9_.]{2,29}$/.test(cleanHandle)) {
+      setError('Choose a handle with 3–30 letters, numbers, dots, or underscores.')
+      return
+    }
     setBusy(true)
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
-    if (authError) { setError(authError.message); setBusy(false); return }
-    const { data: profile } = await supabase.from('users').select('id, alias_handle').eq('id', data.user.id).maybeSingle()
-    navigate(profile ? '/dashboard' : '/onboarding')
-    setBusy(false)
+    try {
+      if (mode === 'sign-in') {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+        if (authError) { setError(authError.message); return }
+        const { data: profile, error: profileError } = await supabase.from('users').select('id').eq('id', data.user.id).maybeSingle()
+        if (profileError) { setError(profileError.message); return }
+        navigate(profile ? '/dashboard' : '/onboarding', { replace: true })
+        return
+      }
+
+      const { data: existingHandle, error: handleError } = await supabase.from('profiles').select('id').eq('alias_handle', cleanHandle).maybeSingle()
+      if (handleError) { setError(handleError.message); return }
+      if (existingHandle) { setError('That handle is already taken. Try another one.'); return }
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { alias_handle: cleanHandle } },
+      })
+      if (signupError) {
+        setError(signupError.code === '23505' ? 'That handle is already taken. Try another one.' : signupError.message)
+        return
+      }
+      if (data.session) navigate('/onboarding', { replace: true })
+      else setMessage('Account created. Check your email to confirm it, then sign in to continue.')
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : 'Authentication failed. Please try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
+  const creatingAccount = mode === 'create-account'
   return <main className="auth-layout">
     <section className="auth-visual">
       <div className="visual-top"><Brand light /><span className="secure-note"><LockKeyhole size={13} /> PRIVATE BY DESIGN</span></div>
@@ -86,16 +124,17 @@ function LoginPage() {
     <section className="auth-main">
       <div className="auth-mobile-brand"><Brand /></div>
       <div className="auth-form-wrap">
-        <div className="form-eyebrow"><Sparkles size={14} /> WELCOME BACK</div>
-        <h2>Sign in to GhostPay</h2><p className="form-intro">Your next payment is just a link away.</p>
+        <div className="form-eyebrow"><Sparkles size={14} /> {creatingAccount ? 'GET STARTED' : 'WELCOME BACK'}</div>
+        <h2>{creatingAccount ? 'Create your account' : 'Sign in to GhostPay'}</h2><p className="form-intro">{creatingAccount ? 'Claim your private payment link in a few steps.' : 'Your next payment is just a link away.'}</p>
+        <div className="auth-mode-toggle" role="tablist" aria-label="Authentication mode"><button type="button" role="tab" aria-selected={!creatingAccount} className={!creatingAccount ? 'active' : ''} onClick={() => setMode('sign-in')}>Sign In</button><button type="button" role="tab" aria-selected={creatingAccount} className={creatingAccount ? 'active' : ''} onClick={() => setMode('create-account')}>Create Account</button></div>
         <form onSubmit={submit} className="form-stack">
+          {creatingAccount && <label>Claim your @handle<div className="auth-handle-input"><span>@</span><input autoComplete="username" maxLength={30} placeholder="yourname" value={handle} onChange={event => setHandle(event.target.value.replace(/^@+/, ''))} required /></div><small>Your public payment link. You can use letters, numbers, dots, and underscores.</small></label>}
           <label>Email address<input autoComplete="email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required /></label>
-          <label>Password<div className="password-wrap"><input autoComplete="current-password" type={showPassword ? 'text' : 'password'} placeholder="Enter your password" value={password} onChange={e => setPassword(e.target.value)} required /><button className="reveal" type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+          <label>Password<div className="password-wrap"><input autoComplete={creatingAccount ? 'new-password' : 'current-password'} minLength={creatingAccount ? 8 : undefined} type={showPassword ? 'text' : 'password'} placeholder={creatingAccount ? 'At least 8 characters' : 'Enter your password'} value={password} onChange={e => setPassword(e.target.value)} required /><button className="reveal" type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
           {error && <p className="error-note">{error}</p>}
-          <button className="button button-primary full-button" disabled={busy}>{busy ? 'Signing in…' : 'Sign In'}<ArrowRight size={17} /></button>
+          {message && <p className="success-note" role="status">{message}</p>}
+          <button className="button button-primary full-button" disabled={busy}>{busy ? <><span className="spinner auth-button-spinner" /> {creatingAccount ? 'Creating account…' : 'Signing in…'}</> : <>{creatingAccount ? 'Create Account' : 'Sign In'}<ArrowRight size={17} /></>}</button>
         </form>
-        <div className="auth-divider"><span /> <b>NEW TO GHOSTPAY?</b> <span /></div>
-        <Link className="button button-secondary full-button" to="/signup">Create your account<ArrowRight size={17} /></Link>
         <p className="terms-note"><LockKeyhole size={13} /> Your banking details are encrypted and kept private.</p>
       </div>
       <span className="mobile-copyright">© GhostPay · Payments, with a little more peace of mind.</span>
@@ -103,31 +142,34 @@ function LoginPage() {
   </main>
 }
 
-function SignupPage() {
+function AuthenticatedRedirect({ session }: { session: Session }) {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [checking, setChecking] = useState(true)
 
-  async function submit(event: FormEvent) {
-    event.preventDefault(); setError(''); setMessage('')
-    if (!supabase) { setError('Connect your Supabase project to continue.'); return }
-    setBusy(true)
-    const { data, error: signupError } = await supabase.auth.signUp({ email, password })
-    if (signupError) { setError(signupError.message); setBusy(false); return }
-    if (data.session) navigate('/onboarding')
-    else setMessage('Check your email to confirm your account, then sign in to continue.')
-    setBusy(false)
-  }
+  useEffect(() => {
+    let active = true
+    async function resolveDestination() {
+      if (!supabase) { navigate('/', { replace: true }); return }
+      try {
+        const { data, error } = await supabase.from('users').select('id').eq('id', session.user.id).maybeSingle()
+        if (!active) return
+        navigate(!error && data ? '/dashboard' : '/onboarding', { replace: true })
+      } catch {
+        if (active) navigate('/onboarding', { replace: true })
+      } finally {
+        if (active) setChecking(false)
+      }
+    }
+    void resolveDestination()
+    return () => { active = false }
+  }, [navigate, session.user.id])
 
-  return <main className="auth-layout signup-layout"><section className="auth-visual"><div className="visual-top"><Brand light /><span className="secure-note"><LockKeyhole size={13} /> PRIVATE BY DESIGN</span></div><div className="visual-content"><div className="visual-kicker"><span /> A BETTER WAY TO GET PAID</div><h1>Your work.<br /><em>Your name.</em></h1><p>Make a public alias your clients can trust, while your real banking details stay private.</p><div className="privacy-card"><div className="privacy-card-icon"><ShieldCheck size={23} /></div><div><strong>Private from the first step</strong><span>Your legal name and UPI ID stay shielded.</span></div><Check className="privacy-check" size={18} /></div></div><div className="visual-footer"><span>Payments, with a little more peace of mind.</span><span>© GhostPay</span></div><div className="visual-orb orb-one" /><div className="visual-orb orb-two" /></section><section className="auth-main"><div className="auth-mobile-brand"><Brand /></div><div className="auth-form-wrap"><div className="form-eyebrow"><Sparkles size={14} /> GET STARTED</div><h2>Create your account</h2><p className="form-intro">Start with a secure GhostPay login.</p><form onSubmit={submit} className="form-stack"><label>Email address<input autoComplete="email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required /></label><label>Password<input autoComplete="new-password" type="password" minLength={8} placeholder="At least 8 characters" value={password} onChange={e => setPassword(e.target.value)} required /></label>{error && <p className="error-note">{error}</p>}{message && <p className="success-note">{message}</p>}<button className="button button-primary full-button" disabled={busy}>{busy ? 'Creating account…' : 'Create Account'}<ArrowRight size={17} /></button></form><div className="auth-divider"><span /> ALREADY HAVE AN ACCOUNT? <span /></div><Link className="button button-secondary full-button" to="/login">Sign in<ArrowRight size={17} /></Link><p className="terms-note"><LockKeyhole size={13} /> Your banking details are encrypted and kept private.</p></div><span className="mobile-copyright">© GhostPay · Payments, with a little more peace of mind.</span></section></main>
+  return checking ? <div className="loading-screen"><Brand /><span className="spinner" /></div> : null
 }
 
 function OnboardingPage({ session }: { session: Session }) {
   const navigate = useNavigate()
-  const [alias, setAlias] = useState('')
+  const [alias, setAlias] = useState(() => typeof session.user.user_metadata.alias_handle === 'string' ? session.user.user_metadata.alias_handle : '')
   const [legalName, setLegalName] = useState('')
   const [upi, setUpi] = useState('')
   const [error, setError] = useState('')
@@ -139,6 +181,8 @@ function OnboardingPage({ session }: { session: Session }) {
     const cleanAlias = alias.trim().replace(/^@+/, '').toLowerCase()
     if (!/^[a-z0-9_][a-z0-9_.]{2,29}$/.test(cleanAlias)) { setError('Use 3–30 letters, numbers, dots, or underscores for your alias.'); return }
     setBusy(true)
+    const { error: claimError } = await supabase.from('profiles').upsert({ id: session.user.id, alias_handle: cleanAlias }, { onConflict: 'id' })
+    if (claimError) { setError(claimError.code === '23505' ? 'That alias is already taken. Try another one.' : claimError.message); setBusy(false); return }
     const { error: insertError } = await supabase.from('users').insert({ id: session.user.id, alias_handle: cleanAlias, real_legal_name: legalName.trim(), real_upi_id: upi.trim() })
     if (insertError) { setError(insertError.code === '23505' ? 'That alias is already taken. Try another one.' : insertError.message); setBusy(false); return }
     navigate('/dashboard')
@@ -363,6 +407,12 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
       catch { setError('Enter a valid image URL or choose an avatar preset.'); return }
     }
     setBusy(true)
+    const { error: handleClaimError } = await supabase.from('profiles').upsert({ id: profile.id, alias_handle: cleanAlias }, { onConflict: 'id' })
+    if (handleClaimError) {
+      setError(handleClaimError.code === '23505' ? 'That alias is already taken. Try another one.' : handleClaimError.message)
+      setBusy(false)
+      return
+    }
     const { data, error: updateError } = await supabase.from('users').update({
       real_legal_name: fullName.trim(),
       real_upi_id: upi.trim(),
@@ -370,6 +420,7 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
       avatar_url: cleanAvatar || null,
     }).eq('id', profile.id).select('id, alias_handle, real_legal_name, real_upi_id, avatar_url').single()
     if (updateError) {
+      await supabase.from('profiles').upsert({ id: profile.id, alias_handle: profile.alias_handle }, { onConflict: 'id' })
       setError(updateError.code === '23505' ? 'That alias is already taken. Try another one.' : updateError.message)
       setBusy(false)
       return

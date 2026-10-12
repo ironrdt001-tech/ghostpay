@@ -544,6 +544,31 @@ button, input, a, .profile-modal, .payment-card, .stat-card, .activity-card, .tr
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
+/* Combined Supabase authentication form */
+.auth-form-wrap { width: min(100%, 390px); }
+.auth-form-wrap h2 { color: #18181b; letter-spacing: -.045em; }
+.auth-mode-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 0 0 22px; padding: 4px; border: 1px solid #e4e4e7; border-radius: 9999px; background: #f4f4f5; }
+.auth-mode-toggle button { min-height: 40px; border: 0; border-radius: 9999px; color: #71717a; background: transparent; font-size: 12px; font-weight: 600; cursor: pointer; }
+.auth-mode-toggle button:hover { color: #1d4ed8; background: rgba(255, 255, 255, .65); }
+.auth-mode-toggle button.active { color: #1d4ed8; background: #fff; box-shadow: 0 2px 8px rgba(37, 99, 235, .1); }
+.auth-handle-input { display: flex; height: 46px; align-items: center; overflow: hidden; border: 1px solid #e4e4e7; border-radius: 9999px; background: #fff; transition: all 300ms ease-out; }
+.auth-handle-input:focus-within { border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, .12); }
+.auth-handle-input > span { padding-left: 15px; color: #2563eb; font-size: 13px; font-weight: 700; }
+.auth-handle-input input { height: 44px; border: 0; border-radius: 0; box-shadow: none !important; }
+.form-stack label > small { color: #71717a; }
+.auth-button-spinner { width: 16px; height: 16px; border-color: rgba(255, 255, 255, .35); border-top-color: #fff; }
+.success-note { color: #1d4ed8; }
+.dark .success-note { color: #93c5fd; }
+.dark .auth-layout, .dark .auth-main { color: #fafafa; background: #09090b; }
+.dark .auth-form-wrap h2 { color: #fafafa; }
+.dark .auth-form-wrap .form-intro, .dark .auth-form-wrap label, .dark .form-stack label > small { color: #d4d4d8; }
+.dark .auth-mode-toggle { border-color: #3f3f46; background: #18181b; }
+.dark .auth-mode-toggle button { color: #a1a1aa; }
+.dark .auth-mode-toggle button.active { color: #bfdbfe; background: #27272a; }
+.dark .auth-handle-input { border-color: #3f3f46; background: #09090b; }
+.dark .auth-handle-input input { color: #fafafa; background: transparent; }
+.dark .auth-handle-input:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59, 130, 246, .2); }
+
 @media print {
   @page { size: auto; margin: 18mm; }
   html, body, #root { min-width: 0; min-height: 0; background: #fff !important; }
