@@ -553,6 +553,165 @@ button, input, a, .profile-modal, .payment-card, .stat-card, .activity-card, .tr
   .receipt-screen-only { display: none !important; }
 }
 
+/* Trust blue and soft oval geometry */
+:root {
+  color: #18181b;
+  background: #fff;
+  --ink: #18181b;
+  --muted: #71717a;
+  --green: #2563eb;
+  --green-dark: #1d4ed8;
+  --mint: #dbeafe;
+  --line: #e4e4e7;
+}
+html, body, #root { min-height: 100%; background: #fff; }
+body { color: #18181b; }
+*, *::before, *::after { transition: all 300ms ease-out; }
+button, .button, .icon-button, .text-button, .link-field button, .reveal { border-radius: 9999px; }
+input, textarea, select, .form-stack input, .payment-form input, .amount-input, .alias-input { border-radius: 9999px; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid rgba(37, 99, 235, .28); outline-offset: 3px; }
+.brand-mark { border-radius: 50%; color: #fff; background: #2563eb; }
+.brand-light .brand-mark { color: #fff; background: #2563eb; }
+.brand { color: #18181b; }
+.text-button, .dashboard-footer button, .back-link:hover, .quiet-link span { color: #2563eb; }
+.payment-topbar .secure-pill { border-color: #dbeafe; color: #1d4ed8; background: #eff6ff; }
+.payment-card .form-eyebrow { color: #2563eb; }
+.stat-icon.green, .stat-icon.peach, .stat-icon.lilac { color: #2563eb; background: #eff6ff; }
+.button-primary, .button-primary:hover:not(:disabled) { color: #fff; background: #2563eb; box-shadow: 0 8px 22px rgba(37, 99, 235, .18); }
+.button-primary:hover:not(:disabled) { background: #1d4ed8; box-shadow: 0 12px 28px rgba(59, 130, 246, .3); transform: translateY(-1px); }
+.button-secondary, .button-outline { border-color: #d4d4d8; color: #3f3f46; background: #fff; }
+.button-secondary:hover:not(:disabled), .button-outline:hover:not(:disabled) { border-color: #bfdbfe; color: #1d4ed8; background: #eff6ff; }
+.icon-button { border-radius: 50%; }
+.secure-pill, .verified-badge, .private-badge, .transaction-state, .receipt-status, .stat-caption, .activity-legend { border-radius: 9999px; }
+.secure-pill { border-color: #dbeafe; color: #1d4ed8; background: #eff6ff; }
+.secure-pill > span, .pulse-dot { background: #2563eb; box-shadow: none; }
+.link-field, .link-field button, .link-icon { border-radius: 9999px; }
+.link-field button { color: #fff; background: #2563eb; }
+.link-field button:hover:not(:disabled) { background: #1d4ed8; box-shadow: 0 8px 20px rgba(59, 130, 246, .25); }
+.form-stack input, .payment-form input { border-color: #e4e4e7; }
+.form-stack input:focus, .payment-form input:focus, .alias-input:focus-within, .amount-input:focus-within { border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, .12); }
+.alias-input, .amount-input { border-color: #e4e4e7; }
+.alias-input > span { color: #2563eb; }
+.onboard-progress .progress-dot.active { border-color: #2563eb; color: #fff; background: #2563eb; }
+.auth-visual { background: #101a32; }
+.auth-visual::before { background: radial-gradient(ellipse at 8% 92%, #1d4ed8 0, transparent 42%), radial-gradient(ellipse at 93% 14%, #1e40af 0, transparent 42%), linear-gradient(142deg, #101a32, #14264b 62%, #0f172a); }
+.visual-kicker, .form-eyebrow, .auth-form-wrap .form-eyebrow, .onboard-heading .form-eyebrow { color: #2563eb; }
+.visual-kicker { color: #93c5fd; }
+.visual-kicker > span { background: #60a5fa; box-shadow: 0 0 12px rgba(96, 165, 250, .6); }
+.visual-content h1 em { color: #93c5fd; }
+.privacy-card-icon { color: #bfdbfe; background: rgba(59, 130, 246, .18); }
+.privacy-check { color: #93c5fd; }
+.onboard-card, .private-section, .avatar-picker { border-radius: 1.5rem; }
+.onboard-card { border-color: #e4e4e7; box-shadow: 0 14px 40px rgba(37, 99, 235, .07); }
+.private-section { border-color: #e4e4e7; background: #fafafa; }
+.private-heading, .private-badge, .privacy-foot svg, .terms-note svg, .quiet-link span { color: #2563eb; }
+.private-badge { background: #eff6ff; }
+.icon-tile { border-color: #dbeafe; border-radius: 1rem; color: #2563eb; background: #eff6ff; }
+.receive-card, .stat-card, .activity-card, .transactions-card, .payment-card, .profile-modal, .receipt-card {
+  border-radius: 2rem;
+  border-color: #e4e4e7;
+  box-shadow: 0 12px 36px rgba(37, 99, 235, .07), 0 2px 8px rgba(37, 99, 235, .035);
+}
+.receive-card, .stat-card, .activity-card, .transactions-card, .payment-card, .receipt-card { background: #fff; }
+.dashboard-page, .payment-page { background: #fff; }
+.dashboard-topbar, .payment-topbar, .topbar { border-color: #e4e4e7; background: #fff; }
+.dashboard-welcome h1, .payment-card h1, .receive-card h2, .section-title h2, .analytics-heading h2, .activity-heading h3, .modal-heading h2 { letter-spacing: -.045em; }
+.receive-card { padding: 28px 32px; }
+.link-field { height: 50px; }
+.link-icon { border-radius: 50%; color: #2563eb; background: #eff6ff; }
+.link-prefix, .link-field strong { color: #52525b; }
+.stat-card { border-radius: 1.5rem; }
+.stat-value { color: #18181b; }
+.revenue-positive { color: #10b981; }
+.activity-card { padding: 22px 24px 16px; }
+.activity-legend i { border-radius: 50%; background: #2563eb; }
+.activity-track { border-radius: 9999px 9999px 5px 5px; background: #f4f4f5; }
+.activity-bar-fill { border-radius: 9999px 9999px 5px 5px; background: linear-gradient(180deg, #60a5fa, #2563eb); transition: all 700ms ease-out; }
+.activity-empty svg { border-radius: 50%; border-color: #dbeafe; color: #2563eb; }
+.activity-empty p { color: #71717a; }
+.transaction-symbol { border-radius: 50%; color: #2563eb; background: #eff6ff; }
+.transaction-state { border-radius: 9999px; }
+.transaction-state.status-success { border-color: #a7f3d0; color: #047857; background: #ecfdf5; }
+.dashboard-footer svg { color: #2563eb; }
+.verified-badge { color: #1d4ed8; background: #eff6ff; }
+.receiver-avatar { border-radius: 50%; border-color: #dbeafe; color: #2563eb; background: #eff6ff; }
+.payment-success-mark, .payment-progress-icon.complete { border-color: #10b981; color: #10b981; }
+.privacy-banner { border-radius: 1rem; border-color: #dbeafe; color: #52525b; background: #f8fbff; }
+.privacy-banner svg, .payment-secure svg { color: #2563eb; }
+.payment-secure, .payment-footer, .modal-privacy, .modal-privacy svg { color: #71717a; }
+.payment-progress-icon { border-radius: 50%; }
+.payment-spinner { border-radius: 50%; border-top-color: #2563eb; }
+.payment-progress-icon.complete .payment-spinner { border-top-color: #10b981; }
+.receipt-status { color: #1d4ed8; background: #eff6ff; }
+.receipt-amount { color: #2563eb; }
+.profile-modal, .qr-modal { border-radius: 2rem; border-color: rgba(255, 255, 255, .75); background: rgba(255, 255, 255, .8); box-shadow: 0 24px 70px rgba(37, 99, 235, .18); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+.modal-backdrop { background: rgba(9, 18, 38, .34); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+.modal-heading .form-eyebrow { color: #2563eb; }
+.avatar-picker { border-color: #e4e4e7; }
+.avatar-preset { border-radius: 50%; transition: all 300ms ease-out; }
+.avatar-preset.selected { border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, .12); }
+.avatar-blue, .avatar-indigo, .avatar-emerald { color: #1d4ed8; background: #dbeafe; }
+.avatar-violet { color: #6d28d9; background: #ede9fe; }
+.avatar-amber { color: #b45309; background: #fef3c7; }
+.avatar-slate { color: #334155; background: #e2e8f0; }
+.qr-modal { background: rgba(255, 255, 255, .8); }
+.qr-image-frame { border-radius: 1.5rem; }
+
+.dark body, .dark .dashboard-page, .dark .payment-page { color: #fafafa; background: #09090b; }
+.dark .dashboard-topbar, .dark .payment-topbar, .dark .topbar { border-color: #27272a; background: #09090b; }
+.dark .dashboard-topbar .brand, .dark .payment-topbar .brand, .dark .stat-value, .dark .section-title h2, .dark .analytics-heading h2, .dark .activity-heading h3, .dark .transaction-main strong, .dark .transaction-amount, .dark .payment-card h1, .dark .receive-card h2, .dark .modal-heading h2 { color: #fafafa; }
+.dark .dashboard-welcome p, .dark .receive-card p, .dark .stat-sub, .dark .analytics-note, .dark .activity-heading p, .dark .activity-value, .dark .activity-date, .dark .section-title p, .dark .transaction-main span, .dark .transaction-state, .dark .payment-subtext, .dark .payment-form label, .dark .payment-progress p, .dark .dashboard-footer { color: #a1a1aa; }
+.dark .receive-card, .dark .stat-card, .dark .activity-card, .dark .transactions-card, .dark .payment-card, .dark .receipt-card { border-color: #27272a; color: #fafafa; background: #18181b; box-shadow: 0 14px 40px rgba(0, 0, 0, .35); }
+.dark .profile-modal, .dark .qr-modal { border-color: rgba(63, 63, 70, .8); color: #fafafa; background: rgba(24, 24, 27, .8); }
+.dark .secure-pill, .dark .icon-button, .dark .button-secondary, .dark .button-outline { border-color: #3f3f46; color: #d4d4d8; background: #18181b; }
+.dark .secure-pill, .dark .verified-badge, .dark .private-badge { border-color: #1e3a8a; color: #bfdbfe; background: #172554; }
+.dark .text-button, .dark .dashboard-footer button, .dark .back-link:hover { color: #93c5fd; }
+.dark .stat-icon.green, .dark .stat-icon.peach, .dark .stat-icon.lilac { color: #93c5fd; background: #172554; }
+.dark .button-primary { border-color: #3b82f6; color: #fff; background: #2563eb; box-shadow: 0 8px 22px rgba(37, 99, 235, .22); }
+.dark .button-primary:hover:not(:disabled) { background: #1d4ed8; box-shadow: 0 12px 28px rgba(59, 130, 246, .3); }
+.dark .button-secondary:hover:not(:disabled), .dark .button-outline:hover:not(:disabled) { border-color: #3b82f6; color: #bfdbfe; background: #172554; }
+.dark .link-field { border-color: #3f3f46; background: #09090b; }
+.dark .link-field strong, .dark .link-prefix { color: #d4d4d8; }
+.dark .link-icon, .dark .transaction-symbol, .dark .receiver-avatar { border-color: #27272a; color: #93c5fd; background: #172554; }
+.dark .link-field button { color: #fff; background: #2563eb; }
+.dark .activity-heading, .dark .section-title, .dark .transaction-row { border-color: #27272a; }
+.dark .activity-track { background: #27272a; }
+.dark .activity-bar-fill { background: linear-gradient(180deg, #60a5fa, #2563eb); }
+.dark .activity-empty svg { border-color: #3f3f46; color: #93c5fd; }
+.dark .activity-empty p { color: #a1a1aa; }
+.dark .transaction-state { border-color: #3f3f46; }
+.dark .transaction-state.status-success { border-color: #065f46; color: #6ee7b7; background: rgba(6, 78, 59, .3); }
+.dark .revenue-positive { color: #34d399; }
+.dark .profile-modal input, .dark .payment-form input { border-color: #3f3f46; color: #fafafa; background: #09090b; }
+.dark .alias-input, .dark .amount-input { border-color: #3f3f46; }
+.dark .form-stack input:focus, .dark .payment-form input:focus, .dark .alias-input:focus-within, .dark .amount-input:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59, 130, 246, .2); }
+.dark .avatar-picker { border-color: #3f3f46; }
+.dark .avatar-picker legend, .dark .avatar-picker label { color: #d4d4d8; }
+.dark .avatar-preset { border-color: #3f3f46; }
+.dark .avatar-preset.selected { border-color: #3b82f6; }
+.dark .avatar-blue, .dark .avatar-indigo, .dark .avatar-emerald { color: #bfdbfe; background: #1e3a8a; }
+.dark .avatar-violet { color: #c4b5fd; background: #4c1d95; }
+.dark .avatar-amber { color: #fcd34d; background: #78350f; }
+.dark .avatar-slate { color: #cbd5e1; background: #334155; }
+.dark .privacy-banner { border-color: #1e3a8a; color: #d4d4d8; background: #172554; }
+.dark .privacy-banner svg, .dark .payment-secure svg { color: #93c5fd; }
+.dark .payment-progress-icon { border-color: #3f3f46; color: #93c5fd; background: #18181b; }
+.dark .payment-spinner { border-color: #3f3f46; border-top-color: #60a5fa; }
+.dark .payment-success-mark, .dark .payment-progress-icon.complete { border-color: #10b981; color: #34d399; }
+.dark .receipt-status { color: #bfdbfe; background: #172554; }
+.dark .receipt-amount { color: #93c5fd; }
+.dark .qr-image-frame { border-color: #3f3f46; background: #fff; }
+.dark .qr-share-url { color: #d4d4d8; }
+
+@media (max-width: 700px) {
+  .receive-card, .payment-card, .transactions-card, .activity-card { border-radius: 1.5rem; }
+  .stat-card { border-radius: 1.25rem; }
+  .profile-modal, .qr-modal { border-radius: 1.75rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
