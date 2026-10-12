@@ -6,7 +6,7 @@ import { formatHandle, supabase } from './lib/supabase'
 
 type Profile = { id: string; alias_handle: string }
 type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_alias?: string }
-type DemoTransaction = Transaction & { sender_alias: string; status: 'simulated' }
+type DemoTransaction = Transaction & { receiver_id: string; sender_alias: string; status: 'simulated' }
 
 function Brand({ light = false }: { light?: boolean }) {
   return <Link className={`brand ${light ? 'brand-light' : ''}`} to="/login" aria-label="GhostPay home"><span className="brand-mark"><Shield size={17} strokeWidth={2.4} /></span><span>ghostpay</span></Link>
@@ -154,7 +154,6 @@ function DashboardPage({ session }: { session: Session }) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [demoTransactions, setDemoTransactions] = useState<DemoTransaction[]>([])
   const [balance, setBalance] = useState(0)
-  const [transactionCount, setTransactionCount] = useState(0)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(true)
@@ -193,9 +192,11 @@ function DashboardPage({ session }: { session: Session }) {
       const realRows = txResult.rows
       const demoRows = demoResult.rows
       if (realRows) setTransactions(realRows)
-      if (demoRows) setDemoTransactions(demoRows)
+      if (demoRows) setDemoTransactions(current => {
+        const rowsById = new Map([...demoRows, ...current].map(tx => [tx.id, tx]))
+        return [...rowsById.values()]
+      })
       const paidOut = (realRows ?? []).filter(tx => tx.status === 'payout_successful')
-      setTransactionCount((realRows?.length ?? 0) + (demoRows?.length ?? 0))
       setBalance(paidOut.reduce((sum, tx) => sum + Number(tx.amount_inr), 0))
       setBusy(false)
     }
@@ -203,10 +204,33 @@ function DashboardPage({ session }: { session: Session }) {
     return () => { active = false }
   }, [session.user.id])
 
+  useEffect(() => {
+    if (!supabase) return
+    const client = supabase
+    const channel = client
+      .channel('public:demo_transactions')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'demo_transactions',
+        filter: `receiver_id=eq.${session.user.id}`,
+      }, payload => {
+        const incoming = payload.new as DemoTransaction
+        if (incoming.receiver_id !== session.user.id) return
+        setDemoTransactions(current => current.some(tx => tx.id === incoming.id)
+          ? current
+          : [incoming, ...current])
+      })
+      .subscribe()
+
+    return () => { void client.removeChannel(channel) }
+  }, [session.user.id])
+
   const recentTransactions: Transaction[] = [...transactions, ...demoTransactions]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 10)
   const simulatedTotal = demoTransactions.reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
+  const transactionCount = transactions.length + demoTransactions.length
 
   async function copyLink() {
     if (!profile) return

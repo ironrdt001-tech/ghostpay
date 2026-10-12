@@ -16,6 +16,21 @@ create table public.demo_transactions (
   created_at timestamptz not null default now()
 );
 
+-- Realtime must publish this table before INSERT events can reach recipients.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'demo_transactions'
+  ) then
+    alter publication supabase_realtime add table public.demo_transactions;
+  end if;
+end;
+$$;
+
 alter table public.demo_transactions enable row level security;
 
 revoke all on table public.demo_transactions from public, anon, authenticated;
