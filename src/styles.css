@@ -131,6 +131,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .dashboard-welcome h1 span { color: #50a87b; }
 .dashboard-welcome p { margin: 8px 0 0; color: #829088; font-size: 12px; }
 .dashboard-welcome .button { min-height: 39px; padding: 0 13px; font-size: 11px; }
+.dashboard-actions { display: flex; align-items: center; gap: 9px; }
+.dashboard-actions .button { white-space: nowrap; }
 .notice-error { margin: 0 0 16px; padding: 11px 14px; border: 1px solid #f0d9d6; border-radius: 9px; color: #a8473e; background: #fff8f7; font-size: 12px; }
 .receive-card { position: relative; display: flex; min-height: 250px; overflow: hidden; padding: 31px 35px; border-radius: 19px; color: white; background: linear-gradient(117deg, #165a46, #167057 70%, #1b765c); box-shadow: 0 12px 25px #165a461d; isolation: isolate; }
 .receive-card::after { position: absolute; z-index: -2; inset: 0; content: ''; background: radial-gradient(circle at 89% 48%, #c7ffdf17, transparent 32%); }
@@ -254,11 +256,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   .topbar-actions { gap: 9px; }
   .secure-pill { padding: 7px; font-size: 7px; }
   .dashboard-container { width: min(100% - 32px, 540px); padding-top: 28px; }
-  .dashboard-welcome { align-items: flex-start; gap: 12px; margin-bottom: 19px; }
+  .dashboard-welcome { align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 19px; }
   .dashboard-welcome h1 { font-size: 24px; }
   .dashboard-welcome p { max-width: 235px; line-height: 1.5; }
   .dashboard-welcome .button { flex: 0 0 auto; min-height: 34px; padding: 0 9px; gap: 5px; font-size: 9px; }
   .dashboard-welcome .button svg { width: 14px; }
+  .dashboard-actions { flex: 1 1 100%; justify-content: flex-end; }
   .receive-card { min-height: 246px; padding: 24px 19px; }
   .receive-copy { width: 100%; }
   .receive-card h2 { font-size: 22px; }
@@ -352,6 +355,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .dark .avatar-preset { border-color: #33463b; background: #202e28; }
 .dark .avatar-preset.selected { border-color: #6bc28a; }
 .dark .modal-privacy { color: #a2b3a8; }
+.dark .qr-image-frame { border-color: #fff; background: #fff; box-shadow: 0 10px 28px #0005; }
+.dark .qr-share-url { color: #c8d9ce; }
 
 /* Printable receipt */
 .receipt-card { margin: 20px 0; padding: 28px; border: 1px solid #e3eae4; border-radius: 16px; background: #fff; box-shadow: 0 12px 36px #1b48300a; }
@@ -367,6 +372,15 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .receipt-details dd { margin: 0; color: #2e4237; font-size: 10px; font-weight: 700; text-align: right; overflow-wrap: anywhere; }
 .receipt-disclaimer { margin: 17px 0 0; color: #9aa59e; font-size: 9px; line-height: 1.6; text-align: center; }
 .receipt-download { margin-bottom: 9px; }
+.qr-modal { width: min(100%, 420px); text-align: center; }
+.qr-modal .modal-heading { text-align: left; }
+.qr-image-frame { display: grid; place-items: center; width: 274px; height: 274px; margin: 0 auto; border: 1px solid #edf1ed; border-radius: 20px; background: #fff; box-shadow: 0 12px 32px #173c2812; }
+.qr-image-frame img { display: block; width: 250px; height: 250px; image-rendering: pixelated; }
+.qr-image-error { max-width: 220px; color: #95605c; font-size: 12px; line-height: 1.5; }
+.qr-share-url { max-width: 100%; margin: 16px 0; overflow-wrap: anywhere; color: #60756a; font-size: 11px; }
+.qr-download-button { min-height: 46px; }
+.qr-error { margin: 12px 0 0; }
+.qr-modal .modal-privacy { line-height: 1.5; }
 
 @media print {
   @page { size: auto; margin: 18mm; }

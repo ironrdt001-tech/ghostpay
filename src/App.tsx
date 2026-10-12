@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, Eye, EyeOff, LockKeyhole, LogOut, Moon, Plus, Shield, ShieldCheck, Sparkles, Sun, WalletCards, X } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, Eye, EyeOff, LockKeyhole, LogOut, Moon, Plus, QrCode, Shield, ShieldCheck, Sparkles, Sun, WalletCards, X } from 'lucide-react'
 import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
 
@@ -211,6 +211,7 @@ function DashboardPage({ session, theme, onToggleTheme, themePending }: { sessio
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
+  const [qrOpen, setQrOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -296,7 +297,7 @@ function DashboardPage({ session, theme, onToggleTheme, themePending }: { sessio
   return <main className="dashboard-page">
     <header className="dashboard-topbar"><Brand /><div className="topbar-actions"><span className="secure-pill"><span /> SECURE SPACE</span><button className="icon-button" onClick={onToggleTheme} disabled={themePending} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><button className="icon-button" onClick={signOut} aria-label="Sign out"><LogOut size={17} /></button><div className="avatar">{profile?.avatar_url?.startsWith('emoji:') ? profile.avatar_url.slice(6) : profile?.avatar_url ? <img src={profile.avatar_url} alt="Profile" /> : session.user.email?.slice(0, 1).toUpperCase() ?? 'G'}</div></div></header>
     <div className="dashboard-container">
-      <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><button className="button button-outline" onClick={() => setEditOpen(true)}><Plus size={17} /> Edit profile</button></div>
+      <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><div className="dashboard-actions"><button className="button button-secondary" onClick={() => setQrOpen(true)} disabled={!profile}><QrCode size={16} /> Share QR Code</button><button className="button button-outline" onClick={() => setEditOpen(true)} disabled={!profile}><Plus size={17} /> Edit profile</button></div></div>
       {error && <div className="notice-error">{error}</div>}
       <section className="receive-card"><div className="receive-copy"><span className="receive-label"><span className="pulse-dot" /> READY TO RECEIVE</span><h2>Your Shielded Link</h2><p>Share your link with clients. Your personal details stay private.</p><div className="link-field"><div className="link-icon"><Shield size={16} /></div><span className="link-prefix">{window.location.host}/</span><strong>{profile ? formatHandle(profile.alias_handle) : '…'}</strong><button onClick={copyLink} disabled={!profile} aria-label="Copy Link">{copied ? <Check size={17} /> : <Copy size={17} />}<span>{copied ? 'Copied!' : 'Copy Link'}</span></button></div></div><div className="receive-art"><div className="art-halo" /><div className="art-ring ring-back" /><div className="art-ring ring-front" /><div className="art-shield"><ShieldCheck size={43} /></div><span className="art-spark spark-a">✦</span><span className="art-spark spark-b">✧</span></div></section>
       <div className="stats-grid"><section className="stat-card"><div className="stat-top"><span className="stat-icon green"><WalletCards size={18} /></span><span className="stat-caption">TOTAL RECEIVED</span></div><div className="stat-value">₹{busy ? '—' : balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Successfully paid out</span></section><section className="stat-card"><div className="stat-top"><span className="stat-icon peach"><ArrowDownLeft size={18} /></span><span className="stat-caption">TRANSACTIONS</span></div><div className="stat-value">{busy ? '—' : transactionCount}</div><span className="stat-sub">Real and demo records</span></section><section className="stat-card shield-stat"><div className="stat-top"><span className="stat-icon lilac"><ShieldCheck size={18} /></span><span className="stat-caption">PRIVACY STATUS</span></div><div className="stat-value status-value">Protected <Check size={17} /></div><span className="stat-sub">Your details remain private</span></section><section className="stat-card"><div className="stat-top"><span className="stat-icon peach"><Check size={18} /></span><span className="stat-caption">TEST TOTAL</span></div><div className="stat-value">₹{busy ? '—' : simulatedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Supabase demo records only</span></section></div>
@@ -304,7 +305,50 @@ function DashboardPage({ session, theme, onToggleTheme, themePending }: { sessio
       <footer className="dashboard-footer"><span><LockKeyhole size={13} /> Your privacy is always on.</span><button aria-label="Help"><CircleHelp size={15} /> Help & support</button></footer>
     </div>
     {editOpen && profile && <EditProfileModal profile={profile} onClose={() => setEditOpen(false)} onSaved={updated => { setProfile(updated); setEditOpen(false) }} />}
+    {qrOpen && profile && <ShareQrModal handle={profile.alias_handle} onClose={() => setQrOpen(false)} />}
   </main>
+}
+
+function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void }) {
+  const [downloading, setDownloading] = useState(false)
+  const [error, setError] = useState('')
+  const [imageError, setImageError] = useState(false)
+  const publicUrl = `${window.location.origin}/@${handle.replace(/^@+/, '')}`
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(publicUrl)}`
+
+  async function downloadQr() {
+    setError('')
+    setDownloading(true)
+    let objectUrl: string | null = null
+    try {
+      const response = await fetch(qrImageUrl, { mode: 'cors', referrerPolicy: 'no-referrer' })
+      if (!response.ok) throw new Error('The QR image could not be downloaded. Please try again.')
+      const imageBlob = await response.blob()
+      objectUrl = URL.createObjectURL(imageBlob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = `ghostpay-${handle.replace(/^@+/, '')}-qr.png`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : 'The QR image could not be downloaded. Please try again.')
+    } finally {
+      if (objectUrl) window.setTimeout(() => URL.revokeObjectURL(objectUrl as string), 1000)
+      setDownloading(false)
+    }
+  }
+
+  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+    <section className="profile-modal qr-modal" role="dialog" aria-modal="true" aria-labelledby="share-qr-title">
+      <header className="modal-heading"><div><div className="form-eyebrow">SHARE YOUR LINK</div><h2 id="share-qr-title">Your payment QR</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button></header>
+      <div className="qr-image-frame">{imageError ? <p className="qr-image-error" role="status">QR preview could not load. Check your connection and try again.</p> : <img src={qrImageUrl} width="250" height="250" alt={`QR code linking to ${publicUrl}`} referrerPolicy="no-referrer" onError={() => setImageError(true)} />}</div>
+      <p className="qr-share-url">{publicUrl}</p>
+      <button className="button button-primary full-button qr-download-button" onClick={downloadQr} disabled={downloading}>{downloading ? 'Preparing download…' : <><Download size={17} /> Download QR</>}</button>
+      {error && <p className="error-note qr-error" role="alert">{error}</p>}
+      <p className="modal-privacy"><LockKeyhole size={13} /> QRServer generates this image from your public payment link.</p>
+    </section>
+  </div>
 }
 
 const avatarPresets = ['emoji:🌿', 'emoji:🌙', 'emoji:🦊', 'emoji:🌻', 'emoji:🐳']
