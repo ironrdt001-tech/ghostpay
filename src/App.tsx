@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Eye, EyeOff, LockKeyhole, LogOut, Moon, Plus, Shield, ShieldCheck, Sparkles, Sun, WalletCards, X } from 'lucide-react'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, Eye, EyeOff, LockKeyhole, LogOut, Moon, Plus, Shield, ShieldCheck, Sparkles, Sun, WalletCards, X } from 'lucide-react'
 import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
 
@@ -376,7 +376,6 @@ function PaymentPage() {
       const { data, error: queryError } = await supabase.from('users').select('id, alias_handle').eq('alias_handle', aliasHandle).maybeSingle()
       if (!active) return
       if (queryError) {
-        console.error('Public alias lookup failed', queryError)
         setError(queryError.message)
       } else if (!data) setError('We couldn’t find this payment link. Check the address and try again.')
       else setProfile(data)
@@ -415,7 +414,7 @@ function PaymentPage() {
     setPaymentStage('complete')
     if (audioContext) playCelebrationChord(audioContext)
     await new Promise(resolve => window.setTimeout(resolve, 900))
-    navigate(`/payment/success?amount=${encodeURIComponent(value)}&alias=${encodeURIComponent(profile.alias_handle)}`)
+    navigate('/payment/success', { state: { amount: value, alias: profile.alias_handle, senderAlias: cleanSenderAlias } })
   }
 
   return <main className="payment-page"><header className="payment-topbar"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> PAYMENT TEST</span></header><div className="payment-wrap"><Link to="/login" className="back-link"><ArrowLeft size={15} /> GhostPay</Link><section className="payment-card"><div className="payment-card-top"><div className="receiver-avatar"><Shield size={22} /></div><span className="verified-badge"><ShieldCheck size={13} /> VERIFIED LINK</span></div>{paymentStage === 'idle' ? <><div className="form-eyebrow">A PRIVATE PAYMENT</div><h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1><p className="payment-subtext">Your real identity is hidden from the receiver.</p><div className="privacy-banner"><LockKeyhole size={16} /><span>Your payment details are protected by GhostPay.</span></div><form onSubmit={startPayment} className="payment-form"><label>Your Name / Alias<input maxLength={80} placeholder="e.g., Alex / Twitter Client" value={senderAlias} onChange={e => setSenderAlias(e.target.value)} /></label><label>Amount (₹)<div className="amount-input"><span>₹</span><input inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required /></div></label>{error && <p className="error-note">{error}</p>}<button className="button button-primary full-button" disabled={busy || !profile}>{busy ? 'Saving test payment…' : 'Pay via UPI'}<ArrowRight size={17} /></button></form><div className="payment-secure"><ShieldCheck size={16} /><span>Supabase demo record · No payment will be collected</span></div></> : <div className={`payment-animation ${paymentStage}`} aria-live="polite"><div className="moon-target">🌕</div>{paymentStage === 'launching' ? <div className="rocket-flight" aria-hidden="true">🚀</div> : <div className="paid-badge"><Check size={20} /> Payment Complete · Paid</div>}<h1>{paymentStage === 'launching' ? 'Sending you to the moon…' : 'Payment complete!'}</h1><p>{paymentStage === 'launching' ? 'Your private test checkout is in orbit.' : 'Your simulated payment is safely recorded.'}</p></div>}</section><p className="payment-footer"><LockKeyhole size={12} /> GhostPay test checkout</p></div></main>
@@ -427,9 +426,17 @@ function PaymentReturnPage() {
 
 function PaymentSuccessPage() {
   const [searchParams] = useSearchParams()
-  const amount = Number(searchParams.get('amount'))
-  const alias = searchParams.get('alias')
-  return <main className="payment-page"><header className="payment-topbar"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> PAYMENT TEST</span></header><div className="payment-wrap"><section className="payment-card return-card"><div className="receiver-avatar"><Check size={23} /></div><div className="form-eyebrow">SIMULATED CHECKOUT</div><h1>Payment Successful</h1><p className="payment-subtext">{Number.isFinite(amount) && amount > 0 ? `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to ${alias ? formatHandle(alias) : 'your creator'}` : 'Your test payment completed successfully.'}</p><div className="privacy-banner"><ShieldCheck size={16} /><span>This was a simulated payment. No money moved.</span></div><Link className="button button-primary full-button" to="/login">Back to GhostPay<ArrowRight size={17} /></Link></section><p className="payment-footer"><LockKeyhole size={12} /> Test checkout complete</p></div></main>
+  const location = useLocation()
+  const receiptState = location.state as { amount?: number; alias?: string; senderAlias?: string } | null
+  const amount = Number(receiptState?.amount ?? searchParams.get('amount'))
+  const alias = receiptState?.alias ?? searchParams.get('alias')
+  const senderAlias = receiptState?.senderAlias?.trim() || 'Anonymous'
+  const [receiptDate] = useState(() => new Date())
+  const [transactionId] = useState(() => `GP-DEMO-${crypto.randomUUID().slice(0, 8).toUpperCase()}`)
+  const formattedAmount = Number.isFinite(amount) && amount > 0
+    ? `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : '—'
+  return <main className="payment-page receipt-print-root"><header className="payment-topbar receipt-screen-only"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> PAYMENT TEST</span></header><div className="payment-wrap"><section className="payment-card return-card receipt-screen-only"><div className="receiver-avatar"><Check size={23} /></div><div className="form-eyebrow">SIMULATED CHECKOUT</div><h1>Payment Successful</h1><p className="payment-subtext">{formattedAmount} to {alias ? formatHandle(alias) : 'your creator'}</p><div className="privacy-banner"><ShieldCheck size={16} /><span>This was a simulated payment. No money moved.</span></div></section><article className="receipt-card" aria-label="Payment receipt"><div className="receipt-brand"><span className="brand-mark"><Shield size={16} /></span><span>ghostpay</span></div><div className="receipt-status"><Check size={16} /> PAYMENT SIMULATED</div><h1>Payment receipt</h1><p className="receipt-caption">A record of your GhostPay demo checkout</p><div className="receipt-amount">{formattedAmount}</div><dl className="receipt-details"><div><dt>Paid by</dt><dd>{senderAlias}</dd></div><div><dt>Paid to</dt><dd>{alias ? formatHandle(alias) : 'Creator'}</dd></div><div><dt>Date</dt><dd>{receiptDate.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div><div><dt>Transaction ID</dt><dd>{transactionId}</dd></div></dl><p className="receipt-disclaimer">Demo receipt only · No money was collected or transferred.</p></article><button className="button button-primary full-button receipt-download receipt-screen-only" onClick={() => window.print()}><Download size={17} /> Download Receipt</button><Link className="button button-secondary full-button receipt-screen-only" to="/login">Back to GhostPay<ArrowRight size={17} /></Link><p className="payment-footer receipt-screen-only"><LockKeyhole size={12} /> Test checkout complete</p></div></main>
 }
 
 export default App

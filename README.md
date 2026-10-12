@@ -16,6 +16,8 @@ The public payment page currently uses a Supabase-backed frontend simulation. Af
 
 The dashboard profile editor and live theme preference require `supabase/migrations/20261012000002_profile_editor.sql`. It adds an avatar field and allows authenticated users to read and update only their own private profile row; anonymous visitors can still read public aliases only. The dashboard includes a short rocket animation and synthesized Web Audio chime for demo checkout completion. Theme choice is saved in browser local storage.
 
+The Vercel deployment applies a restrictive Content Security Policy and standard browser security headers. The simulated success page offers a printable receipt through the browser's native print-to-PDF flow; it is clearly marked as a demo and does not represent a collected payment.
+
 The `create-payment` Edge Function remains as the separate Cashfree integration source for a future production checkout. It creates a `pending_collection` transaction, requires creator KYC, creates a Cashfree Payment Gateway order, and returns its payment session ID. The current frontend does not call it.
 
 The `payment-success` function verifies Cashfree's webhook signature against the unmodified request body, validates the order ID, amount, currency, and current transaction status, changes the transaction to `escrowed`, reads the payout destination with the service role, and submits an idempotent UPI transfer to Cashfree Payouts. It only changes the status to `payout_successful` when Cashfree reports `SUCCESS`; `RECEIVED`/pending transfers stay `escrowed` and receive a non-2xx response so Cashfree can retry and the handler can reconcile status. Do not treat API acceptance as final settlement.
