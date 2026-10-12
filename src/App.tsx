@@ -4,32 +4,9 @@ import { ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, 
 import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
 
-type Profile = { alias_handle: string }
-type Transaction = { id: string; amount_inr: number; status: string; created_at: string }
-type SimulatedTransaction = Transaction & { status: 'simulated' }
-
-function simulationStorageKey(aliasHandle: string) {
-  return `ghostpay.simulatedTransactions.${aliasHandle.replace(/^@+/, '').toLowerCase()}`
-}
-
-function readSimulatedTransactions(aliasHandle: string): SimulatedTransaction[] {
-  try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(simulationStorageKey(aliasHandle)) ?? '[]')
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((item): item is SimulatedTransaction =>
-      Boolean(item)
-      && typeof item === 'object'
-      && typeof item.id === 'string'
-      && typeof item.amount_inr === 'number'
-      && Number.isFinite(item.amount_inr)
-      && item.amount_inr > 0
-      && item.status === 'simulated'
-      && typeof item.created_at === 'string',
-    )
-  } catch {
-    return []
-  }
-}
+type Profile = { id: string; alias_handle: string }
+type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_alias?: string }
+type DemoTransaction = Transaction & { sender_alias: string; status: 'simulated' }
 
 function Brand({ light = false }: { light?: boolean }) {
   return <Link className={`brand ${light ? 'brand-light' : ''}`} to="/login" aria-label="GhostPay home"><span className="brand-mark"><Shield size={17} strokeWidth={2.4} /></span><span>ghostpay</span></Link>
@@ -75,10 +52,7 @@ function LoginPage() {
     setBusy(true)
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
     if (authError) { setError(authError.message); setBusy(false); return }
-    const knownAlias = data.user.user_metadata?.alias_handle ?? window.localStorage.getItem(`ghostpay.alias.${data.user.id}`)
-    const { data: profile } = knownAlias
-      ? await supabase.from('users').select('alias_handle').eq('alias_handle', knownAlias).maybeSingle()
-      : { data: null }
+    const { data: profile } = await supabase.from('users').select('id, alias_handle').eq('id', data.user.id).maybeSingle()
     navigate(profile ? '/dashboard' : '/onboarding')
     setBusy(false)
   }
@@ -153,10 +127,6 @@ function OnboardingPage({ session }: { session: Session }) {
     setBusy(true)
     const { error: insertError } = await supabase.from('users').insert({ id: session.user.id, alias_handle: cleanAlias, real_legal_name: legalName.trim(), real_upi_id: upi.trim() })
     if (insertError) { setError(insertError.code === '23505' ? 'That alias is already taken. Try another one.' : insertError.message); setBusy(false); return }
-    // The client role cannot select profile IDs under the strict column grants.
-    // Keep the non-sensitive public alias in auth metadata for this user's dashboard lookup.
-    window.localStorage.setItem(`ghostpay.alias.${session.user.id}`, cleanAlias)
-    await supabase.auth.updateUser({ data: { alias_handle: cleanAlias } })
     navigate('/dashboard')
   }
 
@@ -182,59 +152,61 @@ function OnboardingPage({ session }: { session: Session }) {
 function DashboardPage({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [simulatedTransactions, setSimulatedTransactions] = useState<SimulatedTransaction[]>([])
+  const [demoTransactions, setDemoTransactions] = useState<DemoTransaction[]>([])
   const [balance, setBalance] = useState(0)
-  const [successfulCount, setSuccessfulCount] = useState(0)
+  const [transactionCount, setTransactionCount] = useState(0)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(true)
 
   useEffect(() => {
     let active = true
-    let storageKey: string | null = null
-    const refreshSimulations = (event?: StorageEvent) => {
-      if (storageKey && (!event || event.key === storageKey)) {
-        setSimulatedTransactions(readSimulatedTransactions(storageKey.slice('ghostpay.simulatedTransactions.'.length)))
-      }
-    }
-    const onStorage = (event: StorageEvent) => refreshSimulations(event)
-    window.addEventListener('storage', onStorage)
     async function load() {
       if (!supabase) { setError('Connect your Supabase project to load your dashboard.'); setBusy(false); return }
-      const knownAlias = session.user.user_metadata?.alias_handle ?? window.localStorage.getItem(`ghostpay.alias.${session.user.id}`)
-      if (!knownAlias) { setError('Finish setting up your account to see your shielded link.'); setBusy(false); return }
-      storageKey = simulationStorageKey(knownAlias)
-      refreshSimulations()
-      const [profileResult, txResult, countResult] = await Promise.all([
-        supabase.from('users').select('alias_handle').eq('alias_handle', knownAlias).maybeSingle(),
-        supabase.from('transactions').select('id, amount_inr, status, created_at').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).limit(10),
-        supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('receiver_id', session.user.id).eq('status', 'payout_successful'),
+      const client = supabase
+      async function loadRealRows() {
+        const rows: Transaction[] = []
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await client.from('transactions').select('id, amount_inr, status, created_at').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).range(from, from + 999)
+          if (error) return { rows: null as Transaction[] | null, error }
+          rows.push(...(data ?? []) as Transaction[])
+          if (!data || data.length < 1000) return { rows, error: null }
+        }
+      }
+      async function loadDemoRows() {
+        const rows: DemoTransaction[] = []
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await client.from('demo_transactions').select('id, amount_inr, sender_alias, status, created_at').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).range(from, from + 999)
+          if (error) return { rows: null as DemoTransaction[] | null, error }
+          rows.push(...(data ?? []) as DemoTransaction[])
+          if (!data || data.length < 1000) return { rows, error: null }
+        }
+      }
+      const [profileResult, txResult, demoResult] = await Promise.all([
+        client.from('users').select('id, alias_handle').eq('id', session.user.id).maybeSingle(),
+        loadRealRows(),
+        loadDemoRows(),
       ])
       if (!active) return
-      if (profileResult.error || txResult.error || countResult.error) setError(profileResult.error?.message ?? txResult.error?.message ?? countResult.error?.message ?? '')
+      if (profileResult.error || txResult.error || demoResult.error) setError(profileResult.error?.message ?? txResult.error?.message ?? demoResult.error?.message ?? '')
       if (profileResult.data) setProfile(profileResult.data)
-      if (txResult.data) setTransactions(txResult.data)
-      if (!countResult.error) setSuccessfulCount(countResult.count ?? 0)
-      let offset = 0
-      let total = 0
-      while (active) {
-        const { data, error: totalError } = await supabase.from('transactions').select('id, amount_inr').eq('receiver_id', session.user.id).eq('status', 'payout_successful').order('id').range(offset, offset + 999)
-        if (totalError) { setError(totalError.message); break }
-        total += (data ?? []).reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
-        if (!data || data.length < 1000) break
-        offset += 1000
-      }
-      if (active) setBalance(total)
+      const realRows = txResult.rows
+      const demoRows = demoResult.rows
+      if (realRows) setTransactions(realRows)
+      if (demoRows) setDemoTransactions(demoRows)
+      const paidOut = (realRows ?? []).filter(tx => tx.status === 'payout_successful')
+      setTransactionCount((realRows?.length ?? 0) + (demoRows?.length ?? 0))
+      setBalance(paidOut.reduce((sum, tx) => sum + Number(tx.amount_inr), 0))
       setBusy(false)
     }
     void load()
-    return () => { active = false; window.removeEventListener('storage', onStorage) }
+    return () => { active = false }
   }, [session.user.id])
 
-  const recentTransactions: Transaction[] = [...transactions, ...simulatedTransactions]
+  const recentTransactions: Transaction[] = [...transactions, ...demoTransactions]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 10)
-  const simulatedTotal = simulatedTransactions.reduce((sum, tx) => sum + tx.amount_inr, 0)
+  const simulatedTotal = demoTransactions.reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
 
   async function copyLink() {
     if (!profile) return
@@ -249,8 +221,8 @@ function DashboardPage({ session }: { session: Session }) {
       <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><button className="button button-outline" onClick={() => window.location.assign('/onboarding')}><Plus size={17} /> Edit profile</button></div>
       {error && <div className="notice-error">{error}</div>}
       <section className="receive-card"><div className="receive-copy"><span className="receive-label"><span className="pulse-dot" /> READY TO RECEIVE</span><h2>Your Shielded Link</h2><p>Share your link with clients. Your personal details stay private.</p><div className="link-field"><div className="link-icon"><Shield size={16} /></div><span className="link-prefix">{window.location.host}/</span><strong>{profile ? formatHandle(profile.alias_handle) : '…'}</strong><button onClick={copyLink} disabled={!profile} aria-label="Copy Link">{copied ? <Check size={17} /> : <Copy size={17} />}<span>{copied ? 'Copied!' : 'Copy Link'}</span></button></div></div><div className="receive-art"><div className="art-halo" /><div className="art-ring ring-back" /><div className="art-ring ring-front" /><div className="art-shield"><ShieldCheck size={43} /></div><span className="art-spark spark-a">✦</span><span className="art-spark spark-b">✧</span></div></section>
-      <div className="stats-grid"><section className="stat-card"><div className="stat-top"><span className="stat-icon green"><WalletCards size={18} /></span><span className="stat-caption">PAID OUT</span></div><div className="stat-value">₹{busy ? '—' : balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Real payouts only</span></section><section className="stat-card"><div className="stat-top"><span className="stat-icon peach"><ArrowDownLeft size={18} /></span><span className="stat-caption">PAYMENTS</span></div><div className="stat-value">{busy ? '—' : successfulCount}</div><span className="stat-sub">Successfully received</span></section><section className="stat-card shield-stat"><div className="stat-top"><span className="stat-icon lilac"><ShieldCheck size={18} /></span><span className="stat-caption">PRIVACY STATUS</span></div><div className="stat-value status-value">Protected <Check size={17} /></div><span className="stat-sub">Your details remain private</span></section><section className="stat-card"><div className="stat-top"><span className="stat-icon peach"><Check size={18} /></span><span className="stat-caption">TEST TOTAL</span></div><div className="stat-value">₹{busy ? '—' : simulatedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Browser-only simulations</span></section></div>
-      <section className="transactions-card"><div className="section-title"><div><h2>Recent Transactions</h2><p>Test simulations are saved only in this browser.</p></div><button className="text-button">View all <ChevronRight size={16} /></button></div>{busy ? <div className="transactions-loading"><span className="spinner" /></div> : recentTransactions.length === 0 ? <div className="empty-state"><div className="empty-icon"><ArrowDownLeft size={20} /></div><p>No payments received yet. Share your link to get paid safely.</p><button className="button button-secondary" onClick={copyLink}><Copy size={15} /> Copy Link</button></div> : <div className="transaction-list">{recentTransactions.map(tx => <div className="transaction-row" key={tx.id}><div className="transaction-symbol"><ArrowDownLeft size={18} /></div><div className="transaction-main"><strong>{tx.status === 'simulated' ? 'Test payment simulation' : 'Payment received'}</strong><span>{new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span></div><div className="transaction-state">{tx.status === 'simulated' ? 'test only' : tx.status.replaceAll('_', ' ')}</div><strong className="transaction-amount">₹{Number(tx.amount_inr).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>)}</div>}</section>
+      <div className="stats-grid"><section className="stat-card"><div className="stat-top"><span className="stat-icon green"><WalletCards size={18} /></span><span className="stat-caption">TOTAL RECEIVED</span></div><div className="stat-value">₹{busy ? '—' : balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Successfully paid out</span></section><section className="stat-card"><div className="stat-top"><span className="stat-icon peach"><ArrowDownLeft size={18} /></span><span className="stat-caption">TRANSACTIONS</span></div><div className="stat-value">{busy ? '—' : transactionCount}</div><span className="stat-sub">Real and demo records</span></section><section className="stat-card shield-stat"><div className="stat-top"><span className="stat-icon lilac"><ShieldCheck size={18} /></span><span className="stat-caption">PRIVACY STATUS</span></div><div className="stat-value status-value">Protected <Check size={17} /></div><span className="stat-sub">Your details remain private</span></section><section className="stat-card"><div className="stat-top"><span className="stat-icon peach"><Check size={18} /></span><span className="stat-caption">TEST TOTAL</span></div><div className="stat-value">₹{busy ? '—' : simulatedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Supabase demo records only</span></section></div>
+      <section className="transactions-card"><div className="section-title"><div><h2>Recent Transactions</h2><p>Supabase records · simulated payments are marked test only.</p></div><button className="text-button">View all <ChevronRight size={16} /></button></div>{busy ? <div className="transactions-loading"><span className="spinner" /></div> : recentTransactions.length === 0 ? <div className="empty-state"><div className="empty-icon"><ArrowDownLeft size={20} /></div><p>No payments received yet. Share your link to get paid safely.</p><button className="button button-secondary" onClick={copyLink}><Copy size={15} /> Copy Link</button></div> : <div className="transaction-list">{recentTransactions.map(tx => <div className="transaction-row" key={tx.id}><div className="transaction-symbol"><ArrowDownLeft size={18} /></div><div className="transaction-main"><strong>{tx.sender_alias || 'Anonymous'}</strong><span>{new Date(tx.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</span></div><div className="transaction-state">{tx.status === 'simulated' ? 'test only' : tx.status.replaceAll('_', ' ')}</div><strong className="transaction-amount">₹{Number(tx.amount_inr).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>)}</div>}</section>
       <footer className="dashboard-footer"><span><LockKeyhole size={13} /> Your privacy is always on.</span><button aria-label="Help"><CircleHelp size={15} /> Help & support</button></footer>
     </div>
   </main>
@@ -260,8 +232,9 @@ function PaymentPage() {
   const { handle = '' } = useParams()
   const aliasHandle = handle.replace(/^@+/, '').toLowerCase()
   const navigate = useNavigate()
-  const [profile, setProfile] = useState<Pick<Profile, 'alias_handle'> | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [amount, setAmount] = useState('')
+  const [senderAlias, setSenderAlias] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -269,7 +242,7 @@ function PaymentPage() {
     let active = true
     async function load() {
       if (!supabase) { setError('This payment page is not connected yet.'); return }
-      const { data, error: queryError } = await supabase.from('users').select('alias_handle').eq('alias_handle', aliasHandle).maybeSingle()
+      const { data, error: queryError } = await supabase.from('users').select('id, alias_handle').eq('alias_handle', aliasHandle).maybeSingle()
       if (!active) return
       if (queryError) {
         console.error('Public alias lookup failed', queryError)
@@ -286,21 +259,20 @@ function PaymentPage() {
     const value = Number(amount)
     if (!Number.isFinite(value) || value <= 0) { setError('Enter an amount greater than ₹0.'); return }
     if (!profile) { setError('This payment link is not ready yet.'); return }
+    if (!supabase) { setError('This payment page is not connected yet.'); return }
     setBusy(true)
-    await new Promise(resolve => window.setTimeout(resolve, 2000))
-    const simulation: SimulatedTransaction = {
-      id: crypto.randomUUID(),
+    const cleanSenderAlias = senderAlias.trim().slice(0, 80) || 'Anonymous'
+    const { error: insertError } = await supabase.from('demo_transactions').insert({
+      receiver_id: profile.id,
       amount_inr: value,
-      status: 'simulated',
-      created_at: new Date().toISOString(),
-    }
-    const key = simulationStorageKey(profile.alias_handle)
-    const existing = readSimulatedTransactions(profile.alias_handle)
-    window.localStorage.setItem(key, JSON.stringify([simulation, ...existing].slice(0, 50)))
+      sender_alias: cleanSenderAlias,
+    })
+    if (insertError) { setError(insertError.message); setBusy(false); return }
+    await new Promise(resolve => window.setTimeout(resolve, 2000))
     navigate(`/payment/success?amount=${encodeURIComponent(value)}&alias=${encodeURIComponent(profile.alias_handle)}`)
   }
 
-  return <main className="payment-page"><header className="payment-topbar"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> PAYMENT TEST</span></header><div className="payment-wrap"><Link to="/login" className="back-link"><ArrowLeft size={15} /> GhostPay</Link><section className="payment-card"><div className="payment-card-top"><div className="receiver-avatar"><Shield size={22} /></div><span className="verified-badge"><ShieldCheck size={13} /> VERIFIED LINK</span></div><div className="form-eyebrow">A PRIVATE PAYMENT</div><h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1><p className="payment-subtext">Your real identity is hidden from the receiver.</p><div className="privacy-banner"><LockKeyhole size={16} /><span>Your payment details are protected by GhostPay.</span></div><form onSubmit={startPayment} className="payment-form"><label>Amount (₹)<div className="amount-input"><span>₹</span><input inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required /></div></label>{error && <p className="error-note">{error}</p>}<button className="button button-primary full-button" disabled={busy || !profile}>{busy ? 'Simulating payment…' : 'Pay via UPI'}<ArrowRight size={17} /></button></form><div className="payment-secure"><ShieldCheck size={16} /><span>Frontend simulation · No payment will be collected</span></div></section><p className="payment-footer"><LockKeyhole size={12} /> GhostPay test checkout</p></div></main>
+  return <main className="payment-page"><header className="payment-topbar"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> PAYMENT TEST</span></header><div className="payment-wrap"><Link to="/login" className="back-link"><ArrowLeft size={15} /> GhostPay</Link><section className="payment-card"><div className="payment-card-top"><div className="receiver-avatar"><Shield size={22} /></div><span className="verified-badge"><ShieldCheck size={13} /> VERIFIED LINK</span></div><div className="form-eyebrow">A PRIVATE PAYMENT</div><h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1><p className="payment-subtext">Your real identity is hidden from the receiver.</p><div className="privacy-banner"><LockKeyhole size={16} /><span>Your payment details are protected by GhostPay.</span></div><form onSubmit={startPayment} className="payment-form"><label>Your Name / Alias<input maxLength={80} placeholder="e.g., Alex / Twitter Client" value={senderAlias} onChange={e => setSenderAlias(e.target.value)} /></label><label>Amount (₹)<div className="amount-input"><span>₹</span><input inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required /></div></label>{error && <p className="error-note">{error}</p>}<button className="button button-primary full-button" disabled={busy || !profile}>{busy ? 'Saving test payment…' : 'Pay via UPI'}<ArrowRight size={17} /></button></form><div className="payment-secure"><ShieldCheck size={16} /><span>Supabase demo record · No payment will be collected</span></div></section><p className="payment-footer"><LockKeyhole size={12} /> GhostPay test checkout</p></div></main>
 }
 
 function PaymentReturnPage() {

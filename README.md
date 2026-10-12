@@ -12,7 +12,7 @@ The client stores `alias_handle` without the `@` prefix; the UI adds `@` when it
 
 ## Payment functions
 
-The public payment page currently uses a frontend-only visual simulation. After amount validation, clicking Pay waits two seconds, saves a test record in browser local storage, and routes to `/payment/success`. It does not create or update a Supabase transaction and does not call an Edge Function or payment gateway. The dashboard shows test totals and history separately from real payouts. The success screen identifies the result as simulated; no money moves.
+The public payment page currently uses a Supabase-backed frontend simulation. After amount validation, clicking Pay inserts a constrained `simulated` record into `demo_transactions`, waits two seconds, and routes to `/payment/success`. It does not create or update a real `transactions` row and does not call an Edge Function or payment gateway. The dashboard reads both tables from Supabase and keeps demo totals separate from actual payouts. The success screen identifies the result as simulated; no money moves. Apply `supabase/migrations/20261012000001_demo_transactions.sql` in the Supabase SQL Editor before using this flow. The migration exposes only the public user ID and alias needed for checkout; private banking columns remain inaccessible to client roles.
 
 The `create-payment` Edge Function remains as the separate Cashfree integration source for a future production checkout. It creates a `pending_collection` transaction, requires creator KYC, creates a Cashfree Payment Gateway order, and returns its payment session ID. The current frontend does not call it.
 
@@ -38,4 +38,4 @@ Configure Cashfree Payment Gateway's `PAYMENT_SUCCESS_WEBHOOK` to `https://<proj
 - `/:handle` — public guest payment page, including aliases such as `/@god`.
 - `/payment/success` — simulated checkout success page.
 
-The guest payment page only reads the public alias needed to render the page. Its checkout simulation is local to the browser and works without an Edge Function deployment.
+The guest payment page reads the public alias and user ID needed to render checkout. The demo insert works without an Edge Function deployment after the demo-table migration has been applied.
