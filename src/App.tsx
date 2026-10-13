@@ -403,29 +403,65 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
   const receiverHandle = profile.alias_handle.replace(/^@+/, '')
   const qrPayload = `https://ghostpay-orpin.vercel.app/@${profile.alias_handle}`
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrPayload)}`
+  const securityQuotes = [
+    "Trust is an expensive thing, cheap people can't afford it.",
+    'Your money, your business. Keep it hidden.',
+    "Privacy isn't a luxury. It's a fundamental right.",
+    'Transact without a trace.'
+  ]
 
   useEffect(() => () => {
     if (shareToastTimer.current !== null) window.clearTimeout(shareToastTimer.current)
   }, [])
 
+  async function copyProfileLink() {
+    await navigator.clipboard.writeText(qrPayload)
+    setShareNotice('Link copied to clipboard')
+    if (shareToastTimer.current !== null) window.clearTimeout(shareToastTimer.current)
+    shareToastTimer.current = window.setTimeout(() => { setShareNotice(''); shareToastTimer.current = null }, 2500)
+  }
+
   async function shareProfile() {
     setError('')
-    if (typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ title: 'GhostPay', text: 'Pay me securely here on GhostPay 🛡️', url: qrPayload })
-      } catch (shareError) {
-        if (shareError instanceof Error && shareError.name === 'AbortError') console.log('Share canceled by user')
-        else setError('Profile could not be shared. Please try again.')
-      }
+    const quote = securityQuotes[Math.floor(Math.random() * securityQuotes.length)]
+    if (typeof navigator.share !== 'function') {
+      try { await copyProfileLink() }
+      catch { setError('The profile link could not be copied. Please copy it from your browser address bar.') }
       return
     }
+
     try {
-      await navigator.clipboard.writeText(qrPayload)
-      setShareNotice('Link copied to clipboard')
-      if (shareToastTimer.current !== null) window.clearTimeout(shareToastTimer.current)
-      shareToastTimer.current = window.setTimeout(() => { setShareNotice(''); shareToastTimer.current = null }, 2500)
-    } catch {
-      setError('The profile link could not be copied. Please copy it from your browser address bar.')
+      const qrElement = document.getElementById('ghostpay-qr-element')
+      const qrImage = qrElement?.querySelector('img')
+      if (!qrImage) throw new Error('The QR image is not ready to share.')
+      const response = await fetch(qrImage.currentSrc || qrImage.src, { mode: 'cors', referrerPolicy: 'no-referrer' })
+      if (!response.ok) throw new Error('The QR image could not be loaded for sharing.')
+      const qrBlob = await response.blob()
+      const qrBitmap = await createImageBitmap(qrBlob)
+      const canvas = document.createElement('canvas')
+      canvas.width = qrBitmap.width
+      canvas.height = qrBitmap.height
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error('The QR image could not be prepared for sharing.')
+      context.drawImage(qrBitmap, 0, 0)
+      qrBitmap.close()
+      const pngBlob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
+      if (!pngBlob) throw new Error('The QR image could not be converted for sharing.')
+      const generatedQrFile = new File([pngBlob], 'qr.png', { type: 'image/png' })
+      const shareData: ShareData = {
+        files: [generatedQrFile],
+        title: 'GhostPay',
+        text: `${quote}\n\nPay me securely here:`,
+        url: qrPayload,
+      }
+      if (navigator.canShare && !navigator.canShare({ files: [generatedQrFile] })) {
+        await copyProfileLink()
+        return
+      }
+      await navigator.share(shareData)
+    } catch (shareError) {
+      if (shareError instanceof Error && shareError.name === 'AbortError') return
+      setError(shareError instanceof Error ? shareError.message : 'Profile could not be shared. Please try again.')
     }
   }
 
@@ -455,11 +491,11 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
   return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
     <section className="profile-modal qr-modal" role="dialog" aria-modal="true" aria-labelledby="share-qr-title">
       <header className="modal-heading"><div><div className="form-eyebrow">PUBLIC PAYMENT LINK</div><h2 id="share-qr-title">Your payment QR</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button></header>
-      <div className="qr-image-frame">{imageError ? <p className="qr-image-error" role="status">QR preview could not load. Check your connection and try again.</p> : <img src={qrImageUrl} width="250" height="250" alt={`GhostPay payment portal QR for @${receiverHandle}`} referrerPolicy="no-referrer" onError={() => setImageError(true)} />}</div>
+      <div className="qr-image-frame" id="ghostpay-qr-element">{imageError ? <p className="qr-image-error" role="status">QR preview could not load. Check your connection and try again.</p> : <img src={qrImageUrl} width="250" height="250" alt={`GhostPay payment portal QR for @${receiverHandle}`} referrerPolicy="no-referrer" onError={() => setImageError(true)} />}</div>
       <div className="upi-qr-caption"><h3>Scan to open payment portal.</h3></div>
       <div className="qr-action-row">
-        <button className="button button-secondary qr-download-button" onClick={shareProfile}><Share2 size={16} /> Share Profile</button>
-        <button className="button button-primary qr-download-button" onClick={downloadQr} disabled={downloading}>{downloading ? 'Preparing…' : <><Download size={17} /> Download QR</>}</button>
+        <button className="button qr-action-button qr-share-action" onClick={shareProfile}><Share2 size={16} /> Share Profile</button>
+        <button className="button qr-action-button qr-download-action" onClick={downloadQr} disabled={downloading}>{downloading ? 'Preparing…' : <><Download size={17} /> Download QR</>}</button>
       </div>
       {shareNotice && <div className="payment-toast" role="status">{shareNotice}</div>}
       {error && <p className="error-note qr-error" role="alert">{error}</p>}

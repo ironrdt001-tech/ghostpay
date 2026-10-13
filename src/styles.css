@@ -365,9 +365,14 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .qr-image-frame img { display: block; width: 250px; height: 250px; image-rendering: pixelated; }
 .qr-image-error { max-width: 220px; color: #95605c; font-size: 12px; line-height: 1.5; }
 .qr-share-url { max-width: 100%; margin: 16px 0; overflow-wrap: anywhere; color: #60756a; font-size: 11px; }
-.qr-download-button { min-height: 46px; }
-.qr-action-row { display: flex; gap: 12px; width: 100%; align-items: center; justify-content: space-between; }
-.qr-action-row > .button { flex: 1; min-width: 0; min-height: 46px; border-radius: 9999px; }
+.qr-action-row { display: flex; gap: 12px; width: 100%; margin-top: 16px; align-items: center; justify-content: space-between; }
+.qr-action-row .qr-action-button { display: flex; flex: 1; min-width: 0; min-height: 50px; align-items: center; justify-content: center; gap: 8px; padding: 14px 0; border-radius: 12px; font-size: 15px; font-weight: 600; transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease; }
+.qr-action-row .qr-action-button svg { flex: none; margin: 0; }
+.qr-action-row .qr-download-action { border: 0; color: #fff; background: #2563eb; box-shadow: 0 6px 16px rgba(37, 99, 235, .18); }
+.qr-action-row .qr-download-action:hover:not(:disabled) { background: #1d4ed8; box-shadow: 0 9px 22px rgba(37, 99, 235, .26); transform: translateY(-1px); }
+.qr-action-row .qr-share-action { border: 1.5px solid #2563eb; color: #2563eb; background: transparent; }
+.qr-action-row .qr-share-action:hover { background: #eff6ff; box-shadow: 0 5px 14px rgba(37, 99, 235, .1); transform: translateY(-1px); }
+.qr-action-row .qr-action-button:active { transform: translateY(0) scale(.98); }
 .qr-error { margin: 12px 0 0; }
 .qr-modal .modal-privacy { line-height: 1.5; }
 
