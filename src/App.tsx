@@ -399,7 +399,7 @@ function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void
   const [error, setError] = useState('')
   const [imageError, setImageError] = useState(false)
   const receiverHandle = handle.replace(/^@+/, '')
-  const qrPayload = `https://${window.location.host}/@${receiverHandle}`
+  const qrPayload = `${window.location.origin}/@${handle}`
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrPayload)}`
 
   async function downloadQr() {
@@ -585,9 +585,10 @@ function PaymentPage() {
     if (!supabase) { showToast('Wallet payments are unavailable right now.'); return }
     const useWallet = Boolean(visitorSession && paymentMethod === 'wallet')
     if (useWallet && walletBalance === null) { showToast('Your wallet balance is still loading. Please try again.'); return }
-    const resolvedSenderName = visitorSession
-      ? (typeof visitorSession.user.user_metadata.alias_handle === 'string' ? formatHandle(visitorSession.user.user_metadata.alias_handle) : 'GhostPay User')
-      : senderName.trim() || 'Anonymous'
+    const accountAlias = visitorSession && typeof visitorSession.user.user_metadata.alias_handle === 'string'
+      ? formatHandle(visitorSession.user.user_metadata.alias_handle)
+      : 'GhostPay User'
+    const resolvedSenderName = useWallet ? accountAlias : senderName.trim() || (visitorSession ? accountAlias : 'Anonymous')
 
     setBusy(true)
     setPaymentStage('processing')
@@ -644,7 +645,7 @@ function PaymentPage() {
           <h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1>
           <p className="payment-subtext">Complete a simulated payment to this creator.</p>
           <form onSubmit={startPayment} className="payment-form">
-            {authReady && !visitorSession && <label>Your Name (Optional)<input type="text" maxLength={80} placeholder="e.g., Alex / Twitter Client" value={senderName} onChange={event => setSenderName(event.target.value)} /></label>}
+            {authReady && (!visitorSession || paymentMethod === 'upi') && <label>Your Name (Optional)<input type="text" maxLength={80} placeholder="Your Name (Optional)" value={senderName} onChange={event => setSenderName(event.target.value)} /></label>}
             <label>Amount (₹)<div className="amount-input amount-input-large"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={event => setAmount(event.target.value)} required /></div></label>
             {error && <p className="error-note">{error}</p>}
             {!authReady ? <button className="button button-primary full-button" type="button" disabled><span className="spinner auth-button-spinner" /> Checking secure session…</button> : !visitorSession ? <button className="button button-primary full-button" disabled={!profile || busy}>{busy ? <><span className="spinner auth-button-spinner" /> Processing simulation…</> : <>Send Securely <ArrowRight size={17} /> </>}</button> : <>

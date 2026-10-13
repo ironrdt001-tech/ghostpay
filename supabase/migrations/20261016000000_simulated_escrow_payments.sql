@@ -63,7 +63,7 @@ begin
   if receiver_user_id is null then
     raise exception 'RECEIVER_NOT_FOUND' using errcode = 'P0002';
   end if;
-  if sender_user_id is not null and receiver_user_id = sender_user_id then
+  if p_use_wallet and sender_user_id is not null and receiver_user_id = sender_user_id then
     raise exception 'CANNOT_TRANSFER_TO_SELF' using errcode = '22023';
   end if;
 
