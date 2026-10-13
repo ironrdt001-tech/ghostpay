@@ -541,10 +541,11 @@ function PaymentPage() {
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState(false)
   const [paymentStage, setPaymentStage] = useState<'idle' | 'processing' | 'complete'>('idle')
+  const [successAudio] = useState(() => new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3'))
   const toastTimer = useRef<number | null>(null)
-  const currentUser = visitorSession?.user
-  const receiverProfile = profile
-  const isSelf = Boolean(currentUser && receiverProfile && currentUser.id === receiverProfile.id)
+  const user = visitorSession?.user
+  const isSelf = user?.id === profile?.id && Boolean(user && profile)
+  const selectedPaymentMethod = isSelf ? 'upi' : paymentMethod
 
   function showToast(message: string) {
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
@@ -553,6 +554,11 @@ function PaymentPage() {
   }
 
   useEffect(() => () => { if (toastTimer.current !== null) window.clearTimeout(toastTimer.current) }, [])
+
+  useEffect(() => {
+    successAudio.preload = 'auto'
+    successAudio.load()
+  }, [successAudio])
 
   useEffect(() => {
     setPaymentMethod(isSelf ? 'upi' : 'wallet')
@@ -619,7 +625,7 @@ function PaymentPage() {
     if (!profile) { showToast('This payment link is not ready yet.'); return }
 
     if (!supabase) { showToast('Wallet payments are unavailable right now.'); return }
-    const useWallet = Boolean(visitorSession && paymentMethod === 'wallet' && !isSelf)
+    const useWallet = Boolean(visitorSession && selectedPaymentMethod === 'wallet' && !isSelf)
     if (!useWallet && !senderName.trim()) { showToast('Please enter your name to continue.'); return }
     if (useWallet && walletBalance === null) { showToast('Your wallet balance is still loading. Please try again.'); return }
     const accountAlias = visitorSession && typeof visitorSession.user.user_metadata.alias_handle === 'string'
@@ -651,7 +657,8 @@ function PaymentPage() {
       if (!transfer?.transaction_id || (updatedBalance !== null && !Number.isFinite(updatedBalance))) throw new Error('Payment confirmation was missing.')
       if (useWallet && updatedBalance !== null) setWalletBalance(updatedBalance)
       if (!useWallet) {
-        new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3').play().catch(error => console.log('Audio autoplay blocked by browser', error))
+        successAudio.currentTime = 0
+        successAudio.play().catch(err => console.error('Audio blocked:', err))
       }
       setPaymentStage('complete')
       await new Promise(resolve => window.setTimeout(resolve, 650))
@@ -685,23 +692,23 @@ function PaymentPage() {
           <h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1>
           <p className="payment-subtext">Complete a simulated payment to this creator.</p>
           <form onSubmit={startPayment} className="payment-form">
-            {authReady && (!visitorSession || paymentMethod === 'upi') && <label>Your Name<input type="text" maxLength={80} placeholder="Your Name" aria-required="true" value={senderName} onChange={event => setSenderName(event.target.value)} /></label>}
+            {authReady && (!visitorSession || selectedPaymentMethod === 'upi') && <label>Your Name<input type="text" maxLength={80} placeholder="Your Name" aria-required="true" value={senderName} onChange={event => setSenderName(event.target.value)} /></label>}
             <label>Amount (₹)<div className="amount-input amount-input-large"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={event => setAmount(event.target.value)} required /></div></label>
             {error && <p className="error-note">{error}</p>}
             {!authReady ? <button className="button button-primary full-button" type="button" disabled><span className="spinner auth-button-spinner" /> Checking secure session…</button> : !visitorSession ? <button className="button button-primary full-button" disabled={!profile || busy}>{busy ? <><span className="spinner auth-button-spinner" /> Processing simulation…</> : <>Send Securely <ArrowRight size={17} /> </>}</button> : <>
               <div className="payment-mode-options" role="radiogroup" aria-label="Payment method">
-                {!isSelf && <button type="button" role="radio" aria-checked={paymentMethod === 'wallet'} className={`payment-option ${paymentMethod === 'wallet' ? 'selected' : ''}`} onClick={() => setPaymentMethod('wallet')}>
+                {!isSelf && <button type="button" role="radio" aria-checked={selectedPaymentMethod === 'wallet'} className={`payment-option ${selectedPaymentMethod === 'wallet' ? 'selected' : ''}`} onClick={() => setPaymentMethod('wallet')}>
                   <span className="payment-option-heading"><span className="payment-option-radio" /> GhostPay Wallet</span>
                   <span className="payment-option-balance">{walletBusy ? 'Loading balance…' : formattedWalletBalance}</span>
                   <span className="payment-option-caption">Available balance</span>
                 </button>}
-                <button type="button" role="radio" aria-checked={paymentMethod === 'upi'} className={`payment-option ${paymentMethod === 'upi' ? 'selected' : ''}`} onClick={() => setPaymentMethod('upi')}>
+                <button type="button" role="radio" aria-checked={selectedPaymentMethod === 'upi'} className={`payment-option ${selectedPaymentMethod === 'upi' ? 'selected' : ''}`} onClick={() => setPaymentMethod('upi')}>
                   <span className="payment-option-heading"><span className="payment-option-radio" /> Simulated Payment</span>
                   <span className="payment-option-balance payment-option-secondary">Simulated nodal checkout</span>
                   <span className="payment-option-caption">Demo checkout · no app opens</span>
                 </button>
               </div>
-              <button className="button button-primary full-button" disabled={!profile || busy || (paymentMethod === 'wallet' && (walletBusy || walletBalance === null))}>
+              <button className="button button-primary full-button" disabled={!profile || busy || (selectedPaymentMethod === 'wallet' && (walletBusy || walletBalance === null))}>
                 {busy ? <><span className="spinner auth-button-spinner" /> Processing simulation…</> : <>Send Securely <ArrowRight size={17} /></>}
               </button>
             </>}
