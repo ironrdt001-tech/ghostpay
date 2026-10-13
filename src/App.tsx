@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Activity, ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, LockKeyhole, LogOut, Moon, Plus, QrCode, Share2, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
-import { toPng } from 'html-to-image'
+import { toBlob } from 'html-to-image'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
@@ -438,12 +438,13 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
       const shareUrl = `https://ghostpay-orpin.vercel.app/@${profile.alias_handle}`;
       const shareText = `Pay me securely here: ${shareUrl}\n\n"${dynamicQuote}"`;
 
-      // 2. Generate Image Safely
+      // 2. Generate Image Safely (No fetch used)
       const cardElement = document.getElementById('ghostpay-export-card');
       if (!cardElement) throw new Error('Card element not found in DOM');
 
-      const dataUrl = await toPng(cardElement, { cacheBust: true, pixelRatio: 2, backgroundColor: '#ffffff' });
-      const blob = await (await fetch(dataUrl)).blob();
+      const blob = await toBlob(cardElement, { cacheBust: true, pixelRatio: 2, backgroundColor: '#ffffff' });
+      if (!blob) throw new Error('Could not render image blob');
+
       const file = new File([blob], `ghostpay-${profile.alias_handle}.png`, { type: 'image/png' });
 
       // 3. Attempt Native Share
@@ -463,8 +464,10 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
       // 4. Fallback: Download & Copy
       const link = document.createElement('a');
       link.download = `GhostPay-${profile.alias_handle}.png`;
-      link.href = dataUrl;
+      const downloadUrl = URL.createObjectURL(blob);
+      link.href = downloadUrl;
       link.click();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
 
       await navigator.clipboard.writeText(shareText);
       toast.success("Card downloaded & text copied!");
