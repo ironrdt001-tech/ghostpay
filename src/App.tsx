@@ -6,7 +6,7 @@ import { QRCodeSVG as QRCode } from 'qrcode.react'
 import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
 
-type Profile = { id: string; alias_handle: string; real_legal_name?: string; real_upi_id?: string; avatar_url?: string | null }
+type Profile = { id: string; alias_handle: string; real_legal_name?: string; real_upi_id?: string; avatar_url?: string | null; wallet_balance?: number }
 type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_alias?: string; sender_name?: string }
 type DemoTransaction = Transaction & { receiver_id: string; sender_alias: string; status: 'simulated' }
 
@@ -267,6 +267,24 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   const [busy, setBusy] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
+  const [transferRecipient, setTransferRecipient] = useState('')
+  const [transferAmount, setTransferAmount] = useState('')
+  const [transferBusy, setTransferBusy] = useState(false)
+  const [transferToast, setTransferToast] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
+  const transferToastTimer = useRef<number | null>(null)
+
+  function showTransferToast(kind: 'success' | 'error', message: string) {
+    if (transferToastTimer.current !== null) window.clearTimeout(transferToastTimer.current)
+    setTransferToast({ kind, message })
+    transferToastTimer.current = window.setTimeout(() => {
+      setTransferToast(null)
+      transferToastTimer.current = null
+    }, 4000)
+  }
+
+  useEffect(() => () => {
+    if (transferToastTimer.current !== null) window.clearTimeout(transferToastTimer.current)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -292,7 +310,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
         }
       }
       const [profileResult, txResult, demoResult] = await Promise.all([
-        client.from('users').select('id, alias_handle, real_legal_name, real_upi_id, avatar_url').eq('id', session.user.id).maybeSingle(),
+        client.from('users').select('id, alias_handle, real_legal_name, real_upi_id, avatar_url, wallet_balance').eq('id', session.user.id).maybeSingle(),
         loadRealRows(),
         loadDemoRows(),
       ])
@@ -374,6 +392,71 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     setCopied(true); window.setTimeout(() => setCopied(false), 1800)
   }
 
+  async function refreshAfterTransfer(fallbackBalance?: number) {
+    if (!supabase) return
+    const client = supabase
+    const { data: wallet, error: walletError } = await client.from('users').select('wallet_balance').eq('id', session.user.id).single()
+    if (walletError) {
+      if (fallbackBalance !== undefined) setProfile(current => current ? { ...current, wallet_balance: fallbackBalance } : current)
+      throw walletError
+    }
+    setProfile(current => current ? { ...current, wallet_balance: Number(wallet.wallet_balance) } : current)
+
+    const rows: Transaction[] = []
+    for (let from = 0; ; from += 1000) {
+      const { data, error: rowsError } = await client.from('transactions').select('id, amount_inr, status, created_at, sender_name').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).range(from, from + 999)
+      if (rowsError) throw rowsError
+      rows.push(...(data ?? []) as Transaction[])
+      if (!data || data.length < 1000) break
+    }
+    setTransactions(rows)
+  }
+
+  async function submitTransfer(event: FormEvent) {
+    event.preventDefault()
+    if (!supabase) { showTransferToast('error', 'Connect your GhostPay account to send money.'); return }
+    const recipient = transferRecipient.trim()
+    const amount = Number(transferAmount)
+    if (!recipient) { showTransferToast('error', 'Enter a recipient handle or UPI ID.'); return }
+    if (!Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) !== amount * 100) {
+      showTransferToast('error', 'Enter a valid amount with up to two decimal places.')
+      return
+    }
+    setTransferBusy(true)
+    try {
+      const { data, error: transferError } = await supabase.rpc('transfer_wallet_balance', {
+        sender_uid: session.user.id,
+        receiver_identifier: recipient,
+        transfer_amount: amount,
+      })
+      if (transferError) {
+        const message = transferError.message.toUpperCase()
+        if (message.includes('INSUFFICIENT_WALLET_BALANCE')) throw new Error('Insufficient wallet balance for this transfer.')
+        if (message.includes('RECEIVER_NOT_FOUND')) throw new Error('Recipient not found. Check the @handle or UPI ID.')
+        if (message.includes('CANNOT_TRANSFER_TO_SELF')) throw new Error('You can’t send money to your own account.')
+        if (message.includes('INVALID_TRANSFER_AMOUNT') || message.includes('TRANSFER_AMOUNT_TOO_LARGE')) throw new Error('Enter a valid transfer amount.')
+        throw new Error(transferError.message)
+      }
+      const result = data as { wallet_balance?: number } | null
+      setTransferRecipient('')
+      setTransferAmount('')
+      if (result?.wallet_balance !== undefined) {
+        setProfile(current => current ? { ...current, wallet_balance: Number(result.wallet_balance) } : current)
+      }
+      showTransferToast('success', 'Money sent securely.')
+      try {
+        await refreshAfterTransfer(result?.wallet_balance === undefined ? undefined : Number(result.wallet_balance))
+      } catch {
+        // The transfer already succeeded; keep the balance returned by the RPC and
+        // allow a later dashboard refresh to reconcile any transient read failure.
+      }
+    } catch (transferFailure) {
+      showTransferToast('error', transferFailure instanceof Error ? transferFailure.message : 'Transfer failed. Please try again.')
+    } finally {
+      setTransferBusy(false)
+    }
+  }
+
   async function signOut() {
     onResetTheme()
     await supabase?.auth.signOut()
@@ -384,6 +467,14 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
       <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><div className="dashboard-actions"><button className="button button-secondary" onClick={() => setQrOpen(true)} disabled={!profile}><QrCode size={16} /> Share QR Code</button><button className="button button-outline" onClick={() => setEditOpen(true)} disabled={!profile}><Plus size={17} /> Edit profile</button></div></div>
       {error && <div className="notice-error">{error}</div>}
       <section className="receive-card"><div className="receive-copy"><span className="receive-label"><span className="pulse-dot" /> READY TO RECEIVE</span><h2>Your Shielded Link</h2><p>Share your link with clients. Your personal details stay private.</p><div className="link-field"><div className="link-icon"><Shield size={16} /></div><span className="link-prefix">{window.location.host}/</span><strong>{profile ? formatHandle(profile.alias_handle) : '…'}</strong><button onClick={copyLink} disabled={!profile} aria-label="Copy Link">{copied ? <Check size={17} /> : <Copy size={17} />}<span>{copied ? 'Copied!' : 'Copy Link'}</span></button></div></div></section>
+      <section className="send-money-card" aria-labelledby="send-money-title">
+        <div className="send-money-heading"><div><div className="form-eyebrow">WALLET TRANSFER</div><h2 id="send-money-title">Send money</h2><p>Transfer securely to a GhostPay handle or UPI ID.</p></div><div className="send-money-balance"><span>AVAILABLE BALANCE</span><strong className="numeric-data">{busy ? '—' : `₹${Number(profile?.wallet_balance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</strong></div></div>
+        <form className="send-money-form" onSubmit={submitTransfer}>
+          <label>Recipient @handle or UPI ID<input autoCapitalize="none" autoComplete="off" placeholder="@username or name@bank" value={transferRecipient} onChange={event => setTransferRecipient(event.target.value)} disabled={transferBusy} required /></label>
+          <label>Amount (₹)<input inputMode="decimal" type="number" min="0.01" max="1000000" step="0.01" placeholder="0.00" value={transferAmount} onChange={event => setTransferAmount(event.target.value)} disabled={transferBusy} required /></label>
+          <button className="button button-primary send-money-submit" disabled={transferBusy || busy || !profile}>{transferBusy ? <><span className="spinner auth-button-spinner" /> Sending securely…</> : <>Send Securely <ArrowRight size={16} /></>}</button>
+        </form>
+      </section>
       <section className="analytics-section" aria-labelledby="analytics-title"><div className="analytics-heading"><div><div className="form-eyebrow">PERFORMANCE</div><h2 id="analytics-title">Analytics</h2></div><span className="analytics-note">Completed demo payments</span></div>
         <div className="stats-grid"><section className="stat-card"><span className="stat-caption">TOTAL VOLUME</span><div className={`stat-value numeric-data ${totalVolume > 0 ? 'revenue-positive' : ''}`}>₹{busy ? '—' : totalVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Completed payments</span></section><section className="stat-card"><span className="stat-caption">TODAY’S REVENUE</span><div className={`stat-value numeric-data ${todaysRevenue > 0 ? 'revenue-positive' : ''}`}>₹{busy ? '—' : todaysRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Last 24 hours</span></section><section className="stat-card"><span className="stat-caption">TOTAL TRANSACTIONS</span><div className="stat-value numeric-data">{busy ? '—' : transactionCount.toLocaleString('en-IN')}</div><span className="stat-sub">Real and demo records</span></section></div>
         <section className="activity-card"><div className="activity-heading"><div><h3>Recent 7-Day Activity</h3><p>Daily completed transaction volume</p></div><span className="activity-legend"><i /> Volume</span></div>{busy ? <div className="transactions-loading"><span className="spinner" /></div> : transactionCount === 0 ? <div className="activity-empty"><Activity size={27} strokeWidth={1.25} /><p>No recent activity</p></div> : <div className={`activity-chart ${chartReady ? 'is-ready' : ''}`} role="img" aria-label="Completed transaction volume over the last seven days">{activityDays.map(day => <div className="activity-day" key={day.date} title={`${day.date}: ₹${day.volume.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}><span className="activity-value numeric-data">{day.volume ? `₹${day.volume.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : ''}</span><div className="activity-track"><div className={`activity-bar-fill height-${chartBucket(day.volume)}`} /></div><span className="activity-label">{day.label}</span><span className="activity-date numeric-data">{day.date}</span></div>)}</div>}</section>
@@ -393,6 +484,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     </div>
     {editOpen && profile && <EditProfileModal profile={profile} onClose={() => setEditOpen(false)} onSaved={updated => { setProfile(updated); setEditOpen(false) }} />}
     {qrOpen && profile && <ShareQrModal profile={profile} onClose={() => setQrOpen(false)} />}
+    {transferToast && <div className={`transfer-toast ${transferToast.kind}`} role={transferToast.kind === 'error' ? 'alert' : 'status'}>{transferToast.message}</div>}
   </main>
 }
 
@@ -577,7 +669,7 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
       real_upi_id: upi.trim(),
       alias_handle: cleanAlias,
       avatar_url: cleanAvatar || null,
-    }).eq('id', profile.id).select('id, alias_handle, real_legal_name, real_upi_id, avatar_url').single()
+    }).eq('id', profile.id).select('id, alias_handle, real_legal_name, real_upi_id, avatar_url, wallet_balance').single()
     if (updateError) {
       await supabase.from('profiles').upsert({ id: profile.id, alias_handle: profile.alias_handle }, { onConflict: 'id' })
       setError(updateError.code === '23505' ? 'That alias is already taken. Try another one.' : updateError.message)

@@ -789,6 +789,45 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .dark .payment-toast { border-color: #1e3a8a; color: #dbeafe; background: rgba(23,37,84,.97); }
 .dark .upi-fallback { border-color: #1e3a8a; background: rgba(23,37,84,.3); }
 @keyframes payment-toast-in { from { opacity: 0; transform: translate(-50%, -5px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* P2P wallet transfer widget */
+.send-money-card { margin-top: 16px; padding: 22px 24px; border: 1px solid #e4e4e7; border-radius: 2rem; background: #fff; box-shadow: 0 12px 36px rgba(37, 99, 235, .07), 0 2px 8px rgba(37, 99, 235, .035); }
+.send-money-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.send-money-heading .form-eyebrow { margin-bottom: 5px; font-size: 9px; letter-spacing: .1em; }
+.send-money-heading h2 { margin: 0; color: #18181b; font-size: 19px; font-weight: 650; letter-spacing: -.045em; }
+.send-money-heading p { margin: 5px 0 0; color: #71717a; font-size: 11px; }
+.send-money-balance { display: grid; gap: 6px; text-align: right; }
+.send-money-balance span { color: #71717a; font-size: 8px; font-weight: 700; letter-spacing: .08em; }
+.send-money-balance strong { color: #18181b; font-size: 16px; font-weight: 650; }
+.send-money-form { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(150px, .8fr) auto; align-items: end; gap: 12px; margin-top: 18px; }
+.send-money-form label { display: flex; min-width: 0; flex-direction: column; gap: 8px; color: #52525b; font-size: 10px; font-weight: 650; }
+.send-money-form input { width: 100%; height: 44px; min-width: 0; padding: 0 14px; border: 1px solid #e4e4e7; border-radius: 9999px; outline: none; color: #18181b; background: #fff; font: 12px 'DM Sans', sans-serif; transition: all 300ms ease-out; }
+.send-money-form input::placeholder { color: #a1a1aa; }
+.send-money-form input:focus { border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, .12); }
+.send-money-form input:disabled { opacity: .65; }
+.send-money-submit { min-height: 44px; padding: 0 18px; white-space: nowrap; }
+.transfer-toast { position: fixed; z-index: 80; top: max(18px, env(safe-area-inset-top)); left: 50%; width: max-content; max-width: min(480px, calc(100vw - 28px)); padding: 13px 18px; transform: translateX(-50%); border: 1px solid; border-radius: 9999px; box-shadow: 0 12px 32px rgba(24, 24, 27, .12); font-size: 13px; line-height: 1.4; text-align: center; animation: payment-toast-in .18s ease-out both; }
+.transfer-toast.success { border-color: #a7f3d0; color: #047857; background: rgba(236, 253, 245, .97); }
+.transfer-toast.error { border-color: #fecaca; color: #991b1b; background: rgba(254, 242, 242, .97); }
+.dark .send-money-card { border-color: #27272a; color: #fafafa; background: #18181b; box-shadow: 0 14px 40px rgba(0, 0, 0, .35); }
+.dark .send-money-heading h2, .dark .send-money-balance strong { color: #fafafa; }
+.dark .send-money-heading p, .dark .send-money-balance span, .dark .send-money-form label { color: #a1a1aa; }
+.dark .send-money-form input { border-color: #3f3f46; color: #fafafa; background: #09090b; }
+.dark .send-money-form input:focus { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59, 130, 246, .2); }
+.dark .transfer-toast.success { border-color: #065f46; color: #6ee7b7; background: rgba(6, 78, 59, .96); }
+.dark .transfer-toast.error { border-color: #7f1d1d; color: #fecaca; background: rgba(69, 10, 10, .96); }
+@media (max-width: 700px) {
+  .send-money-card { padding: 18px 16px; border-radius: 1.5rem; }
+  .send-money-form { grid-template-columns: minmax(0, 1fr) minmax(110px, .7fr); gap: 11px; }
+  .send-money-submit { grid-column: 1 / -1; width: 100%; }
+}
+@media (max-width: 420px) {
+  .send-money-heading { flex-direction: column; gap: 12px; }
+  .send-money-balance { text-align: left; }
+  .send-money-form { grid-template-columns: 1fr; }
+  .send-money-submit { grid-column: auto; }
+}
+
 @media (max-width: 520px) {
   .payment-mode-options { grid-template-columns: 1fr; }
   .payment-option { min-height: 92px; }
