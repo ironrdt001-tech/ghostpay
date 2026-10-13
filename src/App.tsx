@@ -5,7 +5,7 @@ import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
 
 type Profile = { id: string; alias_handle: string; real_legal_name?: string; real_upi_id?: string; avatar_url?: string | null }
-type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_alias?: string }
+type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_alias?: string; sender_name?: string }
 type DemoTransaction = Transaction & { receiver_id: string; sender_alias: string; status: 'simulated' }
 
 function Brand({ light = false }: { light?: boolean }) {
@@ -274,7 +274,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
       async function loadRealRows() {
         const rows: Transaction[] = []
         for (let from = 0; ; from += 1000) {
-          const { data, error } = await client.from('transactions').select('id, amount_inr, status, created_at').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).range(from, from + 999)
+          const { data, error } = await client.from('transactions').select('id, amount_inr, status, created_at, sender_name').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).range(from, from + 999)
           if (error) return { rows: null as Transaction[] | null, error }
           rows.push(...(data ?? []) as Transaction[])
           if (!data || data.length < 1000) return { rows, error: null }
@@ -343,10 +343,10 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 10)
   const transactionCount = transactions.length + demoTransactions.length
-  const settledTransactions = transactions.filter(tx => tx.status === 'payout_successful')
-  const totalVolume = settledTransactions.reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
+  const completedTransactions = transactions.filter(tx => tx.status === 'completed')
+  const totalVolume = completedTransactions.reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
   const now = Date.now()
-  const todaysRevenue = settledTransactions.filter(tx => {
+  const todaysRevenue = completedTransactions.filter(tx => {
     const timestamp = new Date(tx.created_at).getTime()
     return timestamp >= now - 24 * 60 * 60 * 1000 && timestamp <= now
   }).reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
@@ -356,7 +356,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     day.setDate(day.getDate() - (6 - index))
     const nextDay = new Date(day)
     nextDay.setDate(nextDay.getDate() + 1)
-    const volume = settledTransactions.filter(tx => {
+    const volume = completedTransactions.filter(tx => {
       const timestamp = new Date(tx.created_at).getTime()
       return timestamp >= day.getTime() && timestamp < nextDay.getTime()
     }).reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
@@ -382,11 +382,11 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
       <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><div className="dashboard-actions"><button className="button button-secondary" onClick={() => setQrOpen(true)} disabled={!profile}><QrCode size={16} /> Share QR Code</button><button className="button button-outline" onClick={() => setEditOpen(true)} disabled={!profile}><Plus size={17} /> Edit profile</button></div></div>
       {error && <div className="notice-error">{error}</div>}
       <section className="receive-card"><div className="receive-copy"><span className="receive-label"><span className="pulse-dot" /> READY TO RECEIVE</span><h2>Your Shielded Link</h2><p>Share your link with clients. Your personal details stay private.</p><div className="link-field"><div className="link-icon"><Shield size={16} /></div><span className="link-prefix">{window.location.host}/</span><strong>{profile ? formatHandle(profile.alias_handle) : '…'}</strong><button onClick={copyLink} disabled={!profile} aria-label="Copy Link">{copied ? <Check size={17} /> : <Copy size={17} />}<span>{copied ? 'Copied!' : 'Copy Link'}</span></button></div></div></section>
-      <section className="analytics-section" aria-labelledby="analytics-title"><div className="analytics-heading"><div><div className="form-eyebrow">PERFORMANCE</div><h2 id="analytics-title">Analytics</h2></div><span className="analytics-note">Settled payouts only</span></div>
-        <div className="stats-grid"><section className="stat-card"><span className="stat-caption">TOTAL VOLUME</span><div className={`stat-value numeric-data ${totalVolume > 0 ? 'revenue-positive' : ''}`}>₹{busy ? '—' : totalVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Successfully paid out</span></section><section className="stat-card"><span className="stat-caption">TODAY’S REVENUE</span><div className={`stat-value numeric-data ${todaysRevenue > 0 ? 'revenue-positive' : ''}`}>₹{busy ? '—' : todaysRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Last 24 hours</span></section><section className="stat-card"><span className="stat-caption">TOTAL TRANSACTIONS</span><div className="stat-value numeric-data">{busy ? '—' : transactionCount.toLocaleString('en-IN')}</div><span className="stat-sub">Real and demo records</span></section></div>
-        <section className="activity-card"><div className="activity-heading"><div><h3>Recent 7-Day Activity</h3><p>Daily settled payout volume · demo records excluded</p></div><span className="activity-legend"><i /> Volume</span></div>{busy ? <div className="transactions-loading"><span className="spinner" /></div> : transactionCount === 0 ? <div className="activity-empty"><Activity size={27} strokeWidth={1.25} /><p>No recent activity</p></div> : <div className={`activity-chart ${chartReady ? 'is-ready' : ''}`} role="img" aria-label="Settled payout volume over the last seven days">{activityDays.map(day => <div className="activity-day" key={day.date} title={`${day.date}: ₹${day.volume.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}><span className="activity-value numeric-data">{day.volume ? `₹${day.volume.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : ''}</span><div className="activity-track"><div className={`activity-bar-fill height-${chartBucket(day.volume)}`} /></div><span className="activity-label">{day.label}</span><span className="activity-date numeric-data">{day.date}</span></div>)}</div>}</section>
+      <section className="analytics-section" aria-labelledby="analytics-title"><div className="analytics-heading"><div><div className="form-eyebrow">PERFORMANCE</div><h2 id="analytics-title">Analytics</h2></div><span className="analytics-note">Completed demo payments</span></div>
+        <div className="stats-grid"><section className="stat-card"><span className="stat-caption">TOTAL VOLUME</span><div className={`stat-value numeric-data ${totalVolume > 0 ? 'revenue-positive' : ''}`}>₹{busy ? '—' : totalVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Completed payments</span></section><section className="stat-card"><span className="stat-caption">TODAY’S REVENUE</span><div className={`stat-value numeric-data ${todaysRevenue > 0 ? 'revenue-positive' : ''}`}>₹{busy ? '—' : todaysRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Last 24 hours</span></section><section className="stat-card"><span className="stat-caption">TOTAL TRANSACTIONS</span><div className="stat-value numeric-data">{busy ? '—' : transactionCount.toLocaleString('en-IN')}</div><span className="stat-sub">Real and demo records</span></section></div>
+        <section className="activity-card"><div className="activity-heading"><div><h3>Recent 7-Day Activity</h3><p>Daily completed transaction volume</p></div><span className="activity-legend"><i /> Volume</span></div>{busy ? <div className="transactions-loading"><span className="spinner" /></div> : transactionCount === 0 ? <div className="activity-empty"><Activity size={27} strokeWidth={1.25} /><p>No recent activity</p></div> : <div className={`activity-chart ${chartReady ? 'is-ready' : ''}`} role="img" aria-label="Completed transaction volume over the last seven days">{activityDays.map(day => <div className="activity-day" key={day.date} title={`${day.date}: ₹${day.volume.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}><span className="activity-value numeric-data">{day.volume ? `₹${day.volume.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : ''}</span><div className="activity-track"><div className={`activity-bar-fill height-${chartBucket(day.volume)}`} /></div><span className="activity-label">{day.label}</span><span className="activity-date numeric-data">{day.date}</span></div>)}</div>}</section>
       </section>
-      <section className="transactions-card"><div className="section-title"><div><h2>Recent Transactions</h2><p>Supabase records · simulated payments are marked test only.</p></div><button className="text-button">View all <ChevronRight size={16} /></button></div>{busy ? <div className="transactions-loading"><span className="spinner" /></div> : recentTransactions.length === 0 ? <div className="empty-state"><div className="empty-icon"><ArrowDownLeft size={20} /></div><p>No payments received yet. Share your link to get paid safely.</p><button className="button button-secondary" onClick={copyLink}><Copy size={15} /> Copy Link</button></div> : <div className="transaction-list">{recentTransactions.map(tx => <div className="transaction-row" key={tx.id}><div className="transaction-symbol"><ArrowDownLeft size={18} /></div><div className="transaction-main"><strong>{tx.sender_alias || 'Anonymous'}</strong><span className="transaction-date numeric-data">{new Date(tx.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</span></div><div className={`transaction-state ${tx.status === 'payout_successful' ? 'status-success' : ''}`}>{tx.status === 'simulated' ? 'test only' : tx.status.replaceAll('_', ' ')}</div><strong className="transaction-amount numeric-data">₹{Number(tx.amount_inr).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>)}</div>}</section>
+      <section className="transactions-card"><div className="section-title"><div><h2>Recent Transactions</h2><p>Completed demo payments are recorded in Supabase.</p></div><button className="text-button">View all <ChevronRight size={16} /></button></div>{busy ? <div className="transactions-loading"><span className="spinner" /></div> : recentTransactions.length === 0 ? <div className="empty-state"><div className="empty-icon"><ArrowDownLeft size={20} /></div><p>No payments received yet. Share your link to get paid safely.</p><button className="button button-secondary" onClick={copyLink}><Copy size={15} /> Copy Link</button></div> : <div className="transaction-list">{recentTransactions.map(tx => <div className="transaction-row" key={tx.id}><div className="transaction-symbol"><ArrowDownLeft size={18} /></div><div className="transaction-main"><strong>{tx.sender_name || tx.sender_alias || 'Anonymous'}</strong><span className="transaction-date numeric-data">{new Date(tx.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</span></div><div className={`transaction-state ${tx.status === 'payout_successful' || tx.status === 'completed' ? 'status-success' : ''}`}>{tx.status === 'simulated' ? 'test only' : tx.status.replaceAll('_', ' ')}</div><strong className="transaction-amount numeric-data">₹{Number(tx.amount_inr).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>)}</div>}</section>
       <footer className="dashboard-footer"><span><LockKeyhole size={13} /> Your privacy is always on.</span><button aria-label="Help"><CircleHelp size={15} /> Help & support</button></footer>
     </div>
     {editOpen && profile && <EditProfileModal profile={profile} onClose={() => setEditOpen(false)} onSaved={updated => { setProfile(updated); setEditOpen(false) }} />}
@@ -399,7 +399,7 @@ function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void
   const [error, setError] = useState('')
   const [imageError, setImageError] = useState(false)
   const receiverHandle = handle.replace(/^@+/, '')
-  const qrPayload = `upi://pay?pa=ghostpay.nodal@ybl&pn=GhostPay%20Ltd&tr=${receiverHandle}&cu=INR`
+  const qrPayload = `https://${window.location.host}/@${receiverHandle}`
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrPayload)}`
 
   async function downloadQr() {
@@ -413,7 +413,7 @@ function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void
       objectUrl = URL.createObjectURL(imageBlob)
       const link = document.createElement('a')
       link.href = objectUrl
-      link.download = `ghostpay-${receiverHandle}-upi-qr.png`
+      link.download = `ghostpay-${receiverHandle}-payment-qr.png`
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -427,9 +427,9 @@ function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void
 
   return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
     <section className="profile-modal qr-modal" role="dialog" aria-modal="true" aria-labelledby="share-qr-title">
-      <header className="modal-heading"><div><div className="form-eyebrow">OFFLINE UPI PAYMENTS</div><h2 id="share-qr-title">Your payment QR</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button></header>
-      <div className="qr-image-frame">{imageError ? <p className="qr-image-error" role="status">QR preview could not load. Check your connection and try again.</p> : <img src={qrImageUrl} width="250" height="250" alt={`UPI payment QR for @${receiverHandle}`} referrerPolicy="no-referrer" onError={() => setImageError(true)} />}</div>
-      <div className="upi-qr-caption"><h3>Scan with any UPI app</h3><p>GPay <span>·</span> PhonePe <span>·</span> Paytm</p></div>
+      <header className="modal-heading"><div><div className="form-eyebrow">PUBLIC PAYMENT LINK</div><h2 id="share-qr-title">Your payment QR</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button></header>
+      <div className="qr-image-frame">{imageError ? <p className="qr-image-error" role="status">QR preview could not load. Check your connection and try again.</p> : <img src={qrImageUrl} width="250" height="250" alt={`GhostPay payment portal QR for @${receiverHandle}`} referrerPolicy="no-referrer" onError={() => setImageError(true)} />}</div>
+      <div className="upi-qr-caption"><h3>Scan to open payment portal.</h3></div>
       <button className="button button-primary full-button qr-download-button" onClick={downloadQr} disabled={downloading}>{downloading ? 'Preparing download…' : <><Download size={17} /> Download QR</>}</button>
       {error && <p className="error-note qr-error" role="alert">{error}</p>}
       <p className="modal-privacy"><LockKeyhole size={13} /> Payments route through GhostPay to keep your real identity completely hidden.</p>
@@ -496,33 +496,6 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
   </div>
 }
 
-function prepareChaChing(): () => void {
-  try {
-    const context = new AudioContext()
-    void context.resume().catch(() => undefined)
-    return () => {
-      const start = context.currentTime
-      ;[1046.5, 1318.5, 1568].forEach((frequency, index) => {
-        const oscillator = context.createOscillator()
-        const gain = context.createGain()
-        const onset = start + index * 0.12
-        oscillator.type = index === 2 ? 'sine' : 'triangle'
-        oscillator.frequency.setValueAtTime(frequency, onset)
-        gain.gain.setValueAtTime(0.0001, onset)
-        gain.gain.exponentialRampToValueAtTime(index === 2 ? 0.07 : 0.11, onset + 0.012)
-        gain.gain.exponentialRampToValueAtTime(0.0001, onset + 0.38)
-        oscillator.connect(gain)
-        gain.connect(context.destination)
-        oscillator.start(onset)
-        oscillator.stop(onset + 0.4)
-      })
-      window.setTimeout(() => { void context.close().catch(() => undefined) }, 1200)
-    }
-  } catch {
-    return () => undefined
-  }
-}
-
 function PaymentPage() {
   const { handle = '' } = useParams()
   const aliasHandle = handle.replace(/^@+/, '').toLowerCase()
@@ -534,12 +507,11 @@ function PaymentPage() {
   const [walletBusy, setWalletBusy] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'upi'>('wallet')
   const [amount, setAmount] = useState('')
+  const [senderName, setSenderName] = useState('')
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState(false)
   const [paymentStage, setPaymentStage] = useState<'idle' | 'processing' | 'complete'>('idle')
-  const [upiQrPayload, setUpiQrPayload] = useState('')
-  const [upiQrError, setUpiQrError] = useState(false)
   const toastTimer = useRef<number | null>(null)
 
   function showToast(message: string) {
@@ -599,21 +571,6 @@ function PaymentPage() {
     return () => { active = false }
   }, [aliasHandle])
 
-  function createUpiIntent(value: string) {
-    if (!profile) return ''
-    return `upi://pay?pa=ghostpay.nodal@ybl&pn=GhostPay%20Ltd&tr=${profile.alias_handle}&am=${value}&cu=INR`
-  }
-
-  function launchUpiApp(intent: string) {
-    const mobileDevice = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
-    if (mobileDevice) {
-      window.location.href = intent
-      return
-    }
-    setUpiQrError(false)
-    setUpiQrPayload(intent)
-  }
-
   async function startPayment(event: FormEvent) {
     event.preventDefault()
     setError('')
@@ -625,28 +582,25 @@ function PaymentPage() {
     }
     if (!profile) { showToast('This payment link is not ready yet.'); return }
 
-    if (!visitorSession) {
-      launchUpiApp(createUpiIntent(amount))
-      return
-    }
-    if (paymentMethod === 'upi') {
-      launchUpiApp(createUpiIntent(amount))
-      return
-    }
     if (!supabase) { showToast('Wallet payments are unavailable right now.'); return }
-    if (walletBalance === null) { showToast('Your wallet balance is still loading. Please try again.'); return }
+    const useWallet = Boolean(visitorSession && paymentMethod === 'wallet')
+    if (useWallet && walletBalance === null) { showToast('Your wallet balance is still loading. Please try again.'); return }
+    const resolvedSenderName = visitorSession
+      ? (typeof visitorSession.user.user_metadata.alias_handle === 'string' ? formatHandle(visitorSession.user.user_metadata.alias_handle) : 'GhostPay User')
+      : senderName.trim() || 'Anonymous'
 
-    const playChaChing = prepareChaChing()
     setBusy(true)
     setPaymentStage('processing')
     try {
-      const { data, error: transferError } = await supabase.rpc('transfer_ghostpay_wallet', {
+      const { data, error: transferError } = await supabase.rpc('simulate_escrow_payment', {
         p_receiver_handle: profile.alias_handle,
         p_amount: value,
+        p_sender_name: resolvedSenderName,
+        p_use_wallet: useWallet,
       })
       if (transferError) {
         if (transferError.message.includes('INSUFFICIENT_WALLET_BALANCE')) {
-          showToast('Insufficient GhostPay Wallet balance. Choose an external UPI app for this payment.')
+          showToast('Insufficient GhostPay Wallet balance. Choose the simulated payment option instead.')
         } else if (transferError.message.includes('CANNOT_TRANSFER_TO_SELF')) {
           showToast('You can’t send a wallet payment to your own handle.')
         } else showToast('Wallet transfer couldn’t be completed. Please try again.')
@@ -654,20 +608,19 @@ function PaymentPage() {
         setBusy(false)
         return
       }
-      const transfer = data as { transfer_id?: string; wallet_balance?: number | string } | null
-      const updatedBalance = Number(transfer?.wallet_balance)
-      if (!transfer?.transfer_id || !Number.isFinite(updatedBalance)) throw new Error('Wallet transfer confirmation was missing.')
-      setWalletBalance(updatedBalance)
+      const transfer = data as { transaction_id?: string; wallet_balance?: number | string | null } | null
+      const updatedBalance = transfer?.wallet_balance == null ? null : Number(transfer.wallet_balance)
+      if (!transfer?.transaction_id || (updatedBalance !== null && !Number.isFinite(updatedBalance))) throw new Error('Payment confirmation was missing.')
+      if (useWallet && updatedBalance !== null) setWalletBalance(updatedBalance)
       setPaymentStage('complete')
-      playChaChing()
       await new Promise(resolve => window.setTimeout(resolve, 650))
       navigate('/payment/success', {
         state: {
           amount: value,
           alias: profile.alias_handle,
-          senderAlias: visitorSession.user.user_metadata.alias_handle ? formatHandle(visitorSession.user.user_metadata.alias_handle) : 'GhostPay Wallet',
-          paymentMode: 'wallet',
-          transactionId: transfer.transfer_id,
+          senderAlias: resolvedSenderName,
+          paymentMode: useWallet ? 'wallet' : 'simulated',
+          transactionId: transfer.transaction_id,
         },
       })
     } catch {
@@ -677,9 +630,6 @@ function PaymentPage() {
     }
   }
 
-  const upiQrImageUrl = upiQrPayload
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiQrPayload)}`
-    : ''
   const formattedWalletBalance = walletBalance === null ? '—' : `₹${walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   return <main className="payment-page">
@@ -692,31 +642,31 @@ function PaymentPage() {
         {paymentStage === 'idle' ? <>
           <div className="form-eyebrow">A PRIVATE PAYMENT</div>
           <h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1>
-          <p className="payment-subtext">Choose how you’d like to send your payment.</p>
+          <p className="payment-subtext">Complete a simulated payment to this creator.</p>
           <form onSubmit={startPayment} className="payment-form">
-            <label>Amount (₹)<div className="amount-input amount-input-large"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={event => { setAmount(event.target.value); setUpiQrPayload('') }} required /></div></label>
+            {authReady && !visitorSession && <label>Your Name (Optional)<input type="text" maxLength={80} placeholder="e.g., Alex / Twitter Client" value={senderName} onChange={event => setSenderName(event.target.value)} /></label>}
+            <label>Amount (₹)<div className="amount-input amount-input-large"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={event => setAmount(event.target.value)} required /></div></label>
             {error && <p className="error-note">{error}</p>}
-            {!authReady ? <button className="button button-primary full-button" type="button" disabled><span className="spinner auth-button-spinner" /> Checking secure session…</button> : !visitorSession ? <button className="button button-primary full-button" disabled={!profile}><span>Pay anonymously via UPI App</span><ArrowRight size={17} /></button> : <>
+            {!authReady ? <button className="button button-primary full-button" type="button" disabled><span className="spinner auth-button-spinner" /> Checking secure session…</button> : !visitorSession ? <button className="button button-primary full-button" disabled={!profile || busy}>{busy ? <><span className="spinner auth-button-spinner" /> Processing simulation…</> : <>Send Securely <ArrowRight size={17} /> </>}</button> : <>
               <div className="payment-mode-options" role="radiogroup" aria-label="Payment method">
-                <button type="button" role="radio" aria-checked={paymentMethod === 'wallet'} className={`payment-option ${paymentMethod === 'wallet' ? 'selected' : ''}`} onClick={() => { setPaymentMethod('wallet'); setUpiQrPayload('') }}>
+                <button type="button" role="radio" aria-checked={paymentMethod === 'wallet'} className={`payment-option ${paymentMethod === 'wallet' ? 'selected' : ''}`} onClick={() => setPaymentMethod('wallet')}>
                   <span className="payment-option-heading"><span className="payment-option-radio" /> GhostPay Wallet</span>
                   <span className="payment-option-balance">{walletBusy ? 'Loading balance…' : formattedWalletBalance}</span>
                   <span className="payment-option-caption">Available balance</span>
                 </button>
-                <button type="button" role="radio" aria-checked={paymentMethod === 'upi'} className={`payment-option ${paymentMethod === 'upi' ? 'selected' : ''}`} onClick={() => { setPaymentMethod('upi'); setUpiQrPayload('') }}>
-                  <span className="payment-option-heading"><span className="payment-option-radio" /> External UPI App</span>
-                  <span className="payment-option-balance payment-option-secondary">Google Pay, PhonePe, Paytm</span>
-                  <span className="payment-option-caption">Continue outside GhostPay</span>
+                <button type="button" role="radio" aria-checked={paymentMethod === 'upi'} className={`payment-option ${paymentMethod === 'upi' ? 'selected' : ''}`} onClick={() => setPaymentMethod('upi')}>
+                  <span className="payment-option-heading"><span className="payment-option-radio" /> Simulated Payment</span>
+                  <span className="payment-option-balance payment-option-secondary">Simulated nodal checkout</span>
+                  <span className="payment-option-caption">Demo checkout · no app opens</span>
                 </button>
               </div>
               <button className="button button-primary full-button" disabled={!profile || busy || (paymentMethod === 'wallet' && (walletBusy || walletBalance === null))}>
-                {busy ? <><span className="spinner auth-button-spinner" /> Moving funds securely…</> : paymentMethod === 'wallet' ? <>Pay with GhostPay Wallet <ArrowRight size={17} /></> : <>Continue to UPI App <ArrowRight size={17} /></>}
+                {busy ? <><span className="spinner auth-button-spinner" /> Processing simulation…</> : <>Send Securely <ArrowRight size={17} /></>}
               </button>
             </>}
           </form>
-          {upiQrPayload && <div className="upi-fallback" role="status"><div className="form-eyebrow">SCAN TO PAY</div><h2>Continue with your UPI app</h2>{upiQrError ? <p className="error-note">The payment QR couldn’t be loaded. Please try again.</p> : <img src={upiQrImageUrl} alt="QR code with the GhostPay UPI payment intent" width="220" height="220" onError={() => setUpiQrError(true)} />}<p>Scan this code with any UPI app to continue.</p></div>}
           <div className="payment-trust"><ShieldCheck size={16} /><span>Your personal details remain hidden from the receiver.</span></div>
-        </> : <div className={`payment-progress ${paymentStage}`} aria-live="polite"><div className={`payment-progress-icon ${paymentStage}`}>{paymentStage === 'processing' ? <span className="payment-spinner" aria-hidden="true" /> : <Check size={20} strokeWidth={2} />}</div><h1>{paymentStage === 'processing' ? 'Processing wallet transfer' : 'Wallet transfer successful'}</h1><p>{paymentStage === 'processing' ? 'Your GhostPay Wallet transfer is being confirmed.' : 'The payment was sent securely.'}</p></div>}
+        </> : <div className={`payment-progress ${paymentStage}`} aria-live="polite"><div className={`payment-progress-icon ${paymentStage}`}>{paymentStage === 'processing' ? <span className="payment-spinner" aria-hidden="true" /> : <Check size={20} strokeWidth={2} />}</div><h1>{paymentStage === 'processing' ? 'Processing secure payment' : 'Payment simulation complete'}</h1><p>{paymentStage === 'processing' ? 'Your demo transaction is being recorded.' : 'The completed demo payment is recorded.'}</p></div>}
       </section>
       <p className="payment-footer"><LockKeyhole size={12} /> Payments route through GhostPay’s nodal account.</p>
     </div>
