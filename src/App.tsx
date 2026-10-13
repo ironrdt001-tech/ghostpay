@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Activity, ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, LockKeyhole, LogOut, Moon, Plus, QrCode, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
+import { Activity, ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, LockKeyhole, LogOut, Moon, Plus, QrCode, Share2, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
 import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
 
@@ -398,9 +398,35 @@ function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
   const [imageError, setImageError] = useState(false)
+  const [shareNotice, setShareNotice] = useState('')
+  const shareToastTimer = useRef<number | null>(null)
   const receiverHandle = handle.replace(/^@+/, '')
-  const qrPayload = `${window.location.origin}/@${handle}`
+  const qrPayload = `https://ghostpay-orpin.vercel.app/@${handle}`
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrPayload)}`
+
+  useEffect(() => () => {
+    if (shareToastTimer.current !== null) window.clearTimeout(shareToastTimer.current)
+  }, [])
+
+  async function shareProfile() {
+    setError('')
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: 'GhostPay', text: 'Pay me securely here on GhostPay 🛡️', url: qrPayload })
+      } catch (shareError) {
+        if (shareError instanceof Error && shareError.name !== 'AbortError') setError('Profile could not be shared. Please try again.')
+      }
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(qrPayload)
+      setShareNotice('Link copied')
+      if (shareToastTimer.current !== null) window.clearTimeout(shareToastTimer.current)
+      shareToastTimer.current = window.setTimeout(() => { setShareNotice(''); shareToastTimer.current = null }, 2500)
+    } catch {
+      setError('The profile link could not be copied. Please copy it from your browser address bar.')
+    }
+  }
 
   async function downloadQr() {
     setError('')
@@ -430,7 +456,9 @@ function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void
       <header className="modal-heading"><div><div className="form-eyebrow">PUBLIC PAYMENT LINK</div><h2 id="share-qr-title">Your payment QR</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button></header>
       <div className="qr-image-frame">{imageError ? <p className="qr-image-error" role="status">QR preview could not load. Check your connection and try again.</p> : <img src={qrImageUrl} width="250" height="250" alt={`GhostPay payment portal QR for @${receiverHandle}`} referrerPolicy="no-referrer" onError={() => setImageError(true)} />}</div>
       <div className="upi-qr-caption"><h3>Scan to open payment portal.</h3></div>
+      <button className="button button-secondary full-button qr-download-button" onClick={shareProfile}><Share2 size={16} /> Share Profile</button>
       <button className="button button-primary full-button qr-download-button" onClick={downloadQr} disabled={downloading}>{downloading ? 'Preparing download…' : <><Download size={17} /> Download QR</>}</button>
+      {shareNotice && <div className="payment-toast" role="status">{shareNotice}</div>}
       {error && <p className="error-note qr-error" role="alert">{error}</p>}
       <p className="modal-privacy"><LockKeyhole size={13} /> Payments route through GhostPay to keep your real identity completely hidden.</p>
     </section>
@@ -584,6 +612,7 @@ function PaymentPage() {
 
     if (!supabase) { showToast('Wallet payments are unavailable right now.'); return }
     const useWallet = Boolean(visitorSession && paymentMethod === 'wallet')
+    if (!useWallet && !senderName.trim()) { showToast('Please enter your name to continue.'); return }
     if (useWallet && walletBalance === null) { showToast('Your wallet balance is still loading. Please try again.'); return }
     const accountAlias = visitorSession && typeof visitorSession.user.user_metadata.alias_handle === 'string'
       ? formatHandle(visitorSession.user.user_metadata.alias_handle)
@@ -645,7 +674,7 @@ function PaymentPage() {
           <h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1>
           <p className="payment-subtext">Complete a simulated payment to this creator.</p>
           <form onSubmit={startPayment} className="payment-form">
-            {authReady && (!visitorSession || paymentMethod === 'upi') && <label>Your Name (Optional)<input type="text" maxLength={80} placeholder="Your Name (Optional)" value={senderName} onChange={event => setSenderName(event.target.value)} /></label>}
+            {authReady && (!visitorSession || paymentMethod === 'upi') && <label>Your Name<input type="text" maxLength={80} placeholder="Your Name" aria-required="true" value={senderName} onChange={event => setSenderName(event.target.value)} /></label>}
             <label>Amount (₹)<div className="amount-input amount-input-large"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={event => setAmount(event.target.value)} required /></div></label>
             {error && <p className="error-note">{error}</p>}
             {!authReady ? <button className="button button-primary full-button" type="button" disabled><span className="spinner auth-button-spinner" /> Checking secure session…</button> : !visitorSession ? <button className="button button-primary full-button" disabled={!profile || busy}>{busy ? <><span className="spinner auth-button-spinner" /> Processing simulation…</> : <>Send Securely <ArrowRight size={17} /> </>}</button> : <>
