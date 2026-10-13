@@ -101,11 +101,21 @@ function AuthPage({ initialMode = 'sign-in' }: { initialMode?: 'sign-in' | 'crea
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [authToast, setAuthToast] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const toastTimer = useRef<number | null>(null)
+
+  function showAuthToast(text: string) {
+    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
+    setAuthToast(text)
+    toastTimer.current = window.setTimeout(() => { setAuthToast(''); toastTimer.current = null }, 5000)
+  }
+
+  useEffect(() => () => { if (toastTimer.current !== null) window.clearTimeout(toastTimer.current) }, [])
 
   async function submit(event: FormEvent) {
-    event.preventDefault(); setError(''); setMessage('')
+    event.preventDefault(); setError(''); setMessage(''); setAuthToast('')
     if (!supabase) { setError('Connect your Supabase project to continue.'); return }
     const cleanHandle = handle.trim().replace(/^@+/, '').toLowerCase()
     if (mode === 'create-account' && !/^[a-z0-9_][a-z0-9_.]{2,29}$/.test(cleanHandle)) {
@@ -115,8 +125,44 @@ function AuthPage({ initialMode = 'sign-in' }: { initialMode?: 'sign-in' | 'crea
     setBusy(true)
     try {
       if (mode === 'sign-in') {
-        const { data, error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+        const identifier = email.trim()
+        const isHandle = identifier.startsWith('@') || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)
+        let data: { user: { id: string } | null } | null = null
+        let authError: { message: string } | null = null
+        if (isHandle) {
+          const normalizedHandle = identifier.replace(/^@+/, '').toLowerCase()
+          if (!/^[a-z0-9_][a-z0-9_.]{2,29}$/.test(normalizedHandle)) {
+            showAuthToast('We couldn’t find that handle or verify the password. Check both and try again.')
+            return
+          }
+          const { data: functionData, error: functionError } = await supabase.functions.invoke('login-with-handle', {
+            body: { handle: normalizedHandle, password },
+          })
+          const sessionData = functionData?.session
+          if (functionError || !sessionData?.access_token || !sessionData?.refresh_token) {
+            const response = functionError?.context instanceof Response
+              ? await functionError.context.clone().json().catch(() => null) as { code?: string } | null
+              : null
+            if (response?.code === 'ACCOUNT_NOT_FOUND' || response?.code === 'INVALID_CREDENTIALS') {
+              showAuthToast('We couldn’t find that handle or verify the password. Check both and try again.')
+              return
+            }
+            authError = { message: functionError?.message ?? 'Handle sign-in is temporarily unavailable. Please try again.' }
+          } else {
+            const { data: sessionResult, error: sessionError } = await supabase.auth.setSession({
+              access_token: sessionData.access_token,
+              refresh_token: sessionData.refresh_token,
+            })
+            data = sessionResult.session ? { user: { id: sessionResult.session.user.id } } : null
+            authError = sessionError
+          }
+        } else {
+          const result = await supabase.auth.signInWithPassword({ email: identifier, password })
+          data = result.data
+          authError = result.error
+        }
         if (authError) { setError(authError.message); return }
+        if (!data?.user) { setError('Sign-in did not return an active session. Please try again.'); return }
         const { data: profile, error: profileError } = await supabase.from('users').select('id').eq('id', data.user.id).maybeSingle()
         if (profileError) { setError(profileError.message); return }
         navigate(profile ? '/dashboard' : '/onboarding', { replace: true })
@@ -162,12 +208,13 @@ function AuthPage({ initialMode = 'sign-in' }: { initialMode?: 'sign-in' | 'crea
       <div className="auth-form-wrap">
         <div className="form-eyebrow"><Sparkles size={14} /> {creatingAccount ? 'GET STARTED' : 'WELCOME BACK'}</div>
         <h2>{creatingAccount ? 'Create your account' : 'Sign in to GhostPay'}</h2><p className="form-intro">{creatingAccount ? 'Claim your private payment link in a few steps.' : 'Your next payment is just a link away.'}</p>
-        <div className="auth-mode-toggle" role="tablist" aria-label="Authentication mode"><button type="button" role="tab" aria-selected={!creatingAccount} className={!creatingAccount ? 'active' : ''} onClick={() => setMode('sign-in')}>Sign In</button><button type="button" role="tab" aria-selected={creatingAccount} className={creatingAccount ? 'active' : ''} onClick={() => setMode('create-account')}>Create Account</button></div>
+        <div className="auth-mode-toggle" role="tablist" aria-label="Authentication mode"><button type="button" role="tab" aria-selected={!creatingAccount} className={!creatingAccount ? 'active' : ''} onClick={() => { setMode('sign-in'); setAuthToast('') }}>Sign In</button><button type="button" role="tab" aria-selected={creatingAccount} className={creatingAccount ? 'active' : ''} onClick={() => { setMode('create-account'); setAuthToast('') }}>Create Account</button></div>
         <form onSubmit={submit} className="form-stack">
           {creatingAccount && <label>Claim your @handle<div className="auth-handle-input"><span>@</span><input autoComplete="username" maxLength={30} placeholder="yourname" value={handle} onChange={event => setHandle(event.target.value.replace(/^@+/, ''))} required /></div><small>Your public payment link. You can use letters, numbers, dots, and underscores.</small></label>}
-          <label>Email address<input autoComplete="email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required /></label>
+          <label>{creatingAccount ? 'Email address' : 'Email or @handle'}<input autoComplete={creatingAccount ? 'email' : 'username'} type={creatingAccount ? 'email' : 'text'} placeholder={creatingAccount ? 'you@example.com' : 'you@example.com or @yourname'} value={email} onChange={e => { setEmail(e.target.value); setAuthToast(''); setError('') }} required /></label>
           <label>Password<div className="password-wrap"><input autoComplete={creatingAccount ? 'new-password' : 'current-password'} minLength={creatingAccount ? 8 : undefined} type={showPassword ? 'text' : 'password'} placeholder={creatingAccount ? 'At least 8 characters' : 'Enter your password'} value={password} onChange={e => setPassword(e.target.value)} required /><button className="reveal" type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
           {error && <p className="error-note">{error}</p>}
+          {authToast && <div className="auth-error-toast" role="alert">{authToast}</div>}
           {message && <p className="success-note" role="status">{message}</p>}
           <button className="button button-primary full-button" disabled={busy}>{busy ? <><span className="spinner auth-button-spinner" /> {creatingAccount ? 'Creating account…' : 'Signing in…'}</> : <>{creatingAccount ? 'Create Account' : 'Sign In'}<ArrowRight size={17} /></>}</button>
         </form>
