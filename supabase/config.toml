@@ -6,5 +6,3 @@ verify_jwt = false
 [functions.payment-success]
 verify_jwt = false
 
-[functions.login-with-handle]
-verify_jwt = false

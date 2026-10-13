@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Activity, ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, Eye, EyeOff, LockKeyhole, LogOut, Moon, Plus, QrCode, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
+import { Activity, ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, LockKeyhole, LogOut, Moon, Plus, QrCode, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
 import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
 
@@ -82,7 +82,6 @@ function AuthPage({ initialMode = 'sign-in' }: { initialMode?: 'sign-in' | 'crea
   const [handle, setHandle] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [authToast, setAuthToast] = useState('')
   const [message, setMessage] = useState('')
@@ -113,32 +112,15 @@ function AuthPage({ initialMode = 'sign-in' }: { initialMode?: 'sign-in' | 'crea
         let data: { user: { id: string } | null } | null = null
         let authError: { message: string } | null = null
         if (isHandle) {
-          const normalizedHandle = identifier.replace(/^@+/, '').toLowerCase()
-          if (!/^[a-z0-9_][a-z0-9_.]{2,29}$/.test(normalizedHandle)) {
-            showAuthToast('We couldn’t find that handle or verify the password. Check both and try again.')
+          const { data: userEmail, error: rpcError } = await supabase.rpc('get_email_for_handle', { p_handle: identifier })
+          if (rpcError) { setError(rpcError.message); return }
+          if (typeof userEmail !== 'string' || !userEmail.trim()) {
+            showAuthToast('Handle not found')
             return
           }
-          const { data: functionData, error: functionError } = await supabase.functions.invoke('login-with-handle', {
-            body: { handle: normalizedHandle, password },
-          })
-          const sessionData = functionData?.session
-          if (functionError || !sessionData?.access_token || !sessionData?.refresh_token) {
-            const response = functionError?.context instanceof Response
-              ? await functionError.context.clone().json().catch(() => null) as { code?: string } | null
-              : null
-            if (response?.code === 'ACCOUNT_NOT_FOUND' || response?.code === 'INVALID_CREDENTIALS') {
-              showAuthToast('We couldn’t find that handle or verify the password. Check both and try again.')
-              return
-            }
-            authError = { message: functionError?.message ?? 'Handle sign-in is temporarily unavailable. Please try again.' }
-          } else {
-            const { data: sessionResult, error: sessionError } = await supabase.auth.setSession({
-              access_token: sessionData.access_token,
-              refresh_token: sessionData.refresh_token,
-            })
-            data = sessionResult.session ? { user: { id: sessionResult.session.user.id } } : null
-            authError = sessionError
-          }
+          const result = await supabase.auth.signInWithPassword({ email: userEmail, password })
+          data = result.data
+          authError = result.error
         } else {
           const result = await supabase.auth.signInWithPassword({ email: identifier, password })
           data = result.data
@@ -195,7 +177,7 @@ function AuthPage({ initialMode = 'sign-in' }: { initialMode?: 'sign-in' | 'crea
         <form onSubmit={submit} className="form-stack">
           {creatingAccount && <label>Claim your @handle<div className="auth-handle-input"><span>@</span><input autoComplete="username" maxLength={30} placeholder="yourname" value={handle} onChange={event => setHandle(event.target.value.replace(/^@+/, ''))} required /></div><small>Your public payment link. You can use letters, numbers, dots, and underscores.</small></label>}
           <label>{creatingAccount ? 'Email address' : 'Email or @handle'}<input autoComplete={creatingAccount ? 'email' : 'username'} type={creatingAccount ? 'email' : 'text'} placeholder={creatingAccount ? 'you@example.com' : 'you@example.com or @yourname'} value={email} onChange={e => { setEmail(e.target.value); setAuthToast(''); setError('') }} required /></label>
-          <label>Password<div className="password-wrap"><input autoComplete={creatingAccount ? 'new-password' : 'current-password'} minLength={creatingAccount ? 8 : undefined} type={showPassword ? 'text' : 'password'} placeholder={creatingAccount ? 'At least 8 characters' : 'Enter your password'} value={password} onChange={e => setPassword(e.target.value)} required /><button className="reveal" type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+          <label>Password<input autoComplete={creatingAccount ? 'new-password' : 'current-password'} minLength={creatingAccount ? 8 : undefined} type="password" placeholder={creatingAccount ? 'At least 8 characters' : 'Enter your password'} value={password} onChange={e => setPassword(e.target.value)} required /></label>
           {error && <p className="error-note">{error}</p>}
           {authToast && <div className="auth-error-toast" role="alert">{authToast}</div>}
           {message && <p className="success-note" role="status">{message}</p>}
