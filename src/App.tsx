@@ -390,18 +390,18 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
       <footer className="dashboard-footer"><span><LockKeyhole size={13} /> Your privacy is always on.</span><button aria-label="Help"><CircleHelp size={15} /> Help & support</button></footer>
     </div>
     {editOpen && profile && <EditProfileModal profile={profile} onClose={() => setEditOpen(false)} onSaved={updated => { setProfile(updated); setEditOpen(false) }} />}
-    {qrOpen && profile && <ShareQrModal handle={profile.alias_handle} onClose={() => setQrOpen(false)} />}
+    {qrOpen && profile && <ShareQrModal profile={profile} onClose={() => setQrOpen(false)} />}
   </main>
 }
 
-function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void }) {
+function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_handle'>; onClose: () => void }) {
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
   const [imageError, setImageError] = useState(false)
   const [shareNotice, setShareNotice] = useState('')
   const shareToastTimer = useRef<number | null>(null)
-  const receiverHandle = handle.replace(/^@+/, '')
-  const qrPayload = `https://ghostpay-orpin.vercel.app/@${handle}`
+  const receiverHandle = profile.alias_handle.replace(/^@+/, '')
+  const qrPayload = `https://ghostpay-orpin.vercel.app/@${profile.alias_handle}`
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrPayload)}`
 
   useEffect(() => () => {
@@ -414,13 +414,14 @@ function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void
       try {
         await navigator.share({ title: 'GhostPay', text: 'Pay me securely here on GhostPay 🛡️', url: qrPayload })
       } catch (shareError) {
-        if (shareError instanceof Error && shareError.name !== 'AbortError') setError('Profile could not be shared. Please try again.')
+        if (shareError instanceof Error && shareError.name === 'AbortError') console.log('Share canceled by user')
+        else setError('Profile could not be shared. Please try again.')
       }
       return
     }
     try {
       await navigator.clipboard.writeText(qrPayload)
-      setShareNotice('Link copied')
+      setShareNotice('Link copied to clipboard')
       if (shareToastTimer.current !== null) window.clearTimeout(shareToastTimer.current)
       shareToastTimer.current = window.setTimeout(() => { setShareNotice(''); shareToastTimer.current = null }, 2500)
     } catch {
@@ -528,7 +529,7 @@ function PaymentPage() {
   const { handle = '' } = useParams()
   const aliasHandle = handle.replace(/^@+/, '').toLowerCase()
   const navigate = useNavigate()
-  const [profile, setProfile] = useState<Pick<Profile, 'alias_handle'> | null>(null)
+  const [profile, setProfile] = useState<Pick<Profile, 'id' | 'alias_handle'> | null>(null)
   const [visitorSession, setVisitorSession] = useState<Session | null>(null)
   const [authReady, setAuthReady] = useState(!supabase)
   const [walletBalance, setWalletBalance] = useState<number | null>(null)
@@ -541,6 +542,9 @@ function PaymentPage() {
   const [busy, setBusy] = useState(false)
   const [paymentStage, setPaymentStage] = useState<'idle' | 'processing' | 'complete'>('idle')
   const toastTimer = useRef<number | null>(null)
+  const currentUser = visitorSession?.user
+  const receiverProfile = profile
+  const isSelf = Boolean(currentUser && receiverProfile && currentUser.id === receiverProfile.id)
 
   function showToast(message: string) {
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
@@ -549,6 +553,10 @@ function PaymentPage() {
   }
 
   useEffect(() => () => { if (toastTimer.current !== null) window.clearTimeout(toastTimer.current) }, [])
+
+  useEffect(() => {
+    setPaymentMethod(isSelf ? 'upi' : 'wallet')
+  }, [isSelf])
 
   useEffect(() => {
     let active = true
@@ -589,7 +597,7 @@ function PaymentPage() {
     let active = true
     async function loadReceiver() {
       if (!supabase) { setError('This payment page is not connected yet.'); return }
-      const { data, error: queryError } = await supabase.from('users').select('alias_handle').eq('alias_handle', aliasHandle).maybeSingle()
+      const { data, error: queryError } = await supabase.from('profiles').select('id, alias_handle').eq('alias_handle', aliasHandle).maybeSingle()
       if (!active) return
       if (queryError) setError(queryError.message)
       else if (!data) setError('We couldn’t find this payment link. Check the address and try again.')
@@ -611,7 +619,7 @@ function PaymentPage() {
     if (!profile) { showToast('This payment link is not ready yet.'); return }
 
     if (!supabase) { showToast('Wallet payments are unavailable right now.'); return }
-    const useWallet = Boolean(visitorSession && paymentMethod === 'wallet')
+    const useWallet = Boolean(visitorSession && paymentMethod === 'wallet' && !isSelf)
     if (!useWallet && !senderName.trim()) { showToast('Please enter your name to continue.'); return }
     if (useWallet && walletBalance === null) { showToast('Your wallet balance is still loading. Please try again.'); return }
     const accountAlias = visitorSession && typeof visitorSession.user.user_metadata.alias_handle === 'string'
@@ -642,6 +650,9 @@ function PaymentPage() {
       const updatedBalance = transfer?.wallet_balance == null ? null : Number(transfer.wallet_balance)
       if (!transfer?.transaction_id || (updatedBalance !== null && !Number.isFinite(updatedBalance))) throw new Error('Payment confirmation was missing.')
       if (useWallet && updatedBalance !== null) setWalletBalance(updatedBalance)
+      if (!useWallet) {
+        new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3').play().catch(error => console.log('Audio autoplay blocked by browser', error))
+      }
       setPaymentStage('complete')
       await new Promise(resolve => window.setTimeout(resolve, 650))
       navigate('/payment/success', {
@@ -679,11 +690,11 @@ function PaymentPage() {
             {error && <p className="error-note">{error}</p>}
             {!authReady ? <button className="button button-primary full-button" type="button" disabled><span className="spinner auth-button-spinner" /> Checking secure session…</button> : !visitorSession ? <button className="button button-primary full-button" disabled={!profile || busy}>{busy ? <><span className="spinner auth-button-spinner" /> Processing simulation…</> : <>Send Securely <ArrowRight size={17} /> </>}</button> : <>
               <div className="payment-mode-options" role="radiogroup" aria-label="Payment method">
-                <button type="button" role="radio" aria-checked={paymentMethod === 'wallet'} className={`payment-option ${paymentMethod === 'wallet' ? 'selected' : ''}`} onClick={() => setPaymentMethod('wallet')}>
+                {!isSelf && <button type="button" role="radio" aria-checked={paymentMethod === 'wallet'} className={`payment-option ${paymentMethod === 'wallet' ? 'selected' : ''}`} onClick={() => setPaymentMethod('wallet')}>
                   <span className="payment-option-heading"><span className="payment-option-radio" /> GhostPay Wallet</span>
                   <span className="payment-option-balance">{walletBusy ? 'Loading balance…' : formattedWalletBalance}</span>
                   <span className="payment-option-caption">Available balance</span>
-                </button>
+                </button>}
                 <button type="button" role="radio" aria-checked={paymentMethod === 'upi'} className={`payment-option ${paymentMethod === 'upi' ? 'selected' : ''}`} onClick={() => setPaymentMethod('upi')}>
                   <span className="payment-option-heading"><span className="payment-option-radio" /> Simulated Payment</span>
                   <span className="payment-option-balance payment-option-secondary">Simulated nodal checkout</span>
