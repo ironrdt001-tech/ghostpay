@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Activity, ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, Eye, EyeOff, FileCheck2, LockKeyhole, LogOut, Moon, Plus, QrCode, Shield, ShieldCheck, Sparkles, Sun, UploadCloud, X } from 'lucide-react'
+import { Activity, ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, Eye, EyeOff, LockKeyhole, LogOut, Moon, Plus, QrCode, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
 import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
 
-type Profile = { id: string; alias_handle: string; real_legal_name?: string; real_upi_id?: string; avatar_url?: string | null; kyc_status?: 'unverified' | 'pending' | 'approved' }
+type Profile = { id: string; alias_handle: string; real_legal_name?: string; real_upi_id?: string; avatar_url?: string | null }
 type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_alias?: string }
 type DemoTransaction = Transaction & { receiver_id: string; sender_alias: string; status: 'simulated' }
 
@@ -16,8 +16,6 @@ function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [authReady, setAuthReady] = useState(!supabase)
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
-  const [themeToast, setThemeToast] = useState(false)
-  const themeTimer = useRef<number | null>(null)
   const logoutReset = useRef(false)
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -27,25 +25,11 @@ function App() {
   }, [session, theme])
 
   function toggleTheme() {
-    if (themeTimer.current !== null) window.clearTimeout(themeTimer.current)
-    if (theme === 'dark') {
-      setTheme('light')
-      setThemeToast(false)
-      return
-    }
-    setThemeToast(true)
-    themeTimer.current = window.setTimeout(() => {
-      setTheme('dark')
-      setThemeToast(false)
-      themeTimer.current = null
-    }, 1500)
+    setTheme(current => current === 'dark' ? 'light' : 'dark')
   }
 
   function resetThemeForLogout() {
     logoutReset.current = true
-    if (themeTimer.current !== null) window.clearTimeout(themeTimer.current)
-    themeTimer.current = null
-    setThemeToast(false)
     setTheme('light')
     document.documentElement.classList.remove('dark')
     try { window.localStorage.removeItem('ghostpay.theme') } catch { /* storage can be disabled */ }
@@ -71,13 +55,12 @@ function App() {
         try { setTheme(window.localStorage.getItem('ghostpay.theme') === 'dark' ? 'dark' : 'light') } catch { setTheme('light') }
       } else resetThemeForLogout()
     })
-    return () => { listener.subscription.unsubscribe(); if (themeTimer.current !== null) window.clearTimeout(themeTimer.current) }
+    return () => listener.subscription.unsubscribe()
   }, [])
 
   if (!authReady) return <div className="loading-screen"><Brand /><span className="spinner" /></div>
 
   return <>
-    {themeToast && <div className="theme-joke-toast" role="status">💳 Premium Dark Mode: $100 Payment Gateway Required... Just joking dw! 😉</div>}
     <Routes>
     <Route path="/" element={session ? <AuthenticatedRedirect session={session} /> : <AuthPage />} />
     <Route path="/login" element={session ? <AuthenticatedRedirect session={session} /> : <AuthPage initialMode="sign-in" />} />
@@ -300,7 +283,6 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   const [busy, setBusy] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
-  const [kycOpen, setKycOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -326,7 +308,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
         }
       }
       const [profileResult, txResult, demoResult] = await Promise.all([
-        client.from('users').select('id, alias_handle, real_legal_name, real_upi_id, avatar_url, kyc_status').eq('id', session.user.id).maybeSingle(),
+        client.from('users').select('id, alias_handle, real_legal_name, real_upi_id, avatar_url').eq('id', session.user.id).maybeSingle(),
         loadRealRows(),
         loadDemoRows(),
       ])
@@ -401,8 +383,6 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   const chartMaximum = Math.max(...activityDays.map(day => day.volume), 0)
   const chartBucket = (volume: number) => chartMaximum ? Math.max(10, Math.ceil(volume / chartMaximum * 10) * 10) : 0
   const avatarUrl = profile?.avatar_url && /^https?:\/\//i.test(profile.avatar_url) ? profile.avatar_url : null
-  const kycStatus = profile?.kyc_status ?? 'unverified'
-  const revenueLocked = kycStatus !== 'approved'
 
   async function copyLink() {
     if (!profile) return
@@ -420,100 +400,16 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
       <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><div className="dashboard-actions"><button className="button button-secondary" onClick={() => setQrOpen(true)} disabled={!profile}><QrCode size={16} /> Share QR Code</button><button className="button button-outline" onClick={() => setEditOpen(true)} disabled={!profile}><Plus size={17} /> Edit profile</button></div></div>
       {error && <div className="notice-error">{error}</div>}
       <section className="receive-card"><div className="receive-copy"><span className="receive-label"><span className="pulse-dot" /> READY TO RECEIVE</span><h2>Your Shielded Link</h2><p>Share your link with clients. Your personal details stay private.</p><div className="link-field"><div className="link-icon"><Shield size={16} /></div><span className="link-prefix">{window.location.host}/</span><strong>{profile ? formatHandle(profile.alias_handle) : '…'}</strong><button onClick={copyLink} disabled={!profile} aria-label="Copy Link">{copied ? <Check size={17} /> : <Copy size={17} />}<span>{copied ? 'Copied!' : 'Copy Link'}</span></button></div></div></section>
-      <div className={`revenue-gate ${revenueLocked ? 'is-locked' : ''}`}><div className="revenue-sections" aria-hidden={revenueLocked}>
       <section className="analytics-section" aria-labelledby="analytics-title"><div className="analytics-heading"><div><div className="form-eyebrow">PERFORMANCE</div><h2 id="analytics-title">Analytics</h2></div><span className="analytics-note">Settled payouts only</span></div>
         <div className="stats-grid"><section className="stat-card"><span className="stat-caption">TOTAL VOLUME</span><div className={`stat-value numeric-data ${totalVolume > 0 ? 'revenue-positive' : ''}`}>₹{busy ? '—' : totalVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Successfully paid out</span></section><section className="stat-card"><span className="stat-caption">TODAY’S REVENUE</span><div className={`stat-value numeric-data ${todaysRevenue > 0 ? 'revenue-positive' : ''}`}>₹{busy ? '—' : todaysRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Last 24 hours</span></section><section className="stat-card"><span className="stat-caption">TOTAL TRANSACTIONS</span><div className="stat-value numeric-data">{busy ? '—' : transactionCount.toLocaleString('en-IN')}</div><span className="stat-sub">Real and demo records</span></section></div>
         <section className="activity-card"><div className="activity-heading"><div><h3>Recent 7-Day Activity</h3><p>Daily settled payout volume · demo records excluded</p></div><span className="activity-legend"><i /> Volume</span></div>{busy ? <div className="transactions-loading"><span className="spinner" /></div> : transactionCount === 0 ? <div className="activity-empty"><Activity size={27} strokeWidth={1.25} /><p>No recent activity</p></div> : <div className={`activity-chart ${chartReady ? 'is-ready' : ''}`} role="img" aria-label="Settled payout volume over the last seven days">{activityDays.map(day => <div className="activity-day" key={day.date} title={`${day.date}: ₹${day.volume.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}><span className="activity-value numeric-data">{day.volume ? `₹${day.volume.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : ''}</span><div className="activity-track"><div className={`activity-bar-fill height-${chartBucket(day.volume)}`} /></div><span className="activity-label">{day.label}</span><span className="activity-date numeric-data">{day.date}</span></div>)}</div>}</section>
       </section>
       <section className="transactions-card"><div className="section-title"><div><h2>Recent Transactions</h2><p>Supabase records · simulated payments are marked test only.</p></div><button className="text-button">View all <ChevronRight size={16} /></button></div>{busy ? <div className="transactions-loading"><span className="spinner" /></div> : recentTransactions.length === 0 ? <div className="empty-state"><div className="empty-icon"><ArrowDownLeft size={20} /></div><p>No payments received yet. Share your link to get paid safely.</p><button className="button button-secondary" onClick={copyLink}><Copy size={15} /> Copy Link</button></div> : <div className="transaction-list">{recentTransactions.map(tx => <div className="transaction-row" key={tx.id}><div className="transaction-symbol"><ArrowDownLeft size={18} /></div><div className="transaction-main"><strong>{tx.sender_alias || 'Anonymous'}</strong><span className="transaction-date numeric-data">{new Date(tx.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</span></div><div className={`transaction-state ${tx.status === 'payout_successful' ? 'status-success' : ''}`}>{tx.status === 'simulated' ? 'test only' : tx.status.replaceAll('_', ' ')}</div><strong className="transaction-amount numeric-data">₹{Number(tx.amount_inr).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>)}</div>}</section>
-      </div>{revenueLocked && <div className="kyc-gate-overlay"><section className="kyc-gate-card" aria-live="polite">{kycStatus === 'pending' ? <><div className="kyc-gate-icon pending"><FileCheck2 size={22} /></div><span className="kyc-status-pill">VERIFICATION IN REVIEW</span><h2>Verification Pending</h2><p>Your business details are under review. Revenue analytics will be available once verification is complete.</p></> : <><div className="kyc-gate-icon"><ShieldCheck size={22} /></div><span className="kyc-status-pill">SECURE YOUR PAYOUTS</span><h2>Unlock your analytics</h2><p>Complete business verification to review revenue and transaction activity.</p><button className="button button-primary kyc-cta" onClick={() => setKycOpen(true)}>Complete Business Verification <ArrowRight size={16} /></button><span className="kyc-gate-foot"><LockKeyhole size={13} /> Your submitted details stay private</span></>}</section></div>}</div>
       <footer className="dashboard-footer"><span><LockKeyhole size={13} /> Your privacy is always on.</span><button aria-label="Help"><CircleHelp size={15} /> Help & support</button></footer>
     </div>
     {editOpen && profile && <EditProfileModal profile={profile} onClose={() => setEditOpen(false)} onSaved={updated => { setProfile(updated); setEditOpen(false) }} />}
     {qrOpen && profile && <ShareQrModal handle={profile.alias_handle} onClose={() => setQrOpen(false)} />}
-    {kycOpen && profile && <KycModal profile={profile} onClose={() => setKycOpen(false)} onSubmitted={() => { setProfile(current => current ? { ...current, kyc_status: 'pending' } : current); setKycOpen(false) }} />}
   </main>
-}
-
-function KycModal({ profile, onClose, onSubmitted }: { profile: Profile; onClose: () => void; onSubmitted: () => void }) {
-  const [step, setStep] = useState(0)
-  const [legalName, setLegalName] = useState(profile.real_legal_name ?? '')
-  const [taxId, setTaxId] = useState('')
-  const [accountNumber, setAccountNumber] = useState('')
-  const [routingCode, setRoutingCode] = useState('')
-  const [documentName, setDocumentName] = useState('')
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [dragging, setDragging] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [error, setError] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
-  const uploadTimer = useRef<number | null>(null)
-  const finishTimer = useRef<number | null>(null)
-
-  useEffect(() => () => {
-    if (uploadTimer.current !== null) window.clearInterval(uploadTimer.current)
-    if (finishTimer.current !== null) window.clearTimeout(finishTimer.current)
-  }, [])
-
-  function beginFakeUpload(file?: File) {
-    if (!file) return
-    setDocumentName(file.name)
-    setUploadProgress(0)
-    if (uploadTimer.current !== null) window.clearInterval(uploadTimer.current)
-    uploadTimer.current = window.setInterval(() => setUploadProgress(current => {
-      const next = Math.min(current + 10, 100)
-      if (next === 100 && uploadTimer.current !== null) {
-        window.clearInterval(uploadTimer.current)
-        uploadTimer.current = null
-      }
-      return next
-    }), 90)
-  }
-
-  function nextStep() {
-    setError('')
-    if (step === 0 && (!legalName.trim() || !taxId.trim())) { setError('Enter your legal name and Tax ID / PAN to continue.'); return }
-    if (step === 1 && uploadProgress < 100) { setError('Add an identity document and wait for the upload to finish.'); return }
-    setStep(current => Math.min(current + 1, 2))
-  }
-
-  async function submitVerification(event: FormEvent) {
-    event.preventDefault()
-    setError('')
-    if (!accountNumber.trim() || !routingCode.trim()) { setError('Enter your account number and IFSC / routing code.'); return }
-    if (!supabase) { setError('Connect your Supabase project to submit verification.'); return }
-    setBusy(true)
-    try {
-      await new Promise(resolve => window.setTimeout(resolve, 2000))
-      const { error: updateError } = await supabase.from('users').update({ kyc_status: 'pending' }).eq('id', profile.id)
-      if (updateError) throw updateError
-      setBusy(false)
-      setSubmitted(true)
-      finishTimer.current = window.setTimeout(onSubmitted, 1500)
-    } catch (submitError) {
-      setBusy(false)
-      setError(submitError instanceof Error ? submitError.message : 'Verification could not be submitted. Please try again.')
-    }
-  }
-
-  const stepLabels = ['Business Details', 'Identity Document', 'Payout Details']
-  return <div className="modal-backdrop kyc-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !busy && !submitted) onClose() }}>
-    <section className="profile-modal kyc-modal" role="dialog" aria-modal="true" aria-labelledby="kyc-modal-title">
-      <header className="modal-heading kyc-modal-heading"><div><div className="form-eyebrow">BUSINESS VERIFICATION</div><h2 id="kyc-modal-title">{submitted ? 'Verification Pending' : 'Complete your profile'}</h2></div>{!busy && !submitted && <button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button>}</header>
-      {submitted ? <div className="kyc-success-state" role="status"><div className="kyc-success-ring"><Check size={26} /></div><span className="kyc-status-pill">SUBMITTED FOR REVIEW</span><h3>Verification Pending</h3><p>Your details have been submitted securely. We’ll update your dashboard when review is complete.</p></div> : <>
-        <div className="kyc-step-meta"><span>STEP {step + 1} OF 3</span><span>{stepLabels[step]}</span></div>
-        <div className="kyc-step-track" aria-label={`Step ${step + 1} of 3`}>{stepLabels.map((label, index) => <span key={label} className={index <= step ? 'active' : ''} />)}</div>
-        <form className="kyc-form" onSubmit={submitVerification}>
-          {step === 0 && <div className="kyc-fields"><p className="kyc-step-intro">Tell us about the business receiving payments.</p><label>Legal Name<input className="kyc-input" autoComplete="name" value={legalName} onChange={event => setLegalName(event.target.value)} placeholder="Name registered with your bank" /></label><label>Tax ID / PAN<input className="kyc-input" autoCapitalize="characters" value={taxId} onChange={event => setTaxId(event.target.value.toUpperCase())} placeholder="Enter your PAN or tax ID" /></label><p className="kyc-private-note"><LockKeyhole size={14} /> Details are used for this mock verification only.</p></div>}
-          {step === 1 && <div className="kyc-fields"><p className="kyc-step-intro">Add one identity document to continue.</p><input ref={inputRef} type="file" accept="image/*,.pdf" className="kyc-file-input" onChange={event => beginFakeUpload(event.target.files?.[0])} /><button type="button" className={`kyc-upload-zone ${dragging ? 'is-dragging' : ''}`} onClick={() => inputRef.current?.click()} onDragOver={event => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); beginFakeUpload(event.dataTransfer.files?.[0]) }}><span className="kyc-upload-icon"><UploadCloud size={22} /></span><strong>{documentName || 'Drop your identity document here'}</strong><span>{documentName ? 'Click to choose a different file' : 'or browse files · PDF, PNG, or JPG'}</span>{uploadProgress > 0 && <div className="kyc-upload-progress" aria-label={`Upload progress ${uploadProgress}%`}><i style={{ width: `${uploadProgress}%` }} /></div>}{uploadProgress === 100 && <small className="kyc-upload-complete"><Check size={13} /> Document ready</small>}</button><p className="kyc-private-note"><LockKeyhole size={14} /> The mock upload runs locally. Your document is not stored.</p></div>}
-          {step === 2 && <div className="kyc-fields"><p className="kyc-step-intro">Add the account where payouts should arrive.</p><label>Account Number<input className="kyc-input numeric-data" inputMode="numeric" autoComplete="off" value={accountNumber} onChange={event => setAccountNumber(event.target.value.replace(/\s/g, ''))} placeholder="Enter account number" /></label><label>IFSC / Routing Code<input className="kyc-input" autoCapitalize="characters" value={routingCode} onChange={event => setRoutingCode(event.target.value.toUpperCase())} placeholder="e.g., ABCD0123456" /></label><p className="kyc-private-note"><LockKeyhole size={14} /> Payout details stay in this demo session.</p></div>}
-          {error && <p className="error-note kyc-error" role="alert">{error}</p>}
-          <div className="kyc-form-actions">{step > 0 && <button type="button" className="button button-secondary" disabled={busy} onClick={() => { setError(''); setStep(current => current - 1) }}><ArrowLeft size={16} /> Back</button>}{step < 2 ? <button type="button" className="button button-primary kyc-next-button" onClick={nextStep}>Continue <ArrowRight size={16} /></button> : <button type="submit" className="button button-primary kyc-next-button" disabled={busy}>{busy ? <><span className="spinner auth-button-spinner" /> Submitting verification…</> : <>Submit Verification <ArrowRight size={16} /></>}</button>}</div>
-        </form>
-      </>}
-    </section>
-  </div>
 }
 
 function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void }) {
@@ -694,11 +590,11 @@ function PaymentPage() {
     await new Promise(resolve => window.setTimeout(resolve, 2000))
     setPaymentStage('complete')
     playChaChing()
-    await new Promise(resolve => window.setTimeout(resolve, 1700))
+    await new Promise(resolve => window.setTimeout(resolve, 650))
     navigate('/payment/success', { state: { amount: value, alias: profile.alias_handle, senderAlias: cleanSenderAlias } })
   }
 
-  return <main className="payment-page"><header className="payment-topbar"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> PAYMENT TEST</span></header><div className="payment-wrap"><Link to="/login" className="back-link"><ArrowLeft size={15} /> GhostPay</Link><section className="payment-card"><div className="payment-card-top"><div className="receiver-avatar"><Shield size={22} /></div><span className="verified-badge"><ShieldCheck size={13} /> VERIFIED LINK</span></div>{paymentStage === 'idle' ? <><div className="form-eyebrow">A PRIVATE PAYMENT</div><h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1><p className="payment-subtext">Your real identity is hidden from the receiver.</p><div className="privacy-banner"><LockKeyhole size={16} /><span>Your payment details are protected by GhostPay.</span></div><form onSubmit={startPayment} className="payment-form"><label>Your Name / Alias<input maxLength={80} placeholder="e.g., Alex / Twitter Client" value={senderAlias} onChange={e => setSenderAlias(e.target.value)} /></label><label>Amount (₹)<div className="amount-input"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required /></div></label>{error && <p className="error-note">{error}</p>}<button className="button button-primary full-button" disabled={busy || !profile}>{busy ? 'Saving test payment…' : 'Pay via UPI'}<ArrowRight size={17} /></button></form><div className="payment-secure"><ShieldCheck size={16} /><span>Supabase demo record · No payment will be collected</span></div></> : <div className={`payment-progress ${paymentStage}`} aria-live="polite">{paymentStage === 'processing' ? <div className="payment-progress-icon processing"><span className="payment-spinner" aria-hidden="true" /></div> : <div className="rocket-scene" aria-label="Payment successful"><span className="rocket-moon" aria-hidden="true">🌕</span><span className="rocket-ship" aria-hidden="true">🚀</span><span className="rocket-paid"><span><Check size={15} /></span> Paid</span></div>}<h1>{paymentStage === 'processing' ? 'Processing payment' : 'Payment successful'}</h1><p>{paymentStage === 'processing' ? 'Please wait while we confirm your payment.' : 'Your payment has been recorded.'}</p></div>}</section><p className="payment-footer"><LockKeyhole size={12} /> GhostPay test checkout</p></div></main>
+  return <main className="payment-page"><header className="payment-topbar"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> PAYMENT TEST</span></header><div className="payment-wrap"><Link to="/login" className="back-link"><ArrowLeft size={15} /> GhostPay</Link><section className="payment-card"><div className="payment-card-top"><div className="receiver-avatar"><Shield size={22} /></div><span className="verified-badge"><ShieldCheck size={13} /> VERIFIED LINK</span></div>{paymentStage === 'idle' ? <><div className="form-eyebrow">A PRIVATE PAYMENT</div><h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1><p className="payment-subtext">Your real identity is hidden from the receiver.</p><div className="privacy-banner"><LockKeyhole size={16} /><span>Your payment details are protected by GhostPay.</span></div><form onSubmit={startPayment} className="payment-form"><label>Your Name / Alias<input maxLength={80} placeholder="e.g., Alex / Twitter Client" value={senderAlias} onChange={e => setSenderAlias(e.target.value)} /></label><label>Amount (₹)<div className="amount-input"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required /></div></label>{error && <p className="error-note">{error}</p>}<button className="button button-primary full-button" disabled={busy || !profile}>{busy ? 'Saving test payment…' : 'Pay via UPI'}<ArrowRight size={17} /></button></form><div className="payment-secure"><ShieldCheck size={16} /><span>Supabase demo record · No payment will be collected</span></div></> : <div className={`payment-progress ${paymentStage}`} aria-live="polite">{paymentStage === 'processing' ? <div className="payment-progress-icon processing"><span className="payment-spinner" aria-hidden="true" /></div> : <div className="payment-progress-icon complete"><Check size={20} strokeWidth={2} /></div>}<h1>{paymentStage === 'processing' ? 'Processing payment' : 'Payment successful'}</h1><p>{paymentStage === 'processing' ? 'Please wait while we confirm your payment.' : 'Your payment has been recorded.'}</p></div>}</section><p className="payment-footer"><LockKeyhole size={12} /> GhostPay test checkout</p></div></main>
 }
 
 function PaymentReturnPage() {
