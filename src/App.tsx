@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Activity, ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, LockKeyhole, LogOut, Moon, Plus, QrCode, Share2, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
-import { toBlob } from 'html-to-image'
+import { toPng } from 'html-to-image'
+import { QRCodeSVG as QRCode } from 'qrcode.react'
 import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
 
@@ -409,50 +410,54 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
     if (shareToastTimer.current !== null) window.clearTimeout(shareToastTimer.current)
   }, [])
 
-  async function copyProfileLink() {
-    await navigator.clipboard.writeText(qrPayload)
-    setShareNotice('Link copied to clipboard')
-    if (shareToastTimer.current !== null) window.clearTimeout(shareToastTimer.current)
-    shareToastTimer.current = window.setTimeout(() => { setShareNotice(''); shareToastTimer.current = null }, 2500)
+  const toast = {
+    success(message: string) {
+      setError('')
+      setShareNotice(message)
+      if (shareToastTimer.current !== null) window.clearTimeout(shareToastTimer.current)
+      shareToastTimer.current = window.setTimeout(() => { setShareNotice(''); shareToastTimer.current = null }, 2500)
+    },
+    error(message: string) {
+      setShareNotice('')
+      setError(message)
+    },
   }
 
-  async function handleShare() {
-    setError('')
-    if (typeof navigator.share !== 'function') {
-      try { await copyProfileLink() }
-      catch { setError('The profile link could not be copied. Please copy it from your browser address bar.') }
-      return
-    }
-
+  const handleShare = async () => {
     try {
-      const quoteRes = await fetch('https://dummyjson.com/quotes/random')
-      if (!quoteRes.ok) throw new Error('A security quote could not be loaded. Please try again.')
-      const quoteData = await quoteRes.json() as { quote?: string }
-      if (!quoteData.quote) throw new Error('A security quote could not be loaded. Please try again.')
+      // 1. Fetch dynamic quote
+      const quoteRes = await fetch('https://dummyjson.com/quotes/random');
+      const quoteData = await quoteRes.json();
+      const dynamicQuote = quoteData.quote;
 
-      const exportCard = document.getElementById('ghostpay-export-card')
-      if (!exportCard) throw new Error('The branded QR card is not ready to share.')
-      const pngBlob = await toBlob(exportCard, { pixelRatio: 2, cacheBust: true })
-      if (!pngBlob) throw new Error('The branded QR card could not be rendered.')
-      const file = new File([pngBlob], 'qr.png', { type: 'image/png' })
-      const shareUrl = `https://ghostpay-orpin.vercel.app/@${profile.alias_handle}`
-      const text = `Pay me securely here: https://ghostpay-orpin.vercel.app/@${profile.alias_handle}\n\n"${quoteData.quote}"`
-      const shareData: ShareData = {
-        files: [file],
-        title: 'GhostPay',
-        text,
-        url: shareUrl,
+      // 2. Format the share URL and Text exactly in this order
+      const shareUrl = `https://ghostpay-orpin.vercel.app/@${profile.alias_handle}`;
+      const shareText = `Pay me securely here: ${shareUrl}\n\n"${dynamicQuote}"`;
+
+      // 3. Capture the hidden HTML card as an image
+      const cardElement = document.getElementById('ghostpay-export-card');
+      if (!cardElement) throw new Error('Export card not found in DOM');
+
+      const dataUrl = await toPng(cardElement, { cacheBust: true, pixelRatio: 3 });
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], 'ghostpay-qr.png', { type: 'image/png' });
+
+      // 4. Trigger Native Share
+      if (navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: 'GhostPay',
+          text: shareText
+        });
+      } else {
+        navigator.clipboard.writeText(shareText);
+        toast.success("Link copied to clipboard");
       }
-      if (navigator.canShare && !navigator.canShare({ files: [file] })) {
-        await copyProfileLink()
-        return
-      }
-      await navigator.share(shareData)
-    } catch (shareError) {
-      if (shareError instanceof Error && shareError.name === 'AbortError') return
-      setError(shareError instanceof Error ? shareError.message : 'Profile could not be shared. Please try again.')
+    } catch (error) {
+      console.error('Share failed:', error);
+      toast.error("Failed to generate share card");
     }
-  }
+  };
 
   async function downloadQr() {
     setError('')
@@ -486,17 +491,37 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
         <button className="button qr-action-button qr-share-action" onClick={handleShare}><Share2 size={16} /> Share Profile</button>
         <button className="button qr-action-button qr-download-action" onClick={downloadQr} disabled={downloading}>{downloading ? 'Preparing…' : <><Download size={17} /> Download QR</>}</button>
       </div>
-      <div id="ghostpay-export-card" aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: 0, width: '380px', boxSizing: 'border-box', borderRadius: '24px', padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#ffffff', color: '#18181b', fontFamily: 'Arial, sans-serif' }}>
-        <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', color: '#2563EB', fontSize: '25px', fontWeight: 800, letterSpacing: '-0.7px' }}><Shield size={22} strokeWidth={2.5} /><span>ghostpay</span></header>
-        <div style={{ display: 'grid', placeItems: 'center', marginTop: '26px', padding: '14px', border: '1px solid #e4e4e7', borderRadius: '18px', background: '#ffffff' }}>
-          <img src={qrImageUrl} width="250" height="250" alt="GhostPay payment QR code" crossOrigin="anonymous" />
-        </div>
-        <footer style={{ marginTop: '22px', color: '#3f3f46', fontSize: '18px', fontWeight: 650 }}>@{profile.alias_handle}</footer>
-      </div>
       {shareNotice && <div className="payment-toast" role="status">{shareNotice}</div>}
       {error && <p className="error-note qr-error" role="alert">{error}</p>}
       <p className="modal-privacy"><LockKeyhole size={13} /> Payments route through GhostPay to keep your real identity completely hidden.</p>
     </section>
+    <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+      <div
+        id="ghostpay-export-card"
+        style={{
+          width: '380px',
+          backgroundColor: '#ffffff',
+          borderRadius: '24px',
+          padding: '32px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
+          <span style={{ color: '#2563EB', fontWeight: 'bold', fontSize: '20px' }}>ghostpay</span>
+        </div>
+
+        <div style={{ padding: '16px', border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#f9fafb', marginBottom: '24px' }}>
+          <QRCode value={`https://ghostpay-orpin.vercel.app/@${profile.alias_handle}`} size={200} />
+        </div>
+
+        <div style={{ fontSize: '16px', color: '#4b5563', fontWeight: '500' }}>
+          @{profile.alias_handle}
+        </div>
+      </div>
+    </div>
   </div>
 }
 
