@@ -425,37 +425,53 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
 
   const handleShare = async () => {
     try {
-      // 1. Fetch dynamic quote
-      const quoteRes = await fetch('https://dummyjson.com/quotes/random');
-      const quoteData = await quoteRes.json();
-      const dynamicQuote = quoteData.quote;
+      // 1. Fetch Quote with Fallback
+      let dynamicQuote = "Trust is an expensive thing, cheap people can't afford it.";
+      try {
+        const quoteRes = await fetch('https://dummyjson.com/quotes/random');
+        const quoteData = await quoteRes.json();
+        if (quoteData.quote) dynamicQuote = quoteData.quote;
+      } catch (apiErr) {
+        console.log('Quote fetch failed, using fallback quote.');
+      }
 
-      // 2. Format the share URL and Text exactly in this order
       const shareUrl = `https://ghostpay-orpin.vercel.app/@${profile.alias_handle}`;
       const shareText = `Pay me securely here: ${shareUrl}\n\n"${dynamicQuote}"`;
 
-      // 3. Capture the hidden HTML card as an image
+      // 2. Generate Image Safely
       const cardElement = document.getElementById('ghostpay-export-card');
-      if (!cardElement) throw new Error('Export card not found in DOM');
+      if (!cardElement) throw new Error('Card element not found in DOM');
 
-      const dataUrl = await toPng(cardElement, { cacheBust: true, pixelRatio: 3 });
+      const dataUrl = await toPng(cardElement, { cacheBust: true, pixelRatio: 2, backgroundColor: '#ffffff' });
       const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], 'ghostpay-qr.png', { type: 'image/png' });
+      const file = new File([blob], `ghostpay-${profile.alias_handle}.png`, { type: 'image/png' });
 
-      // 4. Trigger Native Share
-      if (navigator.share) {
-        await navigator.share({
-          files: [file],
-          title: 'GhostPay',
-          text: shareText
-        });
-      } else {
-        navigator.clipboard.writeText(shareText);
-        toast.success("Link copied to clipboard");
+      // 3. Attempt Native Share
+      try {
+        if (navigator.share) {
+          await navigator.share({
+            files: [file],
+            title: 'GhostPay',
+            text: shareText
+          });
+          return;
+        }
+      } catch (shareErr) {
+        console.log('Native share blocked, falling back to download.', shareErr);
       }
+
+      // 4. Fallback: Download & Copy
+      const link = document.createElement('a');
+      link.download = `GhostPay-${profile.alias_handle}.png`;
+      link.href = dataUrl;
+      link.click();
+
+      await navigator.clipboard.writeText(shareText);
+      toast.success("Card downloaded & text copied!");
     } catch (error) {
-      console.error('Share failed:', error);
-      toast.error("Failed to generate share card");
+      console.error('Share system failed:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(`Error: ${message}`);
     }
   };
 
@@ -495,7 +511,7 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
       {error && <p className="error-note qr-error" role="alert">{error}</p>}
       <p className="modal-privacy"><LockKeyhole size={13} /> Payments route through GhostPay to keep your real identity completely hidden.</p>
     </section>
-    <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, zIndex: -9999, opacity: 0.01, pointerEvents: 'none' }}>
       <div
         id="ghostpay-export-card"
         style={{
