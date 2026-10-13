@@ -366,6 +366,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .qr-image-error { max-width: 220px; color: #95605c; font-size: 12px; line-height: 1.5; }
 .qr-share-url { max-width: 100%; margin: 16px 0; overflow-wrap: anywhere; color: #60756a; font-size: 11px; }
 .qr-download-button { min-height: 46px; }
+.qr-action-row { display: flex; gap: 12px; width: 100%; align-items: center; justify-content: space-between; }
+.qr-action-row > .button { flex: 1; min-width: 0; min-height: 46px; border-radius: 9999px; }
 .qr-error { margin: 12px 0 0; }
 .qr-modal .modal-privacy { line-height: 1.5; }
 

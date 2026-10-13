@@ -457,8 +457,10 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
       <header className="modal-heading"><div><div className="form-eyebrow">PUBLIC PAYMENT LINK</div><h2 id="share-qr-title">Your payment QR</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button></header>
       <div className="qr-image-frame">{imageError ? <p className="qr-image-error" role="status">QR preview could not load. Check your connection and try again.</p> : <img src={qrImageUrl} width="250" height="250" alt={`GhostPay payment portal QR for @${receiverHandle}`} referrerPolicy="no-referrer" onError={() => setImageError(true)} />}</div>
       <div className="upi-qr-caption"><h3>Scan to open payment portal.</h3></div>
-      <button className="button button-secondary full-button qr-download-button" onClick={shareProfile}><Share2 size={16} /> Share Profile</button>
-      <button className="button button-primary full-button qr-download-button" onClick={downloadQr} disabled={downloading}>{downloading ? 'Preparing download…' : <><Download size={17} /> Download QR</>}</button>
+      <div className="qr-action-row">
+        <button className="button button-secondary qr-download-button" onClick={shareProfile}><Share2 size={16} /> Share Profile</button>
+        <button className="button button-primary qr-download-button" onClick={downloadQr} disabled={downloading}>{downloading ? 'Preparing…' : <><Download size={17} /> Download QR</>}</button>
+      </div>
       {shareNotice && <div className="payment-toast" role="status">{shareNotice}</div>}
       {error && <p className="error-note qr-error" role="alert">{error}</p>}
       <p className="modal-privacy"><LockKeyhole size={13} /> Payments route through GhostPay to keep your real identity completely hidden.</p>
@@ -541,11 +543,10 @@ function PaymentPage() {
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState(false)
   const [paymentStage, setPaymentStage] = useState<'idle' | 'processing' | 'complete'>('idle')
-  const [successAudio] = useState(() => new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3'))
   const toastTimer = useRef<number | null>(null)
   const user = visitorSession?.user
-  const isSelf = user?.id === profile?.id && Boolean(user && profile)
-  const selectedPaymentMethod = isSelf ? 'upi' : paymentMethod
+  const canUseWallet = Boolean(user && profile && user.id !== profile.id)
+  const selectedPaymentMethod = canUseWallet ? paymentMethod : 'upi'
 
   function showToast(message: string) {
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
@@ -556,13 +557,8 @@ function PaymentPage() {
   useEffect(() => () => { if (toastTimer.current !== null) window.clearTimeout(toastTimer.current) }, [])
 
   useEffect(() => {
-    successAudio.preload = 'auto'
-    successAudio.load()
-  }, [successAudio])
-
-  useEffect(() => {
-    setPaymentMethod(isSelf ? 'upi' : 'wallet')
-  }, [isSelf])
+    setPaymentMethod(canUseWallet ? 'wallet' : 'upi')
+  }, [canUseWallet])
 
   useEffect(() => {
     let active = true
@@ -625,7 +621,7 @@ function PaymentPage() {
     if (!profile) { showToast('This payment link is not ready yet.'); return }
 
     if (!supabase) { showToast('Wallet payments are unavailable right now.'); return }
-    const useWallet = Boolean(visitorSession && selectedPaymentMethod === 'wallet' && !isSelf)
+    const useWallet = Boolean(canUseWallet && selectedPaymentMethod === 'wallet')
     if (!useWallet && !senderName.trim()) { showToast('Please enter your name to continue.'); return }
     if (useWallet && walletBalance === null) { showToast('Your wallet balance is still loading. Please try again.'); return }
     const accountAlias = visitorSession && typeof visitorSession.user.user_metadata.alias_handle === 'string'
@@ -656,10 +652,6 @@ function PaymentPage() {
       const updatedBalance = transfer?.wallet_balance == null ? null : Number(transfer.wallet_balance)
       if (!transfer?.transaction_id || (updatedBalance !== null && !Number.isFinite(updatedBalance))) throw new Error('Payment confirmation was missing.')
       if (useWallet && updatedBalance !== null) setWalletBalance(updatedBalance)
-      if (!useWallet) {
-        successAudio.currentTime = 0
-        successAudio.play().catch(err => console.error('Audio blocked:', err))
-      }
       setPaymentStage('complete')
       await new Promise(resolve => window.setTimeout(resolve, 650))
       navigate('/payment/success', {
@@ -695,13 +687,13 @@ function PaymentPage() {
             {authReady && (!visitorSession || selectedPaymentMethod === 'upi') && <label>Your Name<input type="text" maxLength={80} placeholder="Your Name" aria-required="true" value={senderName} onChange={event => setSenderName(event.target.value)} /></label>}
             <label>Amount (₹)<div className="amount-input amount-input-large"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={event => setAmount(event.target.value)} required /></div></label>
             {error && <p className="error-note">{error}</p>}
-            {!authReady ? <button className="button button-primary full-button" type="button" disabled><span className="spinner auth-button-spinner" /> Checking secure session…</button> : !visitorSession ? <button className="button button-primary full-button" disabled={!profile || busy}>{busy ? <><span className="spinner auth-button-spinner" /> Processing simulation…</> : <>Send Securely <ArrowRight size={17} /> </>}</button> : <>
+            {!authReady ? <button className="button button-primary full-button" type="button" disabled><span className="spinner auth-button-spinner" /> Checking secure session…</button> : canUseWallet ? <>
               <div className="payment-mode-options" role="radiogroup" aria-label="Payment method">
-                {!isSelf && <button type="button" role="radio" aria-checked={selectedPaymentMethod === 'wallet'} className={`payment-option ${selectedPaymentMethod === 'wallet' ? 'selected' : ''}`} onClick={() => setPaymentMethod('wallet')}>
+                <button type="button" role="radio" aria-checked={selectedPaymentMethod === 'wallet'} className={`payment-option ${selectedPaymentMethod === 'wallet' ? 'selected' : ''}`} onClick={() => setPaymentMethod('wallet')}>
                   <span className="payment-option-heading"><span className="payment-option-radio" /> GhostPay Wallet</span>
                   <span className="payment-option-balance">{walletBusy ? 'Loading balance…' : formattedWalletBalance}</span>
                   <span className="payment-option-caption">Available balance</span>
-                </button>}
+                </button>
                 <button type="button" role="radio" aria-checked={selectedPaymentMethod === 'upi'} className={`payment-option ${selectedPaymentMethod === 'upi' ? 'selected' : ''}`} onClick={() => setPaymentMethod('upi')}>
                   <span className="payment-option-heading"><span className="payment-option-radio" /> Simulated Payment</span>
                   <span className="payment-option-balance payment-option-secondary">Simulated nodal checkout</span>
@@ -711,7 +703,7 @@ function PaymentPage() {
               <button className="button button-primary full-button" disabled={!profile || busy || (selectedPaymentMethod === 'wallet' && (walletBusy || walletBalance === null))}>
                 {busy ? <><span className="spinner auth-button-spinner" /> Processing simulation…</> : <>Send Securely <ArrowRight size={17} /></>}
               </button>
-            </>}
+            </> : <button className="button button-primary full-button" disabled={!profile || busy}>{busy ? <><span className="spinner auth-button-spinner" /> Processing simulation…</> : <>Send Securely <ArrowRight size={17} /></>}</button>}
           </form>
           <div className="payment-trust"><ShieldCheck size={16} /><span>Your personal details remain hidden from the receiver.</span></div>
         </> : <div className={`payment-progress ${paymentStage}`} aria-live="polite"><div className={`payment-progress-icon ${paymentStage}`}>{paymentStage === 'processing' ? <span className="payment-spinner" aria-hidden="true" /> : <Check size={20} strokeWidth={2} />}</div><h1>{paymentStage === 'processing' ? 'Processing secure payment' : 'Payment simulation complete'}</h1><p>{paymentStage === 'processing' ? 'Your demo transaction is being recorded.' : 'The completed demo payment is recorded.'}</p></div>}
