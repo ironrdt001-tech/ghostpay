@@ -807,3 +807,23 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   .kyc-gate-card { padding: 24px 18px; }
   .kyc-modal { padding: 22px 18px; border-radius: 1.5rem; }
 }
+
+/* Theme prank toast and checkout success launch */
+.theme-joke-toast { position: fixed; z-index: 60; top: max(18px, env(safe-area-inset-top)); left: 50%; width: max-content; max-width: calc(100vw - 28px); padding: 13px 20px; transform: translateX(-50%); border: 1px solid rgba(255,255,255,.75); border-radius: 9999px; color: #fff; background: #2563eb; box-shadow: 0 14px 36px rgba(37,99,235,.28); font-size: 13px; font-weight: 650; line-height: 1.4; text-align: center; animation: joke-toast-in .24s ease-out both; }
+.rocket-scene { position: relative; width: 230px; height: 116px; margin: -8px 0 18px; }
+.rocket-moon { position: absolute; top: 0; right: 24px; display: grid; width: 45px; height: 45px; place-items: center; border-radius: 50%; background: #eff6ff; box-shadow: 0 0 0 8px rgba(37,99,235,.06), 0 0 26px rgba(37,99,235,.2); font-size: 27px; }
+.rocket-ship { position: absolute; z-index: 2; bottom: 9px; left: 27px; display: block; font-size: 35px; transform: rotate(-36deg); animation: rocket-launch 1.35s cubic-bezier(.2,.72,.25,1) forwards; }
+.rocket-paid { position: absolute; right: 39px; bottom: 6px; display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 14px; border: 1px solid #a7f3d0; border-radius: 9999px; color: #047857; background: #ecfdf5; font-size: 12px; font-weight: 700; opacity: 0; transform: translateY(5px) scale(.96); animation: paid-badge-in .32s ease-out 1.32s forwards; }
+.rocket-paid > span { display: grid; width: 19px; height: 19px; place-items: center; border-radius: 50%; color: #fff; background: #10b981; }
+.payment-progress.complete .rocket-scene { overflow: hidden; }
+@keyframes joke-toast-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes rocket-launch { 0% { opacity: 1; transform: translate(0, 0) rotate(-36deg) scale(1); } 70% { opacity: 1; transform: translate(105px, -54px) rotate(-36deg) scale(.85); } 100% { opacity: 0; transform: translate(137px, -63px) rotate(-36deg) scale(.68); } }
+@keyframes paid-badge-in { to { opacity: 1; transform: translateY(0) scale(1); } }
+.dark .rocket-moon { background: #172554; box-shadow: 0 0 0 8px rgba(59,130,246,.08), 0 0 26px rgba(59,130,246,.2); }
+.dark .rocket-paid { border-color: #065f46; color: #6ee7b7; background: rgba(6,78,59,.38); }
+@media (max-width: 440px) {
+  .theme-joke-toast { padding: 11px 15px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rocket-ship, .rocket-paid { animation-duration: .01ms; animation-delay: 0ms; }
+}

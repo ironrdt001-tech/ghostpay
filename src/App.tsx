@@ -15,39 +15,75 @@ function Brand({ light = false }: { light?: boolean }) {
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [authReady, setAuthReady] = useState(!supabase)
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    try { return window.localStorage.getItem('ghostpay.theme') === 'dark' ? 'dark' : 'light' }
-    catch { return 'light' }
-  })
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [themeToast, setThemeToast] = useState(false)
+  const themeTimer = useRef<number | null>(null)
+  const logoutReset = useRef(false)
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
-    try { window.localStorage.setItem('ghostpay.theme', theme) } catch { /* storage can be disabled */ }
-  }, [theme])
+    if (session && !logoutReset.current) {
+      try { window.localStorage.setItem('ghostpay.theme', theme) } catch { /* storage can be disabled */ }
+    }
+  }, [session, theme])
 
   function toggleTheme() {
-    setTheme(current => current === 'dark' ? 'light' : 'dark')
+    if (themeTimer.current !== null) window.clearTimeout(themeTimer.current)
+    if (theme === 'dark') {
+      setTheme('light')
+      setThemeToast(false)
+      return
+    }
+    setThemeToast(true)
+    themeTimer.current = window.setTimeout(() => {
+      setTheme('dark')
+      setThemeToast(false)
+      themeTimer.current = null
+    }, 1500)
+  }
+
+  function resetThemeForLogout() {
+    logoutReset.current = true
+    if (themeTimer.current !== null) window.clearTimeout(themeTimer.current)
+    themeTimer.current = null
+    setThemeToast(false)
+    setTheme('light')
+    document.documentElement.classList.remove('dark')
+    try { window.localStorage.removeItem('ghostpay.theme') } catch { /* storage can be disabled */ }
   }
 
   useEffect(() => {
     if (!supabase) return
     supabase.auth.getSession().then(({ data, error }) => {
-      if (error) setSession(null)
-      else setSession(data.session)
+      if (error) { setSession(null); resetThemeForLogout() }
+      else {
+        setSession(data.session)
+        if (data.session) {
+          logoutReset.current = false
+          try { setTheme(window.localStorage.getItem('ghostpay.theme') === 'dark' ? 'dark' : 'light') } catch { setTheme('light') }
+        } else resetThemeForLogout()
+      }
       setAuthReady(true)
-    }).catch(() => { setSession(null); setAuthReady(true) })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
-    return () => listener.subscription.unsubscribe()
+    }).catch(() => { setSession(null); resetThemeForLogout(); setAuthReady(true) })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next)
+      if (next) {
+        logoutReset.current = false
+        try { setTheme(window.localStorage.getItem('ghostpay.theme') === 'dark' ? 'dark' : 'light') } catch { setTheme('light') }
+      } else resetThemeForLogout()
+    })
+    return () => { listener.subscription.unsubscribe(); if (themeTimer.current !== null) window.clearTimeout(themeTimer.current) }
   }, [])
 
   if (!authReady) return <div className="loading-screen"><Brand /><span className="spinner" /></div>
 
   return <>
+    {themeToast && <div className="theme-joke-toast" role="status">💳 Premium Dark Mode: $100 Payment Gateway Required... Just joking dw! 😉</div>}
     <Routes>
     <Route path="/" element={session ? <AuthenticatedRedirect session={session} /> : <AuthPage />} />
     <Route path="/login" element={session ? <AuthenticatedRedirect session={session} /> : <AuthPage initialMode="sign-in" />} />
     <Route path="/signup" element={session ? <AuthenticatedRedirect session={session} /> : <AuthPage initialMode="create-account" />} />
     <Route path="/onboarding" element={session ? <OnboardingPage session={session} /> : <Navigate to="/" replace />} />
-    <Route path="/dashboard" element={session ? <DashboardPage session={session} theme={theme} onToggleTheme={toggleTheme} /> : <Navigate to="/" replace />} />
+    <Route path="/dashboard" element={session ? <DashboardPage session={session} theme={theme} onToggleTheme={toggleTheme} onResetTheme={resetThemeForLogout} /> : <Navigate to="/" replace />} />
     <Route path="/payment/return" element={<PaymentReturnPage />} />
     <Route path="/payment/success" element={<PaymentSuccessPage />} />
     {/* Public profile route: React Router params must be a full segment, so /:handle supports /@alias. */}
@@ -207,7 +243,7 @@ function OnboardingPage({ session }: { session: Session }) {
   </main>
 }
 
-function DashboardPage({ session, theme, onToggleTheme }: { session: Session; theme: 'light' | 'dark'; onToggleTheme: () => void }) {
+function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { session: Session; theme: 'light' | 'dark'; onToggleTheme: () => void; onResetTheme: () => void }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [demoTransactions, setDemoTransactions] = useState<DemoTransaction[]>([])
@@ -327,7 +363,10 @@ function DashboardPage({ session, theme, onToggleTheme }: { session: Session; th
     setCopied(true); window.setTimeout(() => setCopied(false), 1800)
   }
 
-  async function signOut() { await supabase?.auth.signOut() }
+  async function signOut() {
+    onResetTheme()
+    await supabase?.auth.signOut()
+  }
   return <main className="dashboard-page">
     <header className="dashboard-topbar"><Brand /><div className="topbar-actions"><span className="secure-pill"><span /> SECURE SPACE</span><button className="icon-button" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><button className="icon-button" onClick={signOut} aria-label="Sign out"><LogOut size={17} /></button><div className="avatar">{avatarUrl ? <img src={avatarUrl} alt="Profile" /> : <span className={`avatar-monogram ${profile?.avatar_url?.startsWith('preset:') ? `avatar-${profile.avatar_url.slice(7)}` : ''}`}>{profile?.avatar_url?.startsWith('preset:') ? profile.avatar_url.slice(7, 8).toUpperCase() : session.user.email?.slice(0, 1).toUpperCase() ?? 'G'}</span>}</div></div></header>
     <div className="dashboard-container">
@@ -531,6 +570,33 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
   </div>
 }
 
+function prepareChaChing(): () => void {
+  try {
+    const context = new AudioContext()
+    void context.resume().catch(() => undefined)
+    return () => {
+      const start = context.currentTime
+      ;[1046.5, 1318.5, 1568].forEach((frequency, index) => {
+        const oscillator = context.createOscillator()
+        const gain = context.createGain()
+        const onset = start + index * 0.12
+        oscillator.type = index === 2 ? 'sine' : 'triangle'
+        oscillator.frequency.setValueAtTime(frequency, onset)
+        gain.gain.setValueAtTime(0.0001, onset)
+        gain.gain.exponentialRampToValueAtTime(index === 2 ? 0.07 : 0.11, onset + 0.012)
+        gain.gain.exponentialRampToValueAtTime(0.0001, onset + 0.38)
+        oscillator.connect(gain)
+        gain.connect(context.destination)
+        oscillator.start(onset)
+        oscillator.stop(onset + 0.4)
+      })
+      window.setTimeout(() => { void context.close().catch(() => undefined) }, 1200)
+    }
+  } catch {
+    return () => undefined
+  }
+}
+
 function PaymentPage() {
   const { handle = '' } = useParams()
   const aliasHandle = handle.replace(/^@+/, '').toLowerCase()
@@ -563,6 +629,7 @@ function PaymentPage() {
     if (!Number.isFinite(value) || value <= 0) { setError('Enter an amount greater than ₹0.'); return }
     if (!profile) { setError('This payment link is not ready yet.'); return }
     if (!supabase) { setError('This payment page is not connected yet.'); return }
+    const playChaChing = prepareChaChing()
     setBusy(true)
     setPaymentStage('processing')
     const cleanSenderAlias = senderAlias.trim().slice(0, 80) || 'Anonymous'
@@ -579,11 +646,12 @@ function PaymentPage() {
     }
     await new Promise(resolve => window.setTimeout(resolve, 2000))
     setPaymentStage('complete')
-    await new Promise(resolve => window.setTimeout(resolve, 650))
+    playChaChing()
+    await new Promise(resolve => window.setTimeout(resolve, 1700))
     navigate('/payment/success', { state: { amount: value, alias: profile.alias_handle, senderAlias: cleanSenderAlias } })
   }
 
-  return <main className="payment-page"><header className="payment-topbar"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> PAYMENT TEST</span></header><div className="payment-wrap"><Link to="/login" className="back-link"><ArrowLeft size={15} /> GhostPay</Link><section className="payment-card"><div className="payment-card-top"><div className="receiver-avatar"><Shield size={22} /></div><span className="verified-badge"><ShieldCheck size={13} /> VERIFIED LINK</span></div>{paymentStage === 'idle' ? <><div className="form-eyebrow">A PRIVATE PAYMENT</div><h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1><p className="payment-subtext">Your real identity is hidden from the receiver.</p><div className="privacy-banner"><LockKeyhole size={16} /><span>Your payment details are protected by GhostPay.</span></div><form onSubmit={startPayment} className="payment-form"><label>Your Name / Alias<input maxLength={80} placeholder="e.g., Alex / Twitter Client" value={senderAlias} onChange={e => setSenderAlias(e.target.value)} /></label><label>Amount (₹)<div className="amount-input"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required /></div></label>{error && <p className="error-note">{error}</p>}<button className="button button-primary full-button" disabled={busy || !profile}>{busy ? 'Saving test payment…' : 'Pay via UPI'}<ArrowRight size={17} /></button></form><div className="payment-secure"><ShieldCheck size={16} /><span>Supabase demo record · No payment will be collected</span></div></> : <div className={`payment-progress ${paymentStage}`} aria-live="polite"><div className={`payment-progress-icon ${paymentStage}`}>{paymentStage === 'processing' ? <span className="payment-spinner" aria-hidden="true" /> : <Check size={20} strokeWidth={2} />}</div><h1>{paymentStage === 'processing' ? 'Processing payment' : 'Payment successful'}</h1><p>{paymentStage === 'processing' ? 'Please wait while we confirm your payment.' : 'Your payment has been recorded.'}</p></div>}</section><p className="payment-footer"><LockKeyhole size={12} /> GhostPay test checkout</p></div></main>
+  return <main className="payment-page"><header className="payment-topbar"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> PAYMENT TEST</span></header><div className="payment-wrap"><Link to="/login" className="back-link"><ArrowLeft size={15} /> GhostPay</Link><section className="payment-card"><div className="payment-card-top"><div className="receiver-avatar"><Shield size={22} /></div><span className="verified-badge"><ShieldCheck size={13} /> VERIFIED LINK</span></div>{paymentStage === 'idle' ? <><div className="form-eyebrow">A PRIVATE PAYMENT</div><h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1><p className="payment-subtext">Your real identity is hidden from the receiver.</p><div className="privacy-banner"><LockKeyhole size={16} /><span>Your payment details are protected by GhostPay.</span></div><form onSubmit={startPayment} className="payment-form"><label>Your Name / Alias<input maxLength={80} placeholder="e.g., Alex / Twitter Client" value={senderAlias} onChange={e => setSenderAlias(e.target.value)} /></label><label>Amount (₹)<div className="amount-input"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required /></div></label>{error && <p className="error-note">{error}</p>}<button className="button button-primary full-button" disabled={busy || !profile}>{busy ? 'Saving test payment…' : 'Pay via UPI'}<ArrowRight size={17} /></button></form><div className="payment-secure"><ShieldCheck size={16} /><span>Supabase demo record · No payment will be collected</span></div></> : <div className={`payment-progress ${paymentStage}`} aria-live="polite">{paymentStage === 'processing' ? <div className="payment-progress-icon processing"><span className="payment-spinner" aria-hidden="true" /></div> : <div className="rocket-scene" aria-label="Payment successful"><span className="rocket-moon" aria-hidden="true">🌕</span><span className="rocket-ship" aria-hidden="true">🚀</span><span className="rocket-paid"><span><Check size={15} /></span> Paid</span></div>}<h1>{paymentStage === 'processing' ? 'Processing payment' : 'Payment successful'}</h1><p>{paymentStage === 'processing' ? 'Please wait while we confirm your payment.' : 'Your payment has been recorded.'}</p></div>}</section><p className="payment-footer"><LockKeyhole size={12} /> GhostPay test checkout</p></div></main>
 }
 
 function PaymentReturnPage() {
