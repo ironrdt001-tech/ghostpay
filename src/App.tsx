@@ -416,8 +416,9 @@ function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
   const [imageError, setImageError] = useState(false)
-  const publicUrl = `${window.location.origin}/@${handle.replace(/^@+/, '')}`
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(publicUrl)}`
+  const receiverHandle = handle.replace(/^@+/, '')
+  const qrPayload = `upi://pay?pa=ghostpay.nodal@ybl&pn=GhostPay%20Ltd&tr=${receiverHandle}&cu=INR`
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrPayload)}`
 
   async function downloadQr() {
     setError('')
@@ -430,7 +431,7 @@ function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void
       objectUrl = URL.createObjectURL(imageBlob)
       const link = document.createElement('a')
       link.href = objectUrl
-      link.download = `ghostpay-${handle.replace(/^@+/, '')}-qr.png`
+      link.download = `ghostpay-${receiverHandle}-upi-qr.png`
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -444,12 +445,12 @@ function ShareQrModal({ handle, onClose }: { handle: string; onClose: () => void
 
   return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
     <section className="profile-modal qr-modal" role="dialog" aria-modal="true" aria-labelledby="share-qr-title">
-      <header className="modal-heading"><div><div className="form-eyebrow">SHARE YOUR LINK</div><h2 id="share-qr-title">Your payment QR</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button></header>
-      <div className="qr-image-frame">{imageError ? <p className="qr-image-error" role="status">QR preview could not load. Check your connection and try again.</p> : <img src={qrImageUrl} width="250" height="250" alt={`QR code linking to ${publicUrl}`} referrerPolicy="no-referrer" onError={() => setImageError(true)} />}</div>
-      <p className="qr-share-url">{publicUrl}</p>
+      <header className="modal-heading"><div><div className="form-eyebrow">OFFLINE UPI PAYMENTS</div><h2 id="share-qr-title">Your payment QR</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button></header>
+      <div className="qr-image-frame">{imageError ? <p className="qr-image-error" role="status">QR preview could not load. Check your connection and try again.</p> : <img src={qrImageUrl} width="250" height="250" alt={`UPI payment QR for @${receiverHandle}`} referrerPolicy="no-referrer" onError={() => setImageError(true)} />}</div>
+      <div className="upi-qr-caption"><h3>Scan with any UPI app</h3><p>GPay <span>·</span> PhonePe <span>·</span> Paytm</p></div>
       <button className="button button-primary full-button qr-download-button" onClick={downloadQr} disabled={downloading}>{downloading ? 'Preparing download…' : <><Download size={17} /> Download QR</>}</button>
       {error && <p className="error-note qr-error" role="alert">{error}</p>}
-      <p className="modal-privacy"><LockKeyhole size={13} /> QRServer generates this image from your public payment link.</p>
+      <p className="modal-privacy"><LockKeyhole size={13} /> Payments route through GhostPay to keep your real identity completely hidden.</p>
     </section>
   </div>
 }
@@ -544,59 +545,201 @@ function PaymentPage() {
   const { handle = '' } = useParams()
   const aliasHandle = handle.replace(/^@+/, '').toLowerCase()
   const navigate = useNavigate()
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [profile, setProfile] = useState<Pick<Profile, 'alias_handle'> | null>(null)
+  const [visitorSession, setVisitorSession] = useState<Session | null>(null)
+  const [authReady, setAuthReady] = useState(!supabase)
+  const [walletBalance, setWalletBalance] = useState<number | null>(null)
+  const [walletBusy, setWalletBusy] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'upi'>('wallet')
   const [amount, setAmount] = useState('')
-  const [senderAlias, setSenderAlias] = useState('')
   const [error, setError] = useState('')
+  const [toast, setToast] = useState('')
   const [busy, setBusy] = useState(false)
   const [paymentStage, setPaymentStage] = useState<'idle' | 'processing' | 'complete'>('idle')
+  const [upiQrPayload, setUpiQrPayload] = useState('')
+  const [upiQrError, setUpiQrError] = useState(false)
+  const toastTimer = useRef<number | null>(null)
+
+  function showToast(message: string) {
+    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
+    setToast(message)
+    toastTimer.current = window.setTimeout(() => { setToast(''); toastTimer.current = null }, 5000)
+  }
+
+  useEffect(() => () => { if (toastTimer.current !== null) window.clearTimeout(toastTimer.current) }, [])
 
   useEffect(() => {
     let active = true
-    async function load() {
-      if (!supabase) { setError('This payment page is not connected yet.'); return }
-      const { data, error: queryError } = await supabase.from('users').select('id, alias_handle').eq('alias_handle', aliasHandle).maybeSingle()
+    if (!supabase) { setAuthReady(true); return }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return
-      if (queryError) {
-        setError(queryError.message)
-      } else if (!data) setError('We couldn’t find this payment link. Check the address and try again.')
+      setVisitorSession(nextSession)
+      setAuthReady(true)
+    })
+    void supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (!active) return
+      setVisitorSession(sessionError ? null : data.session)
+      setAuthReady(true)
+    }).catch(() => { if (active) { setVisitorSession(null); setAuthReady(true) } })
+    return () => { active = false; subscription.unsubscribe() }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    if (!supabase || !visitorSession) {
+      setWalletBalance(null)
+      setWalletBusy(false)
+      return
+    }
+    setWalletBusy(true)
+    void supabase.from('users').select('wallet_balance').eq('id', visitorSession.user.id).maybeSingle().then(({ data, error: balanceError }) => {
+      if (!active) return
+      if (balanceError) {
+        setWalletBalance(null)
+        showToast('Your wallet balance is unavailable right now. You can still use an external UPI app.')
+      } else setWalletBalance(data ? Number(data.wallet_balance) : 0)
+      setWalletBusy(false)
+    })
+    return () => { active = false }
+  }, [visitorSession?.user.id])
+
+  useEffect(() => {
+    let active = true
+    async function loadReceiver() {
+      if (!supabase) { setError('This payment page is not connected yet.'); return }
+      const { data, error: queryError } = await supabase.from('users').select('alias_handle').eq('alias_handle', aliasHandle).maybeSingle()
+      if (!active) return
+      if (queryError) setError(queryError.message)
+      else if (!data) setError('We couldn’t find this payment link. Check the address and try again.')
       else setProfile(data)
     }
-    void load()
+    void loadReceiver()
     return () => { active = false }
   }, [aliasHandle])
 
+  function createUpiIntent(value: string) {
+    if (!profile) return ''
+    return `upi://pay?pa=ghostpay.nodal@ybl&pn=GhostPay%20Ltd&tr=${profile.alias_handle}&am=${value}&cu=INR`
+  }
+
+  function launchUpiApp(intent: string) {
+    const mobileDevice = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
+    if (mobileDevice) {
+      window.location.href = intent
+      return
+    }
+    setUpiQrError(false)
+    setUpiQrPayload(intent)
+  }
+
   async function startPayment(event: FormEvent) {
-    event.preventDefault(); setError('')
+    event.preventDefault()
+    setError('')
+    setToast('')
     const value = Number(amount)
-    if (!Number.isFinite(value) || value <= 0) { setError('Enter an amount greater than ₹0.'); return }
-    if (!profile) { setError('This payment link is not ready yet.'); return }
-    if (!supabase) { setError('This payment page is not connected yet.'); return }
+    if (!Number.isFinite(value) || value <= 0 || Math.round(value * 100) !== value * 100) {
+      showToast('Enter a valid amount with up to two decimal places.')
+      return
+    }
+    if (!profile) { showToast('This payment link is not ready yet.'); return }
+
+    if (!visitorSession) {
+      launchUpiApp(createUpiIntent(amount))
+      return
+    }
+    if (paymentMethod === 'upi') {
+      launchUpiApp(createUpiIntent(amount))
+      return
+    }
+    if (!supabase) { showToast('Wallet payments are unavailable right now.'); return }
+    if (walletBalance === null) { showToast('Your wallet balance is still loading. Please try again.'); return }
+
     const playChaChing = prepareChaChing()
     setBusy(true)
     setPaymentStage('processing')
-    const cleanSenderAlias = senderAlias.trim().slice(0, 80) || 'Anonymous'
-    const { error: insertError } = await supabase.from('demo_transactions').insert({
-      receiver_id: profile.id,
-      amount_inr: value,
-      sender_alias: cleanSenderAlias,
-    })
-    if (insertError) {
-      setError(insertError.message)
-      setBusy(false)
+    try {
+      const { data, error: transferError } = await supabase.rpc('transfer_ghostpay_wallet', {
+        p_receiver_handle: profile.alias_handle,
+        p_amount: value,
+      })
+      if (transferError) {
+        if (transferError.message.includes('INSUFFICIENT_WALLET_BALANCE')) {
+          showToast('Insufficient GhostPay Wallet balance. Choose an external UPI app for this payment.')
+        } else if (transferError.message.includes('CANNOT_TRANSFER_TO_SELF')) {
+          showToast('You can’t send a wallet payment to your own handle.')
+        } else showToast('Wallet transfer couldn’t be completed. Please try again.')
+        setPaymentStage('idle')
+        setBusy(false)
+        return
+      }
+      const transfer = data as { transfer_id?: string; wallet_balance?: number | string } | null
+      const updatedBalance = Number(transfer?.wallet_balance)
+      if (!transfer?.transfer_id || !Number.isFinite(updatedBalance)) throw new Error('Wallet transfer confirmation was missing.')
+      setWalletBalance(updatedBalance)
+      setPaymentStage('complete')
+      playChaChing()
+      await new Promise(resolve => window.setTimeout(resolve, 650))
+      navigate('/payment/success', {
+        state: {
+          amount: value,
+          alias: profile.alias_handle,
+          senderAlias: visitorSession.user.user_metadata.alias_handle ? formatHandle(visitorSession.user.user_metadata.alias_handle) : 'GhostPay Wallet',
+          paymentMode: 'wallet',
+          transactionId: transfer.transfer_id,
+        },
+      })
+    } catch {
       setPaymentStage('idle')
-      return
+      setBusy(false)
+      showToast('Wallet transfer couldn’t be completed. Please try again.')
     }
-    await new Promise(resolve => window.setTimeout(resolve, 2000))
-    setPaymentStage('complete')
-    playChaChing()
-    await new Promise(resolve => window.setTimeout(resolve, 650))
-    navigate('/payment/success', { state: { amount: value, alias: profile.alias_handle, senderAlias: cleanSenderAlias } })
   }
 
-  return <main className="payment-page"><header className="payment-topbar"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> PAYMENT TEST</span></header><div className="payment-wrap"><Link to="/login" className="back-link"><ArrowLeft size={15} /> GhostPay</Link><section className="payment-card"><div className="payment-card-top"><div className="receiver-avatar"><Shield size={22} /></div><span className="verified-badge"><ShieldCheck size={13} /> VERIFIED LINK</span></div>{paymentStage === 'idle' ? <><div className="form-eyebrow">A PRIVATE PAYMENT</div><h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1><p className="payment-subtext">Your real identity is hidden from the receiver.</p><div className="privacy-banner"><LockKeyhole size={16} /><span>Your payment details are protected by GhostPay.</span></div><form onSubmit={startPayment} className="payment-form"><label>Your Name / Alias<input maxLength={80} placeholder="e.g., Alex / Twitter Client" value={senderAlias} onChange={e => setSenderAlias(e.target.value)} /></label><label>Amount (₹)<div className="amount-input"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required /></div></label>{error && <p className="error-note">{error}</p>}<button className="button button-primary full-button" disabled={busy || !profile}>{busy ? 'Saving test payment…' : 'Pay via UPI'}<ArrowRight size={17} /></button></form><div className="payment-secure"><ShieldCheck size={16} /><span>Supabase demo record · No payment will be collected</span></div></> : <div className={`payment-progress ${paymentStage}`} aria-live="polite">{paymentStage === 'processing' ? <div className="payment-progress-icon processing"><span className="payment-spinner" aria-hidden="true" /></div> : <div className="payment-progress-icon complete"><Check size={20} strokeWidth={2} /></div>}<h1>{paymentStage === 'processing' ? 'Processing payment' : 'Payment successful'}</h1><p>{paymentStage === 'processing' ? 'Please wait while we confirm your payment.' : 'Your payment has been recorded.'}</p></div>}</section><p className="payment-footer"><LockKeyhole size={12} /> GhostPay test checkout</p></div></main>
-}
+  const upiQrImageUrl = upiQrPayload
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiQrPayload)}`
+    : ''
+  const formattedWalletBalance = walletBalance === null ? '—' : `₹${walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
+  return <main className="payment-page">
+    {toast && <div className="payment-toast" role="alert">{toast}</div>}
+    <header className="payment-topbar"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> GHOSTPAY NODAL</span></header>
+    <div className="payment-wrap">
+      <Link to="/login" className="back-link"><ArrowLeft size={15} /> GhostPay</Link>
+      <section className="payment-card">
+        <div className="payment-card-top"><div className="receiver-avatar"><Shield size={22} /></div><span className="verified-badge"><ShieldCheck size={13} /> VERIFIED LINK</span></div>
+        {paymentStage === 'idle' ? <>
+          <div className="form-eyebrow">A PRIVATE PAYMENT</div>
+          <h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1>
+          <p className="payment-subtext">Choose how you’d like to send your payment.</p>
+          <form onSubmit={startPayment} className="payment-form">
+            <label>Amount (₹)<div className="amount-input amount-input-large"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={event => { setAmount(event.target.value); setUpiQrPayload('') }} required /></div></label>
+            {error && <p className="error-note">{error}</p>}
+            {!authReady ? <button className="button button-primary full-button" type="button" disabled><span className="spinner auth-button-spinner" /> Checking secure session…</button> : !visitorSession ? <button className="button button-primary full-button" disabled={!profile}><span>Pay anonymously via UPI App</span><ArrowRight size={17} /></button> : <>
+              <div className="payment-mode-options" role="radiogroup" aria-label="Payment method">
+                <button type="button" role="radio" aria-checked={paymentMethod === 'wallet'} className={`payment-option ${paymentMethod === 'wallet' ? 'selected' : ''}`} onClick={() => { setPaymentMethod('wallet'); setUpiQrPayload('') }}>
+                  <span className="payment-option-heading"><span className="payment-option-radio" /> GhostPay Wallet</span>
+                  <span className="payment-option-balance">{walletBusy ? 'Loading balance…' : formattedWalletBalance}</span>
+                  <span className="payment-option-caption">Available balance</span>
+                </button>
+                <button type="button" role="radio" aria-checked={paymentMethod === 'upi'} className={`payment-option ${paymentMethod === 'upi' ? 'selected' : ''}`} onClick={() => { setPaymentMethod('upi'); setUpiQrPayload('') }}>
+                  <span className="payment-option-heading"><span className="payment-option-radio" /> External UPI App</span>
+                  <span className="payment-option-balance payment-option-secondary">Google Pay, PhonePe, Paytm</span>
+                  <span className="payment-option-caption">Continue outside GhostPay</span>
+                </button>
+              </div>
+              <button className="button button-primary full-button" disabled={!profile || busy || (paymentMethod === 'wallet' && (walletBusy || walletBalance === null))}>
+                {busy ? <><span className="spinner auth-button-spinner" /> Moving funds securely…</> : paymentMethod === 'wallet' ? <>Pay with GhostPay Wallet <ArrowRight size={17} /></> : <>Continue to UPI App <ArrowRight size={17} /></>}
+              </button>
+            </>}
+          </form>
+          {upiQrPayload && <div className="upi-fallback" role="status"><div className="form-eyebrow">SCAN TO PAY</div><h2>Continue with your UPI app</h2>{upiQrError ? <p className="error-note">The payment QR couldn’t be loaded. Please try again.</p> : <img src={upiQrImageUrl} alt="QR code with the GhostPay UPI payment intent" width="220" height="220" onError={() => setUpiQrError(true)} />}<p>Scan this code with any UPI app to continue.</p></div>}
+          <div className="payment-trust"><ShieldCheck size={16} /><span>Your personal details remain hidden from the receiver.</span></div>
+        </> : <div className={`payment-progress ${paymentStage}`} aria-live="polite"><div className={`payment-progress-icon ${paymentStage}`}>{paymentStage === 'processing' ? <span className="payment-spinner" aria-hidden="true" /> : <Check size={20} strokeWidth={2} />}</div><h1>{paymentStage === 'processing' ? 'Processing wallet transfer' : 'Wallet transfer successful'}</h1><p>{paymentStage === 'processing' ? 'Your GhostPay Wallet transfer is being confirmed.' : 'The payment was sent securely.'}</p></div>}
+      </section>
+      <p className="payment-footer"><LockKeyhole size={12} /> Payments route through GhostPay’s nodal account.</p>
+    </div>
+  </main>
+}
 function PaymentReturnPage() {
   return <main className="payment-page"><header className="payment-topbar"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> SECURE PAYMENT</span></header><div className="payment-wrap"><section className="payment-card return-card"><div className="receiver-avatar"><ShieldCheck size={23} /></div><div className="form-eyebrow">PAYMENT STATUS</div><h1>We’re confirming your payment.</h1><p className="payment-subtext">Cashfree is sending us a secure confirmation. You can close this page safely.</p><div className="payment-secure"><ShieldCheck size={16} /><span>We only confirm payments after checking with Cashfree.</span></div></section><p className="payment-footer"><LockKeyhole size={12} /> Protected by GhostPay</p></div></main>
 }
@@ -604,16 +747,54 @@ function PaymentReturnPage() {
 function PaymentSuccessPage() {
   const [searchParams] = useSearchParams()
   const location = useLocation()
-  const receiptState = location.state as { amount?: number; alias?: string; senderAlias?: string } | null
+  const receiptState = location.state as {
+    amount?: number
+    alias?: string
+    senderAlias?: string
+    paymentMode?: 'wallet' | 'simulated'
+    transactionId?: string
+  } | null
+  const walletTransfer = receiptState?.paymentMode === 'wallet'
   const amount = Number(receiptState?.amount ?? searchParams.get('amount'))
   const alias = receiptState?.alias ?? searchParams.get('alias')
   const senderAlias = receiptState?.senderAlias?.trim() || 'Anonymous'
   const [receiptDate] = useState(() => new Date())
-  const [transactionId] = useState(() => `GP-DEMO-${crypto.randomUUID().slice(0, 8).toUpperCase()}`)
+  const [generatedTransactionId] = useState(() => `GP-DEMO-${crypto.randomUUID().slice(0, 8).toUpperCase()}`)
+  const transactionId = receiptState?.transactionId ?? generatedTransactionId
   const formattedAmount = Number.isFinite(amount) && amount > 0
     ? `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : '—'
-  return <main className="payment-page receipt-print-root"><header className="payment-topbar receipt-screen-only"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> PAYMENT TEST</span></header><div className="payment-wrap"><section className="payment-card return-card receipt-screen-only"><div className="receiver-avatar payment-success-mark"><Check size={23} /></div><div className="form-eyebrow">SIMULATED CHECKOUT</div><h1>Payment Successful</h1><p className="payment-subtext"><span className="numeric-data">{formattedAmount}</span> to {alias ? formatHandle(alias) : 'your creator'}</p><div className="privacy-banner"><ShieldCheck size={16} /><span>This was a simulated payment. No money moved.</span></div></section><article className="receipt-card" aria-label="Payment receipt"><div className="receipt-brand"><span className="brand-mark"><Shield size={16} /></span><span>ghostpay</span></div><div className="receipt-status"><Check size={16} /> PAYMENT SIMULATED</div><h1>Payment receipt</h1><p className="receipt-caption">A record of your GhostPay demo checkout</p><div className="receipt-amount numeric-data">{formattedAmount}</div><dl className="receipt-details"><div><dt>Paid by</dt><dd>{senderAlias}</dd></div><div><dt>Paid to</dt><dd>{alias ? formatHandle(alias) : 'Creator'}</dd></div><div><dt>Date</dt><dd className="numeric-data">{receiptDate.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div><div><dt>Transaction ID</dt><dd className="numeric-data">{transactionId}</dd></div></dl><p className="receipt-disclaimer">Demo receipt only · No money was collected or transferred.</p></article><button className="button button-primary full-button receipt-download receipt-screen-only" onClick={() => window.print()}><Download size={17} /> Download Receipt</button><Link className="button button-secondary full-button receipt-screen-only" to="/login">Back to GhostPay<ArrowRight size={17} /></Link><p className="payment-footer receipt-screen-only"><LockKeyhole size={12} /> Test checkout complete</p></div></main>
-}
+  const receiptTitle = walletTransfer ? 'Wallet transfer receipt' : 'Payment receipt'
+  const receiptCaption = walletTransfer ? 'A record of your GhostPay Wallet transfer' : 'A record of your GhostPay demo checkout'
 
+  return <main className="payment-page receipt-print-root">
+    <header className="payment-topbar receipt-screen-only"><Brand /><span className="secure-pill"><LockKeyhole size={12} /> {walletTransfer ? 'WALLET TRANSFER' : 'PAYMENT TEST'}</span></header>
+    <div className="payment-wrap">
+      <section className="payment-card return-card receipt-screen-only">
+        <div className="receiver-avatar payment-success-mark"><Check size={23} /></div>
+        <div className="form-eyebrow">{walletTransfer ? 'GHOSTPAY WALLET' : 'SIMULATED CHECKOUT'}</div>
+        <h1>{walletTransfer ? 'Wallet Transfer Complete' : 'Payment Successful'}</h1>
+        <p className="payment-subtext"><span className="numeric-data">{formattedAmount}</span> to {alias ? formatHandle(alias) : 'your creator'}</p>
+        <div className="privacy-banner"><ShieldCheck size={16} /><span>{walletTransfer ? 'Your wallet transfer was recorded securely.' : 'This was a simulated payment. No money moved.'}</span></div>
+      </section>
+      <article className="receipt-card" aria-label="Payment receipt">
+        <div className="receipt-brand"><span className="brand-mark"><Shield size={16} /></span><span>ghostpay</span></div>
+        <div className="receipt-status"><Check size={16} /> {walletTransfer ? 'WALLET TRANSFER COMPLETE' : 'PAYMENT SIMULATED'}</div>
+        <h1>{receiptTitle}</h1>
+        <p className="receipt-caption">{receiptCaption}</p>
+        <div className="receipt-amount numeric-data">{formattedAmount}</div>
+        <dl className="receipt-details">
+          <div><dt>Paid by</dt><dd>{senderAlias}</dd></div>
+          <div><dt>Paid to</dt><dd>{alias ? formatHandle(alias) : 'Creator'}</dd></div>
+          <div><dt>Date</dt><dd className="numeric-data">{receiptDate.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
+          <div><dt>Transaction ID</dt><dd className="numeric-data">{transactionId}</dd></div>
+        </dl>
+        <p className="receipt-disclaimer">{walletTransfer ? 'Internal GhostPay Wallet transfer · No external UPI app was used.' : 'Demo receipt only · No money was collected or transferred.'}</p>
+      </article>
+      <button className="button button-primary full-button receipt-download receipt-screen-only" onClick={() => window.print()}><Download size={17} /> Download Receipt</button>
+      <Link className="button button-secondary full-button receipt-screen-only" to="/login">Back to GhostPay<ArrowRight size={17} /></Link>
+      <p className="payment-footer receipt-screen-only"><LockKeyhole size={12} /> Test checkout complete</p>
+    </div>
+  </main>
+}
 export default App
