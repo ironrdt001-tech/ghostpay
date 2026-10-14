@@ -515,8 +515,57 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
     },
   }
 
+  const generateBrandedCardBlob = async (): Promise<Blob> => {
+    const cardElement = document.getElementById('ghostpay-export-card');
+    if (!cardElement) {
+      throw new Error('Card element not found in DOM');
+    }
+
+    const blob = await toBlob(cardElement, {
+      cacheBust: true,
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+    });
+
+    if (!blob) {
+      throw new Error('Could not render image blob');
+    }
+
+    return blob;
+  };
+
+  const triggerBlobDownload = (blob: Blob, handle: string) => {
+    const dataUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `GhostPay-${handle}.png`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(dataUrl);
+  };
+
+  const handleDownloadQR = async () => {
+    setError('');
+    setDownloading(true);
+    try {
+      const handle = profile?.alias_handle || 'user';
+      const blob = await generateBrandedCardBlob();
+      triggerBlobDownload(blob, handle);
+      toast.success('Branded QR card downloaded!');
+    } catch (downloadError) {
+      console.error('Download QR failed:', downloadError);
+      const message = downloadError instanceof Error ? downloadError.message : String(downloadError);
+      toast.error(`Error: ${message}`);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const handleShare = async () => {
     try {
+      const handle = profile?.alias_handle || 'user';
+
       // 1. Fetch Quote with Fallback
       let dynamicQuote = "Trust is an expensive thing, cheap people can't afford it.";
       try {
@@ -527,71 +576,34 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
         console.log('Quote fetch failed, using fallback quote.');
       }
 
-      const shareUrl = `https://ghostpay-orpin.vercel.app/@${profile.alias_handle}`;
+      const shareUrl = `https://ghostpay-orpin.vercel.app/@${handle}`;
       const shareText = `Pay me securely here: ${shareUrl}\n\n"${dynamicQuote}"`;
+      const blob = await generateBrandedCardBlob();
+      const file = new File([blob], `ghostpay-${handle}.png`, { type: 'image/png' });
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-      // 2. Generate Image Safely (No fetch used)
-      const cardElement = document.getElementById('ghostpay-export-card');
-      if (!cardElement) throw new Error('Card element not found in DOM');
-
-      const blob = await toBlob(cardElement, { cacheBust: true, pixelRatio: 2, backgroundColor: '#ffffff' });
-      if (!blob) throw new Error('Could not render image blob');
-
-      const file = new File([blob], `ghostpay-${profile.alias_handle}.png`, { type: 'image/png' });
-
-      // 3. Attempt Native Share
-      try {
-        if (navigator.share) {
+      if (isMobile && navigator.share) {
+        try {
           await navigator.share({
             files: [file],
             title: 'GhostPay',
             text: shareText
           });
           return;
+        } catch (shareErr) {
+          console.log('Native share blocked, falling back to download.', shareErr);
         }
-      } catch (shareErr) {
-        console.log('Native share blocked, falling back to download.', shareErr);
       }
 
-      // 4. Fallback: Download & Copy
-      const link = document.createElement('a');
-      link.download = `GhostPay-${profile.alias_handle}.png`;
-      const downloadUrl = URL.createObjectURL(blob);
-      link.href = downloadUrl;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-
+      triggerBlobDownload(blob, handle);
       await navigator.clipboard.writeText(shareText);
       toast.success("Card downloaded & text copied!");
-    } catch (error) {
-      console.error('Share system failed:', error);
-      const message = error instanceof Error ? error.message : String(error);
+    } catch (shareError) {
+      console.error('Share system failed:', shareError);
+      const message = shareError instanceof Error ? shareError.message : String(shareError);
       toast.error(`Error: ${message}`);
     }
   };
-
-  async function downloadQr() {
-    setError('')
-    setDownloading(true)
-    let objectUrl: string | null = null
-    try {
-      const response = await fetch(qrImageUrl, { mode: 'cors', referrerPolicy: 'no-referrer' })
-      if (!response.ok) throw new Error('The QR image could not be downloaded. Please try again.')
-      const imageBlob = await response.blob()
-      objectUrl = URL.createObjectURL(imageBlob)
-      const link = document.createElement('a')
-      link.href = objectUrl
-      link.download = `ghostpay-${receiverHandle}-payment-qr.png`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-    } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : 'The QR image could not be downloaded. Please try again.')
-    } finally {
-      if (objectUrl) window.setTimeout(() => URL.revokeObjectURL(objectUrl as string), 1000)
-      setDownloading(false)
-    }
-  }
 
   return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
     <section className="profile-modal qr-modal" role="dialog" aria-modal="true" aria-labelledby="share-qr-title">
@@ -600,7 +612,7 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
       <div className="upi-qr-caption"><h3>Scan to open payment portal.</h3></div>
       <div className="qr-action-row">
         <button className="button qr-action-button qr-share-action" onClick={handleShare}><Share2 size={16} /> Share Profile</button>
-        <button className="button qr-action-button qr-download-action" onClick={downloadQr} disabled={downloading}>{downloading ? 'Preparing…' : <><Download size={17} /> Download QR</>}</button>
+        <button className="button qr-action-button qr-download-action" onClick={handleDownloadQR} disabled={downloading}>{downloading ? 'Preparing…' : <><Download size={17} /> Download QR</>}</button>
       </div>
       {shareNotice && <div className="payment-toast" role="status">{shareNotice}</div>}
       {error && <p className="error-note qr-error" role="alert">{error}</p>}
@@ -616,8 +628,7 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
           padding: '32px 24px',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          alignItems: 'center'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
