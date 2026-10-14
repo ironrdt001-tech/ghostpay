@@ -10,6 +10,107 @@ type Profile = { id: string; alias_handle: string; real_legal_name?: string; rea
 type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_id?: string | null; receiver_id?: string; sender_alias?: string; sender_name?: string; direction?: 'sent' | 'received'; counterpartyLabel?: string }
 type DemoTransaction = Transaction & { receiver_id: string; sender_alias: string; status: 'simulated' }
 
+let sharedAudioCtx: AudioContext | null = null
+
+const unlockAudioEngine = () => {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioCtx) return
+    if (!sharedAudioCtx) {
+      sharedAudioCtx = new AudioCtx()
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume()
+    }
+  } catch (e) {
+    console.log('Audio unlock skipped:', e)
+  }
+}
+
+const playChaChingSound = () => {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioCtx) return
+    if (!sharedAudioCtx) {
+      sharedAudioCtx = new AudioCtx()
+    }
+    const ctx = sharedAudioCtx
+    if (ctx.state === 'suspended') {
+      ctx.resume()
+    }
+
+    const now = ctx.currentTime
+    const strikeNotes = [1975.53, 2637.02]
+    strikeNotes.forEach(freq => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(freq, now)
+      gain.gain.setValueAtTime(0.001, now)
+      gain.gain.exponentialRampToValueAtTime(0.22, now + 0.012)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now)
+      osc.stop(now + 0.15)
+    })
+
+    const bellNotes = [
+      { freq: 2637.02, gainPeak: 0.28, duration: 0.75 },
+      { freq: 3951.07, gainPeak: 0.16, duration: 0.65 },
+      { freq: 5274.04, gainPeak: 0.10, duration: 0.50 },
+    ]
+    bellNotes.forEach(({ freq, gainPeak, duration }) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(freq, now + 0.09)
+      gain.gain.setValueAtTime(0.001, now + 0.09)
+      gain.gain.exponentialRampToValueAtTime(gainPeak, now + 0.11)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09 + duration)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now + 0.09)
+      osc.stop(now + 0.1 + duration)
+    })
+  } catch (err) {
+    console.log('Cha-ching audio error:', err)
+  }
+}
+
+const processAvatarFileToDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('Please select a valid image file (PNG, JPG, WEBP)'))
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const size = 256
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(new Error('Canvas context unavailable'))
+          return
+        }
+        const minSide = Math.min(img.width, img.height)
+        const sx = (img.width - minSide) / 2
+        const sy = (img.height - minSide) / 2
+        ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size)
+        resolve(canvas.toDataURL('image/jpeg', 0.85))
+      }
+      img.onerror = () => reject(new Error('Failed to load selected image'))
+      img.src = reader.result as string
+    }
+    reader.onerror = () => reject(new Error('Failed to read file from device'))
+    reader.readAsDataURL(file)
+  })
+}
+
 async function fetchLedgerTransactions(userId: string): Promise<Transaction[]> {
   if (!supabase) return []
   const allRows: Transaction[] = []
@@ -310,7 +411,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   const [profileEditError, setProfileEditError] = useState('')
   const [editFullName, setEditFullName] = useState('')
   const [editUpi, setEditUpi] = useState('')
-  const [editAvatar, setEditAvatar] = useState('')
+  const [editAvatarUrl, setEditAvatarUrl] = useState('')
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
   const [transferRecipient, setTransferRecipient] = useState('')
   const [transferAmount, setTransferAmount] = useState('')
@@ -451,7 +552,8 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   const receivedTx = ledgerTransactions.filter(tx => tx.direction === 'received')
   const sentTx = ledgerTransactions.filter(tx => tx.direction === 'sent')
   const filteredTransactions = txFilter === 'all' ? allTx : txFilter === 'received' ? receivedTx : sentTx
-  const avatarUrl = profile?.avatar_url && /^https?:\/\//i.test(profile.avatar_url) ? profile.avatar_url : null
+  const avatarValue = profile?.avatar_url || (typeof session.user.user_metadata.avatar_url === 'string' ? session.user.user_metadata.avatar_url : '')
+  const avatarUrl = avatarValue && !avatarValue.startsWith('preset:') ? avatarValue : null
 
   async function copyLink() {
     if (!profile) return
@@ -473,6 +575,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   }
 
   async function submitTransfer(event: FormEvent) {
+    unlockAudioEngine()
     event.preventDefault()
     if (!supabase) { showTransferToast('error', 'Connect your GhostPay account to send money.'); return }
     const recipient = transferRecipient.trim()
@@ -498,6 +601,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
         throw new Error(transferError.message)
       }
       const result = data as { wallet_balance?: number } | null
+      playChaChingSound()
       setTransferRecipient('')
       setTransferAmount('')
       if (result?.wallet_balance !== undefined) {
@@ -524,7 +628,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     setEditPassword('')
     setEditFullName(profile?.real_legal_name ?? '')
     setEditUpi(profile?.real_upi_id ?? '')
-    setEditAvatar(profile?.avatar_url ?? '')
+    setEditAvatarUrl(profile?.avatar_url || (typeof session.user.user_metadata.avatar_url === 'string' ? session.user.user_metadata.avatar_url : ''))
     setProfileEditError('')
     setEditProfileModalOpen(true)
   }
@@ -542,12 +646,16 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
       setProfileEditError('New password must be at least 6 characters.')
       return
     }
-    const cleanedAvatar = editAvatar.trim()
+    const cleanedAvatar = editAvatarUrl.trim()
     if (cleanedAvatar.startsWith('preset:') && !avatarPresets.includes(cleanedAvatar.slice(7))) {
       setProfileEditError('Choose one of the available avatar presets.')
       return
     }
-    if (cleanedAvatar && !cleanedAvatar.startsWith('preset:')) {
+    if (cleanedAvatar.startsWith('data:') && (!/^data:image\/jpeg;base64,/.test(cleanedAvatar) || cleanedAvatar.length > 1000000)) {
+      setProfileEditError('Choose a smaller JPEG image and try again.')
+      return
+    }
+    if (cleanedAvatar && !cleanedAvatar.startsWith('preset:') && !cleanedAvatar.startsWith('data:')) {
       try { if (!['http:', 'https:'].includes(new URL(cleanedAvatar).protocol)) throw new Error() }
       catch { setProfileEditError('Enter a valid image URL or choose an avatar preset.'); return }
     }
@@ -556,12 +664,12 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     setProfileEditError('')
     const aliasChanged = cleanedHandle !== profile?.alias_handle
     let databaseProfileUpdated = false
+    let publicProfileUpdated = false
     let updatedProfile: Profile | null = null
     try {
-      if (aliasChanged) {
-        const { error: handleErr } = await supabase.from('profiles').upsert({ id: session.user.id, alias_handle: cleanedHandle }, { onConflict: 'id' })
-        if (handleErr) throw handleErr
-      }
+      const { error: handleErr } = await supabase.from('profiles').upsert({ id: session.user.id, alias_handle: cleanedHandle, avatar_url: cleanedAvatar || null }, { onConflict: 'id' })
+      if (handleErr) throw handleErr
+      publicProfileUpdated = true
 
       const { data: savedProfile, error: profileErr } = await supabase.from('users').update({
         alias_handle: cleanedHandle,
@@ -573,13 +681,11 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
       updatedProfile = savedProfile
       databaseProfileUpdated = true
 
-      const authUpdates: { email?: string; password?: string } = {}
+      const authUpdates: { email?: string; password?: string; data: { avatar_url: string | null } } = { data: { avatar_url: cleanedAvatar || null } }
       if (editEmail.trim() && editEmail.trim() !== session.user.email) authUpdates.email = editEmail.trim()
       if (editPassword.trim().length > 0) authUpdates.password = editPassword.trim()
-      if (Object.keys(authUpdates).length > 0) {
-        const { error: authErr } = await supabase.auth.updateUser(authUpdates)
-        if (authErr) throw authErr
-      }
+      const { error: authErr } = await supabase.auth.updateUser(authUpdates)
+      if (authErr) throw authErr
 
       if (updatedProfile) setProfile(updatedProfile)
       setEditPassword('')
@@ -588,8 +694,8 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
         ? 'Profile updated. Check your inbox to confirm your new email.'
         : 'Profile and account settings updated.')
     } catch (saveError) {
-      if (aliasChanged) {
-        await supabase.from('profiles').upsert({ id: session.user.id, alias_handle: profile?.alias_handle ?? '' }, { onConflict: 'id' })
+      if (publicProfileUpdated || aliasChanged) {
+        await supabase.from('profiles').upsert({ id: session.user.id, alias_handle: profile?.alias_handle ?? '', avatar_url: profile?.avatar_url ?? null }, { onConflict: 'id' })
       }
       if (databaseProfileUpdated && profile) {
         await supabase.from('users').update({
@@ -612,7 +718,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     await supabase?.auth.signOut()
   }
   return <main className="dashboard-page">
-    <header className="dashboard-topbar"><Brand /><div className="topbar-actions"><span className="secure-pill"><span /> SECURE SPACE</span><button className="icon-button" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><div className="profile-menu-wrap" ref={profileMenuRef}><button type="button" className="avatar profile-avatar-button" onClick={() => setProfileMenuOpen(open => !open)} aria-label="Open profile menu" aria-expanded={profileMenuOpen} disabled={!profile}>{avatarUrl ? <img src={avatarUrl} alt="Profile" /> : <span className={`avatar-monogram ${profile?.avatar_url?.startsWith('preset:') ? `avatar-${profile.avatar_url.slice(7)}` : ''}`}>{profile?.avatar_url?.startsWith('preset:') ? profile.avatar_url.slice(7, 8).toUpperCase() : profile?.alias_handle?.slice(0, 1).toUpperCase() ?? session.user.email?.slice(0, 1).toUpperCase() ?? 'G'}</span>}</button>{profileMenuOpen && <div className="profile-dropdown" role="menu"><div className="profile-dropdown-identity"><strong>{formatHandle(profile?.alias_handle ?? '')}</strong><span>{session.user.email ?? 'Email unavailable'}</span></div><button type="button" role="menuitem" onClick={openProfileEditor}>Edit Profile &amp; Email</button><button type="button" role="menuitem" onClick={() => { setProfileMenuOpen(false); setQrOpen(true) }}>Share QR Code</button><button type="button" role="menuitem" className="profile-dropdown-signout" onClick={signOut}>Sign Out</button></div>}</div></div></header>
+    <header className="dashboard-topbar"><Brand /><div className="topbar-actions"><span className="secure-pill"><span /> SECURE SPACE</span><button className="icon-button" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><div className="profile-menu-wrap" ref={profileMenuRef}><button type="button" className="avatar profile-avatar-button" onClick={() => setProfileMenuOpen(open => !open)} aria-label="Open profile menu" aria-expanded={profileMenuOpen} disabled={!profile}>{avatarUrl ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <span className={`avatar-monogram ${profile?.avatar_url?.startsWith('preset:') ? `avatar-${profile.avatar_url.slice(7)}` : ''}`}>{profile?.avatar_url?.startsWith('preset:') ? profile.avatar_url.slice(7, 8).toUpperCase() : profile?.alias_handle?.slice(0, 1).toUpperCase() ?? session.user.email?.slice(0, 1).toUpperCase() ?? 'G'}</span>}</button>{profileMenuOpen && <div className="profile-dropdown" role="menu"><div className="profile-dropdown-identity"><strong>{formatHandle(profile?.alias_handle ?? '')}</strong><span>{session.user.email ?? 'Email unavailable'}</span></div><button type="button" role="menuitem" onClick={openProfileEditor}>Edit Profile &amp; Email</button><button type="button" role="menuitem" onClick={() => { setProfileMenuOpen(false); setQrOpen(true) }}>Share QR Code</button><button type="button" role="menuitem" className="profile-dropdown-signout" onClick={signOut}>Sign Out</button></div>}</div></div></header>
     <div className="dashboard-container">
       <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><div className="dashboard-actions"><button className="button button-secondary" onClick={() => setQrOpen(true)} disabled={!profile}><QrCode size={16} /> Share QR Code</button></div></div>
       {error && <div className="notice-error">{error}</div>}
@@ -714,7 +820,37 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
           <label>UPI ID<input autoCapitalize="none" value={editUpi} onChange={event => setEditUpi(event.target.value)} required /></label>
           <label>Email Address<input type="email" autoComplete="email" value={editEmail} onChange={event => setEditEmail(event.target.value)} required /></label>
           <label>New Password (optional)<input type="password" autoComplete="new-password" minLength={6} placeholder="Leave blank to keep current" value={editPassword} onChange={event => setEditPassword(event.target.value)} /></label>
-          <fieldset className="avatar-picker"><legend>Avatar / PFP</legend><div className="avatar-presets">{avatarPresets.map(preset => <button key={preset} type="button" className={`avatar-preset avatar-${preset} ${editAvatar === `preset:${preset}` ? 'selected' : ''}`} aria-label={`Choose ${preset} avatar`} aria-pressed={editAvatar === `preset:${preset}`} onClick={() => setEditAvatar(`preset:${preset}`)}>{preset.slice(0, 1).toUpperCase()}</button>)}</div><label>Or use an image URL<input type="url" placeholder="https://example.com/avatar.png" value={editAvatar.startsWith('preset:') ? '' : editAvatar} onChange={event => setEditAvatar(event.target.value)} /></label></fieldset>
+          <div className="avatar-upload-section">
+            <span className="avatar-upload-title">Profile Photo</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+              <div style={{ width: '68px', height: '68px', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#2563EB', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 700, flexShrink: 0, border: '2px solid rgba(37, 99, 235, 0.35)' }}>
+                {editAvatarUrl && !editAvatarUrl.startsWith('preset:') ? <img src={editAvatarUrl} alt="Profile Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (editHandle || profile?.alias_handle || 'A').replace(/^@+/, '').charAt(0).toUpperCase()}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '10px 16px', borderRadius: '12px', backgroundColor: '#2563EB', color: '#FFFFFF', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                  Upload from Device
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async event => {
+                    const input = event.currentTarget
+                    const file = input.files?.[0]
+                    if (!file) return
+                    try {
+                      const dataUrl = await processAvatarFileToDataUrl(file)
+                      setEditAvatarUrl(dataUrl)
+                      setProfileEditError('')
+                      showTransferToast('success', 'Photo ready! Click Save to apply.')
+                    } catch (imageError) {
+                      const message = imageError instanceof Error ? imageError.message : 'Could not process image'
+                      setProfileEditError(message)
+                      showTransferToast('error', message)
+                    } finally {
+                      input.value = ''
+                    }
+                  }} />
+                </label>
+                {editAvatarUrl && <button type="button" onClick={() => setEditAvatarUrl('')} style={{ background: 'transparent', border: 'none', color: '#EF4444', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', padding: 0 }}>Remove photo</button>}
+              </div>
+            </div>
+          </div>
           {profileEditError && <p className="error-note" role="alert">{profileEditError}</p>}
           <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setEditProfileModalOpen(false)}>Cancel</button><button className="button button-primary" disabled={isSavingProfile}>{isSavingProfile ? 'Saving…' : 'Save changes'}<Check size={16} /></button></div>
         </form>
@@ -890,7 +1026,7 @@ function PaymentPage() {
   const { handle = '' } = useParams()
   const aliasHandle = handle.replace(/^@+/, '').toLowerCase()
   const navigate = useNavigate()
-  const [profile, setProfile] = useState<Pick<Profile, 'id' | 'alias_handle'> | null>(null)
+  const [profile, setProfile] = useState<Pick<Profile, 'id' | 'alias_handle' | 'avatar_url'> | null>(null)
   const [visitorSession, setVisitorSession] = useState<Session | null>(null)
   const [authReady, setAuthReady] = useState(!supabase)
   const [walletBalance, setWalletBalance] = useState<number | null>(null)
@@ -958,7 +1094,7 @@ function PaymentPage() {
     let active = true
     async function loadReceiver() {
       if (!supabase) { setError('This payment page is not connected yet.'); return }
-      const { data, error: queryError } = await supabase.from('profiles').select('id, alias_handle').eq('alias_handle', aliasHandle).maybeSingle()
+      const { data, error: queryError } = await supabase.from('profiles').select('id, alias_handle, avatar_url').eq('alias_handle', aliasHandle).maybeSingle()
       if (!active) return
       if (queryError) setError(queryError.message)
       else if (!data) setError('We couldn’t find this payment link. Check the address and try again.')
@@ -969,6 +1105,7 @@ function PaymentPage() {
   }, [aliasHandle])
 
   async function startPayment(event: FormEvent) {
+    unlockAudioEngine()
     event.preventDefault()
     setError('')
     setToast('')
@@ -1010,6 +1147,7 @@ function PaymentPage() {
       const transfer = data as { transaction_id?: string; wallet_balance?: number | string | null } | null
       const updatedBalance = transfer?.wallet_balance == null ? null : Number(transfer.wallet_balance)
       if (!transfer?.transaction_id || (updatedBalance !== null && !Number.isFinite(updatedBalance))) throw new Error('Payment confirmation was missing.')
+      playChaChingSound()
       if (useWallet && updatedBalance !== null) setWalletBalance(updatedBalance)
       setPaymentStage('complete')
       await new Promise(resolve => window.setTimeout(resolve, 650))
@@ -1030,6 +1168,8 @@ function PaymentPage() {
   }
 
   const formattedWalletBalance = walletBalance === null ? '—' : `₹${walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const receiverAvatarValue = profile?.avatar_url || (user?.id === profile?.id && typeof user?.user_metadata.avatar_url === 'string' ? user.user_metadata.avatar_url : '')
+  const receiverAvatarUrl = receiverAvatarValue && !receiverAvatarValue.startsWith('preset:') ? receiverAvatarValue : null
 
   return <main className="payment-page">
     {toast && <div className="payment-toast" role="alert">{toast}</div>}
@@ -1037,7 +1177,7 @@ function PaymentPage() {
     <div className="payment-wrap">
       <Link to="/login" className="back-link"><ArrowLeft size={15} /> GhostPay</Link>
       <section className="payment-card">
-        <div className="payment-card-top"><div className="receiver-avatar"><Shield size={22} /></div><span className="verified-badge"><ShieldCheck size={13} /> VERIFIED LINK</span></div>
+        <div className="payment-card-top"><div className="receiver-avatar">{receiverAvatarUrl ? <img src={receiverAvatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <Shield size={22} />}</div><span className="verified-badge"><ShieldCheck size={13} /> VERIFIED LINK</span></div>
         {paymentStage === 'idle' ? <>
           <div className="form-eyebrow">A PRIVATE PAYMENT</div>
           <h1>{profile ? <>Pay {formatHandle(profile.alias_handle)} Securely</> : `Pay ${formatHandle(aliasHandle)} Securely`}</h1>
