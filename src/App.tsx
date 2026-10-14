@@ -10,6 +10,16 @@ type Profile = { id: string; alias_handle: string; real_legal_name?: string; rea
 type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_id?: string | null; receiver_id?: string; sender_alias?: string; sender_name?: string; recipient_upi?: string; direction?: 'sent' | 'received'; counterpartyLabel?: string; counterpartyAvatarUrl?: string | null; counterpartyUserId?: string | null }
 type DemoTransaction = Transaction & { receiver_id: string; sender_alias: string; status: 'simulated' }
 
+const generateUtrNumber = (tx: Transaction): string => {
+  const raw = String(tx?.id || tx?.created_at || '1029384756')
+  let hash = 0
+  for (let index = 0; index < raw.length; index += 1) {
+    hash = (hash * 31 + raw.charCodeAt(index)) % 900000000000
+  }
+  const normalized = Math.abs(hash) + 100000000000
+  return String(normalized).slice(0, 12)
+}
+
 let sharedAudioCtx: AudioContext | null = null
 
 const unlockAudioEngine = () => {
@@ -512,6 +522,12 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(true)
   const [qrOpen, setQrOpen] = useState(false)
+  const [qrRequestAmount, setQrRequestAmount] = useState('')
+  const [selectedTxReceipt, setSelectedTxReceipt] = useState<Transaction | null>(null)
+  const [topUpModalOpen, setTopUpModalOpen] = useState(false)
+  const [topUpAmount, setTopUpAmount] = useState('500')
+  const [topUpMethod, setTopUpMethod] = useState<'upi' | 'bank'>('upi')
+  const [isToppingUp, setIsToppingUp] = useState(false)
   const [txFilter, setTxFilter] = useState<'all' | 'received' | 'sent'>('all')
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [editProfileModalOpen, setEditProfileModalOpen] = useState(false)
@@ -659,6 +675,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
 
     for (const tx of transactions) {
       if (tx.counterpartyUserId === currentUserId) continue
+      if (tx.sender_name?.startsWith('Simulated Wallet Top-Up')) continue
       const handle = (tx.counterpartyLabel || '').trim()
       const cleanKey = handle.toLowerCase()
       if (
@@ -731,6 +748,71 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     setProfile(current => current ? { ...current, wallet_balance: Number(wallet.wallet_balance) } : current)
 
     setTransactions(await fetchLedgerTransactions(session.user.id))
+  }
+
+  async function handleWalletTopUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    unlockAudioEngine()
+
+    if (!supabase || !profile) {
+      showTransferToast('error', 'Your wallet is not ready for a top-up yet.')
+      return
+    }
+    const amountNum = Number(topUpAmount)
+    if (!Number.isFinite(amountNum) || amountNum < 1 || amountNum > 100000 || Math.round(amountNum * 100) / 100 !== amountNum) {
+      showTransferToast('error', 'Enter a valid top-up amount between ₹1 and ₹1,00,000.')
+      return
+    }
+
+    setIsToppingUp(true)
+    try {
+      const { data, error: topUpError } = await supabase.rpc('simulate_wallet_top_up', {
+        p_amount: amountNum,
+        p_method: topUpMethod,
+      })
+      if (topUpError) throw topUpError
+
+      const result = data as { transaction_id?: string; wallet_balance?: number | string } | null
+      const newBalance = Number(result?.wallet_balance)
+      if (!result?.transaction_id || !Number.isFinite(newBalance)) {
+        throw new Error('Top-up confirmation was missing.')
+      }
+
+      setProfile(current => current ? { ...current, wallet_balance: newBalance } : current)
+      playChaChingSound()
+      showTransferToast('success', `₹${amountNum.toLocaleString('en-IN')} added to your GhostPay wallet!`)
+      setTopUpModalOpen(false)
+      setTopUpAmount('500')
+      try {
+        await refreshAfterTransfer(newBalance)
+      } catch {
+        // Keep the successful RPC balance; a later dashboard refresh can reconcile it.
+      }
+    } catch (topUpFailure) {
+      const message = topUpFailure instanceof Error ? topUpFailure.message : 'Please try again.'
+      showTransferToast('error', `Top-up failed: ${message}`)
+    } finally {
+      setIsToppingUp(false)
+    }
+  }
+
+  async function shareSelectedReceipt() {
+    if (!selectedTxReceipt) return
+    const utr = `GP${generateUtrNumber(selectedTxReceipt)}`
+    const receiptText = `GhostPay ${selectedTxReceipt.status === 'completed' ? 'Verified' : 'Transaction'} Receipt\nAmount: ₹${Number(selectedTxReceipt.amount_inr || 0).toFixed(2)}\n${selectedTxReceipt.direction === 'sent' ? 'To' : 'From'}: ${selectedTxReceipt.counterpartyLabel || 'GhostPay User'}\nUTR: ${utr}\nStatus: ${selectedTxReceipt.status.replaceAll('_', ' ')}`
+    try {
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      if (isMobile && navigator.share) {
+        await navigator.share({ title: 'GhostPay transaction receipt', text: receiptText })
+        showTransferToast('success', 'Receipt shared.')
+      } else {
+        await navigator.clipboard.writeText(receiptText)
+        showTransferToast('success', `Receipt & UTR (${utr}) copied to clipboard.`)
+      }
+    } catch (shareError) {
+      if (shareError instanceof DOMException && shareError.name === 'AbortError') return
+      showTransferToast('error', shareError instanceof Error ? shareError.message : 'Could not share the receipt.')
+    }
   }
 
   async function submitTransfer(event: FormEvent) {
@@ -890,13 +972,14 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981', boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.18)' }} />
               AVAILABLE WALLET BALANCE
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
               <div style={{ fontSize: 'clamp(34px, 5vw, 46px)', fontWeight: 800, letterSpacing: hideBalance ? '0.08em' : '-0.03em', lineHeight: 1.05, userSelect: 'none', transition: 'all 0.2s ease' }}>
                 {hideBalance ? '₹••••••' : busy ? '—' : `₹${Number(profile?.wallet_balance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </div>
               <button type="button" onClick={toggleHideBalance} title={hideBalance ? 'Show balance' : 'Hide balance'} aria-label={hideBalance ? 'Show balance' : 'Hide balance'} style={{ width: '38px', height: '38px', borderRadius: '12px', border: '1px solid rgba(148, 163, 184, 0.22)', backgroundColor: 'rgba(148, 163, 184, 0.1)', color: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0.8, transition: 'all 0.15s ease' }}>
                 {hideBalance ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg> : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>}
               </button>
+              <button type="button" onClick={() => setTopUpModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '999px', border: '1px solid rgba(16, 185, 129, 0.4)', backgroundColor: 'rgba(16, 185, 129, 0.14)', color: '#10B981', fontSize: '13px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease' }}>+ Add Money</button>
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -987,7 +1070,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
           const direction = tx.direction ?? 'received'
           const received = direction === 'received'
           const date = new Date(tx.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
-          return <div className="ledger-row" key={tx.id}>
+          return <div className="ledger-row" key={tx.id} role="button" tabIndex={0} title="Tap to view verified UTR receipt" style={{ cursor: 'pointer' }} onClick={() => setSelectedTxReceipt(tx)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedTxReceipt(tx) } }}>
             <div className={`ledger-direction-icon ${received ? 'received' : 'sent'}`} aria-label={received ? 'Received' : 'Sent'}>{received ? '↙' : '↗'}</div>
             <div className="ledger-counterparty"><strong>{tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'Anonymous Sender'}</strong><span className="numeric-data">{date}</span></div>
             <div className="ledger-amount-status"><strong className={`numeric-data ${received ? 'cashflow-received' : 'cashflow-sent'}`}>{received ? '+' : '-'}₹{Number(tx.amount_inr).toFixed(2)}</strong><span className={received ? 'received' : 'sent'}>{tx.status === 'completed' ? received ? 'Received' : 'Sent' : tx.status.replaceAll('_', ' ')}</span></div>
@@ -996,7 +1079,45 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
       </section>
       <footer className="dashboard-footer"><span><LockKeyhole size={13} /> Your privacy is always on.</span><button aria-label="Help"><CircleHelp size={15} /> Help & support</button></footer>
     </div>
-    {qrOpen && profile && <ShareQrModal profile={profile} onClose={() => setQrOpen(false)} />}
+    {qrOpen && profile && <ShareQrModal profile={profile} qrRequestAmount={qrRequestAmount} setQrRequestAmount={setQrRequestAmount} onClose={() => setQrOpen(false)} />}
+    {selectedTxReceipt && <div role="presentation" onClick={() => setSelectedTxReceipt(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(2, 6, 23, 0.72)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="receipt-title" onClick={event => event.stopPropagation()} style={{ width: '100%', maxWidth: '420px', borderRadius: '28px', backgroundColor: isDark ? '#0F172A' : '#FFFFFF', color: isDark ? '#F8FAFC' : '#0F172A', border: `1px solid ${isDark ? 'rgba(148, 163, 184, 0.2)' : '#E2E8F0'}`, padding: '28px 24px', boxShadow: '0 24px 60px rgba(0, 0, 0, 0.45)', position: 'relative' }}>
+        <button type="button" onClick={() => setSelectedTxReceipt(null)} aria-label="Close receipt" style={{ position: 'absolute', top: '20px', right: '20px', width: '34px', height: '34px', borderRadius: '50%', border: '1px solid rgba(148, 163, 184, 0.25)', background: 'transparent', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={16} /></button>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: selectedTxReceipt.direction === 'sent' ? 'rgba(239, 68, 68, 0.14)' : 'rgba(16, 185, 129, 0.14)', color: selectedTxReceipt.direction === 'sent' ? '#EF4444' : '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 800, marginBottom: '12px' }}>{selectedTxReceipt.direction === 'sent' ? '↗' : '↙'}</div>
+          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 12px', borderRadius: '999px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10B981', marginBottom: '10px' }}>{selectedTxReceipt.status === 'completed' ? '✓ VERIFIED GHOSTPAY RECEIPT' : 'GHOSTPAY TRANSACTION RECEIPT'}</span>
+          <h2 id="receipt-title" style={{ fontSize: '36px', fontWeight: 800, letterSpacing: '-0.03em', color: selectedTxReceipt.direction === 'sent' ? '#EF4444' : '#10B981', margin: '0 0 4px' }}>{selectedTxReceipt.direction === 'sent' ? '-' : '+'}₹{Number(selectedTxReceipt.amount_inr || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
+          <div style={{ fontSize: '15px', fontWeight: 600, opacity: 0.85 }}>{selectedTxReceipt.direction === 'sent' ? 'Paid to ' : 'Received from '}{selectedTxReceipt.counterpartyLabel || 'GhostPay User'}</div>
+        </div>
+        <div style={{ marginTop: '22px', marginBottom: '22px', padding: '16px', borderRadius: '18px', backgroundColor: isDark ? 'rgba(30, 41, 59, 0.7)' : '#F8FAFC', border: `1px solid ${isDark ? 'rgba(148, 163, 184, 0.14)' : '#E2E8F0'}`, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ opacity: 0.65 }}>UTR / Ref Number</span><span style={{ fontWeight: 700, fontFamily: 'monospace' }}>GP{generateUtrNumber(selectedTxReceipt)}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ opacity: 0.65 }}>Date &amp; Time</span><span style={{ fontWeight: 600, textAlign: 'right' }}>{new Date(selectedTxReceipt.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ opacity: 0.65 }}>Payment Rail</span><span style={{ fontWeight: 600 }}>{selectedTxReceipt.sender_id ? 'GhostPay Internal P2P' : 'Shielded Nodal Escrow'}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ opacity: 0.65 }}>Status</span><span style={{ fontWeight: 700, color: selectedTxReceipt.status === 'completed' ? '#10B981' : '#2563EB', textTransform: 'capitalize' }}>{selectedTxReceipt.status.replaceAll('_', ' ')}</span></div>
+        </div>
+        <button type="button" onClick={() => { void shareSelectedReceipt() }} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: 'none', background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', color: '#FFFFFF', fontSize: '14px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 10px 24px -6px rgba(37, 99, 235, 0.5)' }}>Copy / Share Receipt &amp; UTR</button>
+        <p style={{ margin: '12px 0 0', fontSize: '11px', textAlign: 'center', opacity: 0.6 }}>GhostPay demo reference; not a bank-issued UTR.</p>
+      </section>
+    </div>}
+    {topUpModalOpen && <div role="presentation" onClick={() => { if (!isToppingUp) setTopUpModalOpen(false) }} style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(2, 6, 23, 0.72)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="topup-title" onClick={event => event.stopPropagation()} style={{ width: '100%', maxWidth: '410px', borderRadius: '28px', backgroundColor: isDark ? '#0F172A' : '#FFFFFF', color: isDark ? '#F8FAFC' : '#0F172A', border: `1px solid ${isDark ? 'rgba(148, 163, 184, 0.2)' : '#E2E8F0'}`, padding: '28px 24px', boxShadow: '0 24px 60px rgba(0, 0, 0, 0.45)', position: 'relative' }}>
+        <button type="button" onClick={() => setTopUpModalOpen(false)} disabled={isToppingUp} aria-label="Close top-up modal" style={{ position: 'absolute', top: '20px', right: '20px', width: '34px', height: '34px', borderRadius: '50%', border: '1px solid rgba(148, 163, 184, 0.25)', background: 'transparent', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={16} /></button>
+        <div style={{ fontSize: '12px', fontWeight: 700, color: '#10B981', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>SIMULATED WALLET TOP-UP</div>
+        <h3 id="topup-title" style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 18px' }}>Add Money to Wallet</h3>
+        <form onSubmit={handleWalletTopUp}>
+          <label htmlFor="topup-amount" style={{ display: 'block', fontSize: '12px', fontWeight: 700, opacity: 0.75, marginBottom: '8px' }}>Amount (₹)</label>
+          <input id="topup-amount" type="number" min="1" max="100000" step="0.01" value={topUpAmount} onChange={event => setTopUpAmount(event.target.value)} placeholder="500" required disabled={isToppingUp} style={{ width: '100%', padding: '14px 16px', borderRadius: '14px', border: '1px solid rgba(148, 163, 184, 0.3)', backgroundColor: 'transparent', color: 'inherit', fontSize: '22px', fontWeight: 800, outline: 'none', boxSizing: 'border-box' }} />
+          <div style={{ display: 'flex', gap: '8px', marginTop: '10px', marginBottom: '18px' }}>
+            {[500, 1000, 2000, 5000].map(amt => <button key={amt} type="button" disabled={isToppingUp} onClick={() => setTopUpAmount(String(amt))} style={{ flex: 1, padding: '7px 0', borderRadius: '999px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: '1px solid rgba(16, 185, 129, 0.35)', backgroundColor: Number(topUpAmount) === amt ? '#10B981' : 'rgba(16, 185, 129, 0.1)', color: Number(topUpAmount) === amt ? '#FFFFFF' : '#10B981' }}>+₹{amt.toLocaleString('en-IN')}</button>)}
+          </div>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            {[{ id: 'upi', label: '⚡ UPI Instant' }, { id: 'bank', label: '🏦 Nodal Bank' }].map(method => <button key={method.id} type="button" disabled={isToppingUp} onClick={() => setTopUpMethod(method.id as 'upi' | 'bank')} style={{ flex: 1, padding: '10px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', border: topUpMethod === method.id ? '1.5px solid #2563EB' : '1px solid rgba(148, 163, 184, 0.25)', backgroundColor: topUpMethod === method.id ? 'rgba(37, 99, 235, 0.14)' : 'transparent', color: 'inherit' }}>{method.label}</button>)}
+          </div>
+          <button type="submit" disabled={isToppingUp} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: 'none', background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', color: '#FFFFFF', fontSize: '15px', fontWeight: 800, cursor: isToppingUp ? 'wait' : 'pointer', boxShadow: '0 10px 24px -6px rgba(16, 185, 129, 0.5)' }}>{isToppingUp ? 'Adding Funds…' : `Add ₹${Number(topUpAmount || 0).toLocaleString('en-IN')} Instantly`}</button>
+        </form>
+        <p style={{ fontSize: '11px', textAlign: 'center', opacity: 0.62, margin: '14px 0 0' }}>Simulated demo credit only. No real money is collected.</p>
+      </section>
+    </div>}
     {editProfileModalOpen && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setEditProfileModalOpen(false) }}>
       <section className="profile-modal account-edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-account-title">
         <header className="modal-heading"><div><div className="form-eyebrow">ACCOUNT SETTINGS</div><h2 id="edit-account-title">Edit Profile</h2></div><button type="button" className="icon-button" onClick={() => setEditProfileModalOpen(false)} aria-label="Close"><X size={17} /></button></header>
@@ -1071,15 +1192,17 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   </main>
 }
 
-function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_handle'>; onClose: () => void }) {
+function ShareQrModal({ profile, qrRequestAmount, setQrRequestAmount, onClose }: { profile: Pick<Profile, 'alias_handle'>; qrRequestAmount: string; setQrRequestAmount: (amount: string) => void; onClose: () => void }) {
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
-  const [imageError, setImageError] = useState(false)
   const [shareNotice, setShareNotice] = useState('')
   const shareToastTimer = useRef<number | null>(null)
   const receiverHandle = profile.alias_handle.replace(/^@+/, '')
-  const qrPayload = `https://ghostpay-orpin.vercel.app/@${profile.alias_handle}`
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrPayload)}`
+  const numericQrAmount = Number(qrRequestAmount)
+  const hasRequestedAmount = Number.isFinite(numericQrAmount) && numericQrAmount > 0
+  const activeQrShareUrl = hasRequestedAmount
+    ? `https://ghostpay-orpin.vercel.app/@${profile.alias_handle}?amount=${numericQrAmount}`
+    : `https://ghostpay-orpin.vercel.app/@${profile.alias_handle}`
 
   useEffect(() => () => {
     if (shareToastTimer.current !== null) window.clearTimeout(shareToastTimer.current)
@@ -1151,8 +1274,10 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
 
       const dynamicQuote = await fetchDynamicTrustQuoteFromWeb();
 
-      const shareUrl = `https://ghostpay-orpin.vercel.app/@${handle}`;
-      const shareText = `Pay me securely here: ${shareUrl}\n\n"${dynamicQuote}"`;
+      const requestLabel = hasRequestedAmount
+        ? `Pay me ₹${numericQrAmount.toLocaleString('en-IN')} securely here: `
+        : 'Pay me securely here: '
+      const shareText = `${requestLabel}${activeQrShareUrl}\n\n"${dynamicQuote}"`;
       const blob = await generateBrandedCardBlob();
       const file = new File([blob], `ghostpay-${handle}.png`, { type: 'image/png' });
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -1183,8 +1308,18 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
   return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
     <section className="profile-modal qr-modal" role="dialog" aria-modal="true" aria-labelledby="share-qr-title">
       <header className="modal-heading"><div><div className="form-eyebrow">PUBLIC PAYMENT LINK</div><h2 id="share-qr-title">Your payment QR</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button></header>
-      <div className="qr-image-frame">{imageError ? <p className="qr-image-error" role="status">QR preview could not load. Check your connection and try again.</p> : <img src={qrImageUrl} width="250" height="250" alt={`GhostPay payment portal QR for @${receiverHandle}`} referrerPolicy="no-referrer" onError={() => setImageError(true)} />}</div>
+      <div className="qr-image-frame"><QRCode value={activeQrShareUrl} size={250} title={`GhostPay payment portal QR for @${receiverHandle}`} /></div>
       <div className="upi-qr-caption"><h3>Scan to open payment portal.</h3></div>
+      <div style={{ width: '100%', marginTop: '16px', marginBottom: '18px', padding: '14px', borderRadius: '16px', backgroundColor: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.2)', textAlign: 'left' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Request Specific Amount (Optional)</span>
+          {qrRequestAmount && <button type="button" onClick={() => setQrRequestAmount('')} style={{ border: 'none', background: 'transparent', color: '#EF4444', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Clear</button>}
+        </div>
+        <input type="number" min="0.01" step="0.01" placeholder="Enter ₹ amount (leave blank for any amount)" value={qrRequestAmount} onChange={event => setQrRequestAmount(event.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid rgba(148, 163, 184, 0.28)', backgroundColor: 'transparent', color: 'inherit', fontSize: '15px', fontWeight: 700, outline: 'none', boxSizing: 'border-box' }} />
+        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+          {[100, 500, 1000].map(preset => <button key={preset} type="button" onClick={() => setQrRequestAmount(String(preset))} style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid rgba(37, 99, 235, 0.35)', backgroundColor: numericQrAmount === preset ? '#2563EB' : 'rgba(37, 99, 235, 0.1)', color: numericQrAmount === preset ? '#FFFFFF' : '#3B82F6' }}>₹{preset.toLocaleString('en-IN')}</button>)}
+        </div>
+      </div>
       <div className="qr-action-row">
         <button className="button qr-action-button qr-share-action" onClick={handleShare}><Share2 size={16} /> Share Profile</button>
         <button className="button qr-action-button qr-download-action" onClick={handleDownloadQR} disabled={downloading}>{downloading ? 'Preparing…' : <><Download size={17} /> Download QR</>}</button>
@@ -1203,9 +1338,10 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
           <span style={{ fontSize: '11px', fontWeight: 700, padding: '5px 10px', borderRadius: '999px', backgroundColor: 'rgba(37, 99, 235, 0.22)', color: '#60A5FA', border: '1px solid rgba(96, 165, 250, 0.35)', letterSpacing: '0.04em' }}>SHIELDED ESCROW</span>
         </div>
         <div style={{ padding: '20px', borderRadius: '22px', backgroundColor: '#FFFFFF', marginBottom: '22px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <QRCode value={`https://ghostpay-orpin.vercel.app/@${profile?.alias_handle}`} size={210} />
+          <QRCode value={activeQrShareUrl} size={210} />
         </div>
         <div style={{ fontSize: '20px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', marginBottom: '4px' }}>@{profile?.alias_handle}</div>
+        {hasRequestedAmount && <div style={{ marginTop: '6px', marginBottom: '6px', padding: '6px 14px', borderRadius: '999px', backgroundColor: 'rgba(16, 185, 129, 0.18)', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#34D399', fontSize: '15px', fontWeight: 800 }}>Requested: ₹{numericQrAmount.toLocaleString('en-IN')}</div>}
         <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 500 }}>Scan to pay privately · Zero bank details exposed</div>
       </div>
     </div>
@@ -1218,13 +1354,19 @@ function PaymentPage() {
   const { handle = '' } = useParams()
   const aliasHandle = handle.replace(/^@+/, '').toLowerCase()
   const navigate = useNavigate()
+  const [paymentSearchParams] = useSearchParams()
+  const requestedAmountParam = paymentSearchParams.get('amount')
+  const urlRequestedAmount = useMemo(() => {
+    const requested = Number(requestedAmountParam)
+    return Number.isFinite(requested) && requested > 0 ? requested : null
+  }, [requestedAmountParam])
   const [profile, setProfile] = useState<Pick<Profile, 'id' | 'alias_handle' | 'avatar_url'> | null>(null)
   const [visitorSession, setVisitorSession] = useState<Session | null>(null)
   const [authReady, setAuthReady] = useState(!supabase)
   const [walletBalance, setWalletBalance] = useState<number | null>(null)
   const [walletBusy, setWalletBusy] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'upi'>('wallet')
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState(() => urlRequestedAmount === null ? '' : String(urlRequestedAmount))
   const [senderName, setSenderName] = useState('')
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
@@ -1242,6 +1384,10 @@ function PaymentPage() {
   }
 
   useEffect(() => () => { if (toastTimer.current !== null) window.clearTimeout(toastTimer.current) }, [])
+
+  useEffect(() => {
+    setAmount(urlRequestedAmount === null ? '' : String(urlRequestedAmount))
+  }, [urlRequestedAmount])
 
   useEffect(() => {
     setPaymentMethod(canUseWallet ? 'wallet' : 'upi')
@@ -1376,7 +1522,10 @@ function PaymentPage() {
           <p className="payment-subtext">Complete a simulated payment to this creator.</p>
           <form onSubmit={startPayment} className="payment-form">
             {authReady && (!visitorSession || selectedPaymentMethod === 'upi') && <label>Your Name<input type="text" maxLength={80} placeholder="Your Name" aria-required="true" value={senderName} onChange={event => setSenderName(event.target.value)} /></label>}
-            <label>Amount (₹)<div className="amount-input amount-input-large"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={event => setAmount(event.target.value)} required /></div></label>
+            <label>Amount (₹)
+              {urlRequestedAmount !== null && <span style={{ alignSelf: 'flex-start', marginBottom: '8px', padding: '6px 12px', borderRadius: '999px', color: '#047857', backgroundColor: '#ECFDF5', border: '1px solid rgba(16, 185, 129, 0.24)', fontSize: '12px', fontWeight: 700 }}>Requested Amount · ₹{urlRequestedAmount.toLocaleString('en-IN')}</span>}
+              <div className="amount-input amount-input-large"><span>₹</span><input className="numeric-data" inputMode="decimal" type="number" min="1" step="0.01" placeholder="0.00" value={amount} onChange={event => setAmount(event.target.value)} readOnly={urlRequestedAmount !== null} required /></div>
+            </label>
             {error && <p className="error-note">{error}</p>}
             {!authReady ? <button className="button button-primary full-button" type="button" disabled><span className="spinner auth-button-spinner" /> Checking secure session…</button> : canUseWallet ? <>
               <div className="payment-mode-options" role="radiogroup" aria-label="Payment method">
