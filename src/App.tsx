@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Activity, ArrowLeft, ArrowRight, Check, CircleHelp, Copy, Download, LockKeyhole, LogOut, Moon, Plus, QrCode, Share2, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowRight, Check, CircleHelp, Copy, Download, LockKeyhole, Moon, QrCode, Share2, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
 import { toBlob } from 'html-to-image'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import type { Session } from '@supabase/supabase-js'
@@ -299,8 +299,19 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(true)
-  const [editOpen, setEditOpen] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
+  const [txFilter, setTxFilter] = useState<'all' | 'received' | 'sent'>('all')
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [editProfileModalOpen, setEditProfileModalOpen] = useState(false)
+  const [editHandle, setEditHandle] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editPassword, setEditPassword] = useState('')
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [profileEditError, setProfileEditError] = useState('')
+  const [editFullName, setEditFullName] = useState('')
+  const [editUpi, setEditUpi] = useState('')
+  const [editAvatar, setEditAvatar] = useState('')
+  const profileMenuRef = useRef<HTMLDivElement | null>(null)
   const [transferRecipient, setTransferRecipient] = useState('')
   const [transferAmount, setTransferAmount] = useState('')
   const [transferBusy, setTransferBusy] = useState(false)
@@ -319,6 +330,20 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   useEffect(() => () => {
     if (transferToastTimer.current !== null) window.clearTimeout(transferToastTimer.current)
   }, [])
+
+  useEffect(() => {
+    if (!profileMenuOpen) return
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (event.target instanceof Node && !profileMenuRef.current?.contains(event.target)) setProfileMenuOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setProfileMenuOpen(false) }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [profileMenuOpen])
 
   useEffect(() => {
     let active = true
@@ -422,6 +447,10 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   const sevenDayReceived = sevenDayData.reduce((sum, day) => sum + day.received, 0)
   const sevenDaySent = sevenDayData.reduce((sum, day) => sum + day.sent, 0)
   const maxDayValue = Math.max(...sevenDayData.flatMap(day => [day.received, day.sent]), 100)
+  const allTx = ledgerTransactions
+  const receivedTx = ledgerTransactions.filter(tx => tx.direction === 'received')
+  const sentTx = ledgerTransactions.filter(tx => tx.direction === 'sent')
+  const filteredTransactions = txFilter === 'all' ? allTx : txFilter === 'received' ? receivedTx : sentTx
   const avatarUrl = profile?.avatar_url && /^https?:\/\//i.test(profile.avatar_url) ? profile.avatar_url : null
 
   async function copyLink() {
@@ -488,18 +517,122 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     }
   }
 
+  function openProfileEditor() {
+    setProfileMenuOpen(false)
+    setEditHandle(profile?.alias_handle ?? '')
+    setEditEmail(session.user.email ?? '')
+    setEditPassword('')
+    setEditFullName(profile?.real_legal_name ?? '')
+    setEditUpi(profile?.real_upi_id ?? '')
+    setEditAvatar(profile?.avatar_url ?? '')
+    setProfileEditError('')
+    setEditProfileModalOpen(true)
+  }
+
+  async function handleSaveProfileAndAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!supabase) { setProfileEditError('Connect your Supabase project to update your account.'); return }
+    const cleanedHandle = editHandle.trim().replace(/^@+/, '').toLowerCase()
+    if (!cleanedHandle) { setProfileEditError('Handle cannot be empty.'); return }
+    if (!/^[a-z0-9_][a-z0-9_.]{2,29}$/.test(cleanedHandle)) {
+      setProfileEditError('Use 3–30 letters, numbers, dots, or underscores for your handle.')
+      return
+    }
+    if (editPassword.trim().length > 0 && editPassword.trim().length < 6) {
+      setProfileEditError('New password must be at least 6 characters.')
+      return
+    }
+    const cleanedAvatar = editAvatar.trim()
+    if (cleanedAvatar.startsWith('preset:') && !avatarPresets.includes(cleanedAvatar.slice(7))) {
+      setProfileEditError('Choose one of the available avatar presets.')
+      return
+    }
+    if (cleanedAvatar && !cleanedAvatar.startsWith('preset:')) {
+      try { if (!['http:', 'https:'].includes(new URL(cleanedAvatar).protocol)) throw new Error() }
+      catch { setProfileEditError('Enter a valid image URL or choose an avatar preset.'); return }
+    }
+
+    setIsSavingProfile(true)
+    setProfileEditError('')
+    const aliasChanged = cleanedHandle !== profile?.alias_handle
+    let databaseProfileUpdated = false
+    let updatedProfile: Profile | null = null
+    try {
+      if (aliasChanged) {
+        const { error: handleErr } = await supabase.from('profiles').upsert({ id: session.user.id, alias_handle: cleanedHandle }, { onConflict: 'id' })
+        if (handleErr) throw handleErr
+      }
+
+      const { data: savedProfile, error: profileErr } = await supabase.from('users').update({
+        alias_handle: cleanedHandle,
+        real_legal_name: editFullName.trim(),
+        real_upi_id: editUpi.trim(),
+        avatar_url: cleanedAvatar || null,
+      }).eq('id', session.user.id).select('id, alias_handle, real_legal_name, real_upi_id, avatar_url, wallet_balance').single()
+      if (profileErr) throw profileErr
+      updatedProfile = savedProfile
+      databaseProfileUpdated = true
+
+      const authUpdates: { email?: string; password?: string } = {}
+      if (editEmail.trim() && editEmail.trim() !== session.user.email) authUpdates.email = editEmail.trim()
+      if (editPassword.trim().length > 0) authUpdates.password = editPassword.trim()
+      if (Object.keys(authUpdates).length > 0) {
+        const { error: authErr } = await supabase.auth.updateUser(authUpdates)
+        if (authErr) throw authErr
+      }
+
+      if (updatedProfile) setProfile(updatedProfile)
+      setEditPassword('')
+      setEditProfileModalOpen(false)
+      showTransferToast('success', authUpdates.email
+        ? 'Profile updated. Check your inbox to confirm your new email.'
+        : 'Profile and account settings updated.')
+    } catch (saveError) {
+      if (aliasChanged) {
+        await supabase.from('profiles').upsert({ id: session.user.id, alias_handle: profile?.alias_handle ?? '' }, { onConflict: 'id' })
+      }
+      if (databaseProfileUpdated && profile) {
+        await supabase.from('users').update({
+          alias_handle: profile.alias_handle,
+          real_legal_name: profile.real_legal_name,
+          real_upi_id: profile.real_upi_id,
+          avatar_url: profile.avatar_url,
+        }).eq('id', session.user.id)
+      }
+      const message = saveError instanceof Error ? saveError.message : 'Profile update failed. Please try again.'
+      setProfileEditError(message)
+      showTransferToast('error', `Error: ${message}`)
+    } finally {
+      setIsSavingProfile(false)
+    }
+  }
+
   async function signOut() {
     onResetTheme()
     await supabase?.auth.signOut()
   }
   return <main className="dashboard-page">
-    <header className="dashboard-topbar"><Brand /><div className="topbar-actions"><span className="secure-pill"><span /> SECURE SPACE</span><button className="icon-button" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><button className="icon-button" onClick={signOut} aria-label="Sign out"><LogOut size={17} /></button><div className="avatar">{avatarUrl ? <img src={avatarUrl} alt="Profile" /> : <span className={`avatar-monogram ${profile?.avatar_url?.startsWith('preset:') ? `avatar-${profile.avatar_url.slice(7)}` : ''}`}>{profile?.avatar_url?.startsWith('preset:') ? profile.avatar_url.slice(7, 8).toUpperCase() : session.user.email?.slice(0, 1).toUpperCase() ?? 'G'}</span>}</div></div></header>
+    <header className="dashboard-topbar"><Brand /><div className="topbar-actions"><span className="secure-pill"><span /> SECURE SPACE</span><button className="icon-button" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><div className="profile-menu-wrap" ref={profileMenuRef}><button type="button" className="avatar profile-avatar-button" onClick={() => setProfileMenuOpen(open => !open)} aria-label="Open profile menu" aria-expanded={profileMenuOpen} disabled={!profile}>{avatarUrl ? <img src={avatarUrl} alt="Profile" /> : <span className={`avatar-monogram ${profile?.avatar_url?.startsWith('preset:') ? `avatar-${profile.avatar_url.slice(7)}` : ''}`}>{profile?.avatar_url?.startsWith('preset:') ? profile.avatar_url.slice(7, 8).toUpperCase() : profile?.alias_handle?.slice(0, 1).toUpperCase() ?? session.user.email?.slice(0, 1).toUpperCase() ?? 'G'}</span>}</button>{profileMenuOpen && <div className="profile-dropdown" role="menu"><div className="profile-dropdown-identity"><strong>{formatHandle(profile?.alias_handle ?? '')}</strong><span>{session.user.email ?? 'Email unavailable'}</span></div><button type="button" role="menuitem" onClick={openProfileEditor}>Edit Profile &amp; Email</button><button type="button" role="menuitem" onClick={() => { setProfileMenuOpen(false); setQrOpen(true) }}>Share QR Code</button><button type="button" role="menuitem" className="profile-dropdown-signout" onClick={signOut}>Sign Out</button></div>}</div></div></header>
     <div className="dashboard-container">
-      <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><div className="dashboard-actions"><button className="button button-secondary" onClick={() => setQrOpen(true)} disabled={!profile}><QrCode size={16} /> Share QR Code</button><button className="button button-outline" onClick={() => setEditOpen(true)} disabled={!profile}><Plus size={17} /> Edit profile</button></div></div>
+      <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><div className="dashboard-actions"><button className="button button-secondary" onClick={() => setQrOpen(true)} disabled={!profile}><QrCode size={16} /> Share QR Code</button></div></div>
       {error && <div className="notice-error">{error}</div>}
       <section className="receive-card"><div className="receive-copy"><span className="receive-label"><span className="pulse-dot" /> READY TO RECEIVE</span><h2>Your Shielded Link</h2><p>Share your link with clients. Your personal details stay private.</p><div className="link-field"><div className="link-icon"><Shield size={16} /></div><span className="link-prefix">{window.location.host}/</span><strong>{profile ? formatHandle(profile.alias_handle) : '…'}</strong><button onClick={copyLink} disabled={!profile} aria-label="Copy Link">{copied ? <Check size={17} /> : <Copy size={17} />}<span>{copied ? 'Copied!' : 'Copy Link'}</span></button></div></div></section>
       <section className="send-money-card" aria-labelledby="send-money-title">
-        <div className="send-money-heading"><div><div className="form-eyebrow">WALLET TRANSFER</div><h2 id="send-money-title">Send money</h2><p>Transfer securely to a GhostPay handle or UPI ID.</p></div><div className="send-money-balance"><span>AVAILABLE BALANCE</span><strong className="numeric-data">{busy ? '—' : `₹${Number(profile?.wallet_balance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</strong></div></div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px', paddingBottom: '22px', marginBottom: '22px', borderBottom: '1px solid rgba(148, 163, 184, 0.16)' }}>
+          <div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#2563EB', marginBottom: '8px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981', boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.18)' }} />
+              AVAILABLE WALLET BALANCE
+            </div>
+            <div style={{ fontSize: 'clamp(34px, 5vw, 46px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05 }}>
+              {busy ? '—' : `₹${Number(profile?.wallet_balance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div id="send-money-title" style={{ fontSize: '16px', fontWeight: 700 }}>Send Money</div>
+            <div style={{ fontSize: '13px', opacity: 0.7 }}>Instant zero-fee transfer to any @handle or UPI ID</div>
+          </div>
+        </div>
         <form className="send-money-form" onSubmit={submitTransfer}>
           <label>Recipient @handle or UPI ID<input autoCapitalize="none" autoComplete="off" placeholder="@username or name@bank" value={transferRecipient} onChange={event => setTransferRecipient(event.target.value)} disabled={transferBusy} required /></label>
           <label>Amount (₹)<input inputMode="decimal" type="number" min="0.01" max="1000000" step="0.01" placeholder="0.00" value={transferAmount} onChange={event => setTransferAmount(event.target.value)} disabled={transferBusy} required /></label>
@@ -540,31 +673,54 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
         </section>
       </section>
       <section className="transactions-card">
-        <div className="section-title"><div><h2>Recent Transactions</h2><p>Your incoming and outgoing GhostPay activity.</p></div></div>
-        {busy ? <div className="transactions-loading"><span className="spinner" /></div> : <div className="ledger-grid">
-          {[
-            { key: 'all', title: 'All Transactions', rows: ledgerTransactions, total: ledgerTransactions.length },
-            { key: 'received', title: 'Received', rows: ledgerTransactions.filter(tx => tx.direction === 'received'), total: `+₹${totalReceived.toLocaleString('en-IN')}` },
-            { key: 'sent', title: 'Sent', rows: ledgerTransactions.filter(tx => tx.direction === 'sent'), total: `-₹${totalSent.toLocaleString('en-IN')}` },
-          ].map(column => <section className={`ledger-column ledger-${column.key}`} key={column.key}>
-            <header className="ledger-column-heading"><h3>{column.title}</h3><span>{column.total}</span></header>
-            {column.rows.length === 0 ? <div className="ledger-empty">{column.key === 'sent' ? 'No sent transactions yet' : column.key === 'received' ? 'No received payments yet' : 'No transactions yet'}</div> : <div className="ledger-rows">{column.rows.map(tx => {
-              const direction = tx.direction ?? 'received'
-              const received = direction === 'received'
-              const date = new Date(tx.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
-              return <div className="ledger-row" key={`${column.key}-${tx.id}`}>
-                <div className={`ledger-direction-icon ${received ? 'received' : 'sent'}`} aria-label={received ? 'Received' : 'Sent'}>{received ? '↙' : '↗'}</div>
-                <div className="ledger-counterparty"><strong>{tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'Anonymous Sender'}</strong><span className="numeric-data">{date}</span></div>
-                <div className="ledger-amount-status"><strong className={`numeric-data ${received ? 'cashflow-received' : 'cashflow-sent'}`}>{received ? '+' : '-'}₹{Number(tx.amount_inr).toFixed(2)}</strong><span className={received ? 'received' : 'sent'}>{tx.status === 'completed' ? received ? 'Received' : 'Sent' : tx.status.replaceAll('_', ' ')}</span></div>
-              </div>
-            })}</div>}
-          </section>)}
-        </div>}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '14px', marginBottom: '20px' }}>
+          <div>
+            <h3 style={{ fontSize: '20px', fontWeight: 700, margin: 0 }}>Recent Transactions</h3>
+            <p style={{ fontSize: '13px', opacity: 0.68, margin: '4px 0 0' }}>Your incoming and outgoing GhostPay activity</p>
+          </div>
+          <div className={`tx-filter-segment active-${txFilter}`} role="tablist" aria-label="Filter transactions">
+            <span className="tx-filter-indicator" aria-hidden="true" />
+            {[
+              { key: 'all', label: `All (${allTx.length})` },
+              { key: 'received', label: `Received (${receivedTx.length})` },
+              { key: 'sent', label: `Sent (${sentTx.length})` },
+            ].map(tab => {
+              const filterKey = tab.key as 'all' | 'received' | 'sent'
+              const active = txFilter === filterKey
+              return <button key={tab.key} type="button" role="tab" aria-selected={active} onClick={() => setTxFilter(filterKey)} className={active ? `active ${filterKey}` : ''}>{tab.label}</button>
+            })}
+          </div>
+        </div>
+        {busy ? <div className="transactions-loading"><span className="spinner" /></div> : filteredTransactions.length === 0 ? <div className="ledger-empty ledger-list-empty">{txFilter === 'sent' ? 'No sent transactions yet' : txFilter === 'received' ? 'No received payments yet' : 'No transactions yet'}</div> : <div className="ledger-rows ledger-list-scroll" style={{ maxHeight: '480px', overflowY: 'auto' }}>{filteredTransactions.map(tx => {
+          const direction = tx.direction ?? 'received'
+          const received = direction === 'received'
+          const date = new Date(tx.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+          return <div className="ledger-row" key={tx.id}>
+            <div className={`ledger-direction-icon ${received ? 'received' : 'sent'}`} aria-label={received ? 'Received' : 'Sent'}>{received ? '↙' : '↗'}</div>
+            <div className="ledger-counterparty"><strong>{tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'Anonymous Sender'}</strong><span className="numeric-data">{date}</span></div>
+            <div className="ledger-amount-status"><strong className={`numeric-data ${received ? 'cashflow-received' : 'cashflow-sent'}`}>{received ? '+' : '-'}₹{Number(tx.amount_inr).toFixed(2)}</strong><span className={received ? 'received' : 'sent'}>{tx.status === 'completed' ? received ? 'Received' : 'Sent' : tx.status.replaceAll('_', ' ')}</span></div>
+          </div>
+        })}</div>}
       </section>
       <footer className="dashboard-footer"><span><LockKeyhole size={13} /> Your privacy is always on.</span><button aria-label="Help"><CircleHelp size={15} /> Help & support</button></footer>
     </div>
-    {editOpen && profile && <EditProfileModal profile={profile} onClose={() => setEditOpen(false)} onSaved={updated => { setProfile(updated); setEditOpen(false) }} />}
     {qrOpen && profile && <ShareQrModal profile={profile} onClose={() => setQrOpen(false)} />}
+    {editProfileModalOpen && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setEditProfileModalOpen(false) }}>
+      <section className="profile-modal account-edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-account-title">
+        <header className="modal-heading"><div><div className="form-eyebrow">ACCOUNT SETTINGS</div><h2 id="edit-account-title">Edit Profile &amp; Account</h2></div><button type="button" className="icon-button" onClick={() => setEditProfileModalOpen(false)} aria-label="Close"><X size={17} /></button></header>
+        <form className="form-stack" onSubmit={handleSaveProfileAndAccount}>
+          <label>GhostPay Handle (@handle)<input autoCapitalize="none" value={editHandle} onChange={event => setEditHandle(event.target.value)} required /></label>
+          <label>Full Name<input autoComplete="name" value={editFullName} onChange={event => setEditFullName(event.target.value)} required /></label>
+          <label>UPI ID<input autoCapitalize="none" value={editUpi} onChange={event => setEditUpi(event.target.value)} required /></label>
+          <label>Email Address<input type="email" autoComplete="email" value={editEmail} onChange={event => setEditEmail(event.target.value)} required /></label>
+          <label>New Password (optional)<input type="password" autoComplete="new-password" minLength={6} placeholder="Leave blank to keep current" value={editPassword} onChange={event => setEditPassword(event.target.value)} /></label>
+          <fieldset className="avatar-picker"><legend>Avatar / PFP</legend><div className="avatar-presets">{avatarPresets.map(preset => <button key={preset} type="button" className={`avatar-preset avatar-${preset} ${editAvatar === `preset:${preset}` ? 'selected' : ''}`} aria-label={`Choose ${preset} avatar`} aria-pressed={editAvatar === `preset:${preset}`} onClick={() => setEditAvatar(`preset:${preset}`)}>{preset.slice(0, 1).toUpperCase()}</button>)}</div><label>Or use an image URL<input type="url" placeholder="https://example.com/avatar.png" value={editAvatar.startsWith('preset:') ? '' : editAvatar} onChange={event => setEditAvatar(event.target.value)} /></label></fieldset>
+          {profileEditError && <p className="error-note" role="alert">{profileEditError}</p>}
+          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setEditProfileModalOpen(false)}>Cancel</button><button className="button button-primary" disabled={isSavingProfile}>{isSavingProfile ? 'Saving…' : 'Save changes'}<Check size={16} /></button></div>
+        </form>
+        <p className="modal-privacy"><LockKeyhole size={13} /> Your private account details are only visible to you.</p>
+      </section>
+    </div>}
     {transferToast && <div className={`transfer-toast ${transferToast.kind}`} role={transferToast.kind === 'error' ? 'alert' : 'status'}>{transferToast.message}</div>}
   </main>
 }
@@ -729,63 +885,6 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
 }
 
 const avatarPresets = ['blue', 'indigo', 'violet', 'amber', 'slate']
-
-function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onClose: () => void; onSaved: (profile: Profile) => void }) {
-  const [fullName, setFullName] = useState(profile.real_legal_name ?? '')
-  const [upi, setUpi] = useState(profile.real_upi_id ?? '')
-  const [alias, setAlias] = useState(profile.alias_handle)
-  const [avatar, setAvatar] = useState(profile.avatar_url && (/^https?:\/\//i.test(profile.avatar_url) || profile.avatar_url.startsWith('preset:')) ? profile.avatar_url : '')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function save(event: FormEvent) {
-    event.preventDefault(); setError('')
-    if (!supabase) { setError('Connect your Supabase project to update your profile.'); return }
-    const cleanAlias = alias.trim().replace(/^@+/, '').toLowerCase()
-    if (!/^[a-z0-9_][a-z0-9_.]{2,29}$/.test(cleanAlias)) { setError('Use 3–30 letters, numbers, dots, or underscores for your alias.'); return }
-    const cleanAvatar = avatar.trim()
-    if (cleanAvatar.startsWith('preset:') && !avatarPresets.includes(cleanAvatar.slice(7))) { setError('Choose one of the available avatar presets.'); return }
-    if (cleanAvatar && !cleanAvatar.startsWith('preset:')) {
-      try { if (!['http:', 'https:'].includes(new URL(cleanAvatar).protocol)) throw new Error() }
-      catch { setError('Enter a valid image URL or choose an avatar preset.'); return }
-    }
-    setBusy(true)
-    const { error: handleClaimError } = await supabase.from('profiles').upsert({ id: profile.id, alias_handle: cleanAlias }, { onConflict: 'id' })
-    if (handleClaimError) {
-      setError(handleClaimError.code === '23505' ? 'That alias is already taken. Try another one.' : handleClaimError.message)
-      setBusy(false)
-      return
-    }
-    const { data, error: updateError } = await supabase.from('users').update({
-      real_legal_name: fullName.trim(),
-      real_upi_id: upi.trim(),
-      alias_handle: cleanAlias,
-      avatar_url: cleanAvatar || null,
-    }).eq('id', profile.id).select('id, alias_handle, real_legal_name, real_upi_id, avatar_url, wallet_balance').single()
-    if (updateError) {
-      await supabase.from('profiles').upsert({ id: profile.id, alias_handle: profile.alias_handle }, { onConflict: 'id' })
-      setError(updateError.code === '23505' ? 'That alias is already taken. Try another one.' : updateError.message)
-      setBusy(false)
-      return
-    }
-    onSaved(data)
-  }
-
-  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
-    <section className="profile-modal" role="dialog" aria-modal="true" aria-labelledby="edit-profile-title">
-      <header className="modal-heading"><div><div className="form-eyebrow">YOUR ACCOUNT</div><h2 id="edit-profile-title">Edit profile</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button></header>
-      <form className="form-stack" onSubmit={save}>
-        <label>Full Name<input autoComplete="name" value={fullName} onChange={event => setFullName(event.target.value)} required /></label>
-        <label>UPI ID<input autoCapitalize="none" value={upi} onChange={event => setUpi(event.target.value)} placeholder="name@bank" required /></label>
-        <label>Chosen Handle / Alias<div className="alias-input"><span>@</span><input autoCapitalize="none" value={alias} onChange={event => setAlias(event.target.value)} required /></div></label>
-        <fieldset className="avatar-picker"><legend>Avatar / PFP</legend><div className="avatar-presets">{avatarPresets.map(preset => <button key={preset} type="button" className={`avatar-preset avatar-${preset} ${avatar === `preset:${preset}` ? 'selected' : ''}`} aria-label={`Choose ${preset} avatar`} aria-pressed={avatar === `preset:${preset}`} onClick={() => setAvatar(`preset:${preset}`)}>{preset.slice(0, 1).toUpperCase()}</button>)}</div><label>Or use an image URL<input type="url" placeholder="https://example.com/avatar.png" value={avatar.startsWith('preset:') ? '' : avatar} onChange={event => setAvatar(event.target.value)} /></label></fieldset>
-        {error && <p className="error-note">{error}</p>}
-        <div className="modal-actions"><button type="button" className="button button-secondary" onClick={onClose}>Cancel</button><button className="button button-primary" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}<Check size={16} /></button></div>
-      </form>
-      <p className="modal-privacy"><LockKeyhole size={13} /> Banking details are visible only to you.</p>
-    </section>
-  </div>
-}
 
 function PaymentPage() {
   const { handle = '' } = useParams()

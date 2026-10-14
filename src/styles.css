@@ -791,6 +791,42 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 @keyframes payment-toast-in { from { opacity: 0; transform: translate(-50%, -5px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 /* P2P wallet transfer widget */
+.profile-menu-wrap { position: relative; }
+.profile-avatar-button { padding: 0; border: 1px solid #dbeafe; cursor: pointer; }
+.profile-avatar-button img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.profile-dropdown { position: absolute; z-index: 30; top: calc(100% + 10px); right: 0; display: flex; width: min(290px, calc(100vw - 28px)); flex-direction: column; gap: 4px; padding: 8px; border: 1px solid #e4e4e7; border-radius: 16px; background: rgba(255, 255, 255, .98); box-shadow: 0 18px 48px rgba(15, 23, 42, .16); }
+.profile-dropdown-identity { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-bottom: 1px solid #f1f5f9; }
+.profile-dropdown-identity strong { color: #18181b; font-size: 13px; }
+.profile-dropdown-identity span { overflow: hidden; color: #71717a; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-dropdown > button { padding: 11px 12px; border: 0; border-radius: 10px; color: #27272a; background: transparent; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
+.profile-dropdown > button:hover { color: #1d4ed8; background: #eff6ff; }
+.profile-dropdown > button.profile-dropdown-signout { color: #dc2626; }
+.tx-filter-segment { position: relative; display: inline-flex; min-width: min(100%, 330px); align-items: center; gap: 4px; padding: 4px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 999px; background: rgba(148, 163, 184, .14); }
+.tx-filter-indicator { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 16px) / 3); border-radius: 999px; background: #2563eb; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); transition: transform .25s ease, background-color .2s ease; }
+.tx-filter-segment.active-received .tx-filter-indicator { transform: translateX(calc(100% + 4px)); background: #10b981; }
+.tx-filter-segment.active-sent .tx-filter-indicator { transform: translateX(calc(200% + 8px)); background: #ef4444; }
+.tx-filter-segment button { position: relative; z-index: 1; flex: 1; padding: 8px 10px; border: 0; border-radius: 999px; color: #52525b; background: transparent; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: color .2s ease; }
+.tx-filter-segment button.active { color: #fff; background: transparent !important; box-shadow: none; }
+.ledger-list-scroll { max-height: 480px; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #cbd5e1 transparent; scrollbar-width: thin; }
+.ledger-list-scroll .ledger-row:first-child { border-top: 1px solid #e2e8f0; }
+.ledger-list-empty { min-height: 160px; border: 1px dashed #e2e8f0; border-radius: 14px; }
+.account-edit-modal { max-height: min(90vh, 760px); overflow-y: auto; }
+.dark .profile-dropdown { border-color: #3f3f46; background: rgba(24, 24, 27, .98); box-shadow: 0 18px 48px rgba(0, 0, 0, .45); }
+.dark .profile-dropdown-identity { border-color: #27272a; }
+.dark .profile-dropdown-identity strong, .dark .profile-dropdown > button { color: #fafafa; }
+.dark .profile-dropdown-identity span { color: #a1a1aa; }
+.dark .profile-dropdown > button:hover { color: #bfdbfe; background: #172554; }
+.dark .profile-dropdown > button.profile-dropdown-signout { color: #fca5a5; }
+.dark .tx-filter-segment { border-color: #3f3f46; background: #27272a; }
+.dark .tx-filter-segment button { color: #d4d4d8; }
+.dark .tx-filter-segment button.active { color: #fff; }
+.dark .ledger-list-empty { border-color: #3f3f46; }
+.dark .ledger-list-scroll .ledger-row:first-child { border-color: #27272a; }
+@media (max-width: 560px) {
+  .tx-filter-segment { width: 100%; min-width: 100%; justify-content: space-between; }
+  .tx-filter-segment button { flex: 1; padding-right: 9px; padding-left: 9px; font-size: 10px; }
+}
+
 .cashflow-received { color: #10b981 !important; }
 .cashflow-sent { color: #ef4444 !important; }
 .cashflow-total { color: #0f172a !important; }
