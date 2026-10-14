@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Activity, ArrowLeft, ArrowRight, Check, CircleHelp, Copy, Download, LockKeyhole, Moon, Share2, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
 import { toBlob } from 'html-to-image'
@@ -7,7 +7,7 @@ import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
 
 type Profile = { id: string; alias_handle: string; real_legal_name?: string; real_upi_id?: string; avatar_url?: string | null; wallet_balance?: number }
-type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_id?: string | null; receiver_id?: string; sender_alias?: string; sender_name?: string; direction?: 'sent' | 'received'; counterpartyLabel?: string }
+type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_id?: string | null; receiver_id?: string; sender_alias?: string; sender_name?: string; recipient_upi?: string; direction?: 'sent' | 'received'; counterpartyLabel?: string; counterpartyAvatarUrl?: string | null; counterpartyUserId?: string | null }
 type DemoTransaction = Transaction & { receiver_id: string; sender_alias: string; status: 'simulated' }
 
 let sharedAudioCtx: AudioContext | null = null
@@ -208,21 +208,29 @@ async function fetchLedgerTransactions(userId: string): Promise<Transaction[]> {
   }
 
   const uniqueUserIds = [...new Set(allRows.flatMap(tx => [tx.sender_id, tx.receiver_id]).filter((id): id is string => Boolean(id)))]
-  const aliasesById = new Map<string, string>()
+  const usersById = new Map<string, { alias_handle: string; avatar_url: string | null }>()
   if (uniqueUserIds.length) {
-    const { data: users, error } = await supabase.from('users').select('id, alias_handle').in('id', uniqueUserIds)
+    const { data: users, error } = await supabase.from('profiles').select('id, alias_handle, avatar_url').in('id', uniqueUserIds)
     if (error) throw error
-    for (const user of users ?? []) aliasesById.set(user.id, user.alias_handle)
+    for (const user of users ?? []) usersById.set(user.id, { alias_handle: user.alias_handle, avatar_url: user.avatar_url })
   }
 
   return allRows.map(tx => {
     const direction = tx.sender_id === userId ? 'sent' : 'received'
-    const senderHandle = tx.sender_id ? aliasesById.get(tx.sender_id) : undefined
-    const receiverHandle = aliasesById.get(tx.receiver_id ?? '')
+    const sender = tx.sender_id ? usersById.get(tx.sender_id) : undefined
+    const receiver = tx.receiver_id ? usersById.get(tx.receiver_id) : undefined
+    const senderHandle = sender?.alias_handle
+    const receiverHandle = receiver?.alias_handle
     const counterpartyLabel = direction === 'sent'
-      ? receiverHandle ? formatHandle(receiverHandle) : tx.sender_name || 'GhostPay User'
+      ? receiverHandle ? formatHandle(receiverHandle) : tx.recipient_upi || tx.sender_name || 'GhostPay User'
       : tx.sender_name || (senderHandle ? formatHandle(senderHandle) : 'Anonymous Sender')
-    return { ...tx, direction, counterpartyLabel }
+    return {
+      ...tx,
+      direction,
+      counterpartyLabel,
+      counterpartyAvatarUrl: direction === 'sent' ? receiver?.avatar_url ?? null : sender?.avatar_url ?? null,
+      counterpartyUserId: direction === 'sent' ? tx.receiver_id ?? null : tx.sender_id ?? null,
+    }
   })
 }
 
@@ -524,6 +532,25 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   const [transferBusy, setTransferBusy] = useState(false)
   const [transferToast, setTransferToast] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
   const transferToastTimer = useRef<number | null>(null)
+  const [hideBalance, setHideBalance] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem('ghostpay_hide_balance') === 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const toggleHideBalance = () => {
+    setHideBalance(previous => {
+      const next = !previous
+      try {
+        window.localStorage.setItem('ghostpay_hide_balance', String(next))
+      } catch {
+        // Ignore storage errors.
+      }
+      return next
+    })
+  }
 
   function showTransferToast(kind: 'success' | 'error', message: string) {
     if (transferToastTimer.current !== null) window.clearTimeout(transferToastTimer.current)
@@ -624,6 +651,31 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     ...transactions,
     ...demoTransactions.map(tx => ({ ...tx, direction: 'received' as const, counterpartyLabel: tx.sender_alias || 'Anonymous Sender' })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  const recentPeople = useMemo(() => {
+    const seen = new Set<string>()
+    const list: Array<{ handle: string; label: string; avatarUrl?: string | null }> = []
+    const currentUserId = session.user.id
+    const ownHandle = `@${profile?.alias_handle?.replace(/^@+/, '').toLowerCase() ?? ''}`
+
+    for (const tx of transactions) {
+      if (tx.counterpartyUserId === currentUserId) continue
+      const handle = (tx.counterpartyLabel || '').trim()
+      const cleanKey = handle.toLowerCase()
+      if (
+        cleanKey &&
+        cleanKey !== 'anonymous sender' &&
+        cleanKey !== 'ghostpay user' &&
+        cleanKey !== 'ghostpay wallet' &&
+        cleanKey !== ownHandle &&
+        !seen.has(cleanKey)
+      ) {
+        seen.add(cleanKey)
+        list.push({ handle, label: handle.replace(/^@+/, ''), avatarUrl: tx.counterpartyAvatarUrl })
+      }
+      if (list.length >= 5) break
+    }
+    return list
+  }, [transactions, session.user.id, profile?.alias_handle])
   const completedTransactions = transactions.filter(tx => tx.status === 'completed')
   const receivedTransactions = completedTransactions.filter(tx => tx.direction === 'received')
   const sentTransactions = completedTransactions.filter(tx => tx.direction === 'sent')
@@ -838,8 +890,13 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981', boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.18)' }} />
               AVAILABLE WALLET BALANCE
             </div>
-            <div style={{ fontSize: 'clamp(34px, 5vw, 46px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05 }}>
-              {busy ? '—' : `₹${Number(profile?.wallet_balance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ fontSize: 'clamp(34px, 5vw, 46px)', fontWeight: 800, letterSpacing: hideBalance ? '0.08em' : '-0.03em', lineHeight: 1.05, userSelect: 'none', transition: 'all 0.2s ease' }}>
+                {hideBalance ? '₹••••••' : busy ? '—' : `₹${Number(profile?.wallet_balance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              </div>
+              <button type="button" onClick={toggleHideBalance} title={hideBalance ? 'Show balance' : 'Hide balance'} aria-label={hideBalance ? 'Show balance' : 'Hide balance'} style={{ width: '38px', height: '38px', borderRadius: '12px', border: '1px solid rgba(148, 163, 184, 0.22)', backgroundColor: 'rgba(148, 163, 184, 0.1)', color: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0.8, transition: 'all 0.15s ease' }}>
+                {hideBalance ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg> : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>}
+              </button>
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -847,6 +904,20 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
             <div style={{ fontSize: '13px', opacity: 0.7 }}>Instant zero-fee transfer to any @handle or UPI ID</div>
           </div>
         </div>
+        {recentPeople.length > 0 && <div style={{ marginBottom: '18px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.6, marginBottom: '10px' }}>Recent People · 1-Tap Fill</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {recentPeople.map(person => {
+              const isSelected = transferRecipient.trim().toLowerCase() === person.handle.toLowerCase()
+              return <button key={person.handle} type="button" onClick={() => setTransferRecipient(person.handle)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'transparent', border: 'none', padding: '4px', cursor: 'pointer', minWidth: '64px', transition: 'transform 0.15s ease' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', overflow: 'hidden', background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', fontWeight: 700, border: isSelected ? '2.5px solid #10B981' : '2px solid rgba(37, 99, 235, 0.35)', boxShadow: isSelected ? '0 0 0 3px rgba(16, 185, 129, 0.22)' : '0 4px 10px rgba(0, 0, 0, 0.15)' }}>
+                  {person.avatarUrl ? <img src={person.avatarUrl} alt={person.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : person.label.charAt(0).toUpperCase()}
+                </div>
+                <span style={{ fontSize: '12px', fontWeight: isSelected ? 700 : 600, color: isSelected ? '#10B981' : 'inherit', maxWidth: '72px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{person.label}</span>
+              </button>
+            })}
+          </div>
+        </div>}
         <form className="send-money-form" onSubmit={submitTransfer}>
           <label>Recipient @handle or UPI ID<input autoCapitalize="none" autoComplete="off" placeholder="@username or name@bank" value={transferRecipient} onChange={event => setTransferRecipient(event.target.value)} disabled={transferBusy} required /></label>
           <label>Amount (₹)<input inputMode="decimal" type="number" min="0.01" max="1000000" step="0.01" placeholder="0.00" value={transferAmount} onChange={event => setTransferAmount(event.target.value)} disabled={transferBusy} required />
