@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Activity, ArrowLeft, ArrowRight, Check, CircleHelp, Copy, Download, LockKeyhole, Moon, QrCode, Share2, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowRight, Check, CircleHelp, Copy, Download, LockKeyhole, Moon, Share2, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
 import { toBlob } from 'html-to-image'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import type { Session } from '@supabase/supabase-js'
@@ -279,6 +279,28 @@ function App() {
   if (!authReady) return <div className="loading-screen"><Brand /><span className="spinner" /></div>
 
   return <>
+    <style>{`
+      input[type="number"]::-webkit-outer-spin-button,
+      input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none !important;
+        margin: 0 !important;
+      }
+      input[type="number"] {
+        -moz-appearance: textfield !important;
+        appearance: textfield !important;
+      }
+      *::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      *::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      *::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.3);
+        border-radius: 999px;
+      }
+    `}</style>
     <Routes>
     <Route path="/" element={session ? <AuthenticatedRedirect session={session} /> : <AuthPage />} />
     <Route path="/login" element={session ? <AuthenticatedRedirect session={session} /> : <AuthPage initialMode="sign-in" />} />
@@ -638,6 +660,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   const filteredTransactions = txFilter === 'all' ? allTx : txFilter === 'received' ? receivedTx : sentTx
   const avatarValue = profile?.avatar_url || (typeof session.user.user_metadata.avatar_url === 'string' ? session.user.user_metadata.avatar_url : '')
   const avatarUrl = avatarValue && !avatarValue.startsWith('preset:') ? avatarValue : null
+  const isDark = theme === 'dark'
 
   async function copyLink() {
     if (!profile) return
@@ -805,7 +828,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   return <main className="dashboard-page">
     <header className="dashboard-topbar"><Brand /><div className="topbar-actions"><span className="secure-pill"><span /> SECURE SPACE</span><button className="icon-button" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><div className="profile-menu-wrap" ref={profileMenuRef}><button type="button" className="avatar profile-avatar-button" onClick={() => setProfileMenuOpen(open => !open)} aria-label="Open profile menu" aria-expanded={profileMenuOpen} disabled={!profile}>{avatarUrl ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <span className={`avatar-monogram ${profile?.avatar_url?.startsWith('preset:') ? `avatar-${profile.avatar_url.slice(7)}` : ''}`}>{profile?.avatar_url?.startsWith('preset:') ? profile.avatar_url.slice(7, 8).toUpperCase() : profile?.alias_handle?.slice(0, 1).toUpperCase() ?? session.user.email?.slice(0, 1).toUpperCase() ?? 'G'}</span>}</button>{profileMenuOpen && <div className="profile-dropdown" role="menu"><div className="profile-dropdown-identity"><strong>{formatHandle(profile?.alias_handle ?? '')}</strong><span>{session.user.email ?? 'Email unavailable'}</span></div><button type="button" role="menuitem" onClick={openProfileEditor}>Edit Profile</button><button type="button" role="menuitem" className="profile-dropdown-signout" onClick={signOut}>Sign Out</button></div>}</div></div></header>
     <div className="dashboard-container">
-      <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><div className="dashboard-actions"><button className="button button-secondary" onClick={() => setQrOpen(true)} disabled={!profile}><QrCode size={16} /> Share QR Code</button></div></div>
+      <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><div className="dashboard-actions"><button type="button" onClick={() => setQrOpen(true)} disabled={!profile} style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '12px 22px', borderRadius: '999px', border: '1px solid rgba(96, 165, 250, 0.45)', background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', color: '#FFFFFF', fontSize: '14px', fontWeight: 700, letterSpacing: '-0.01em', cursor: 'pointer', boxShadow: '0 10px 25px -5px rgba(37, 99, 235, 0.5)', transition: 'transform 0.15s ease, box-shadow 0.15s ease' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><path d="M14 14h3v3h-3z" /><path d="M18 18h3v3h-3z" /><path d="M14 19h3" /><path d="M19 14v3" /></svg>Share QR Pass</button></div></div>
       {error && <div className="notice-error">{error}</div>}
       <section className="receive-card"><div className="receive-copy"><span className="receive-label"><span className="pulse-dot" /> READY TO RECEIVE</span><h2>Your Shielded Link</h2><p>Share your link with clients. Your personal details stay private.</p><div className="link-field"><div className="link-icon"><Shield size={16} /></div><span className="link-prefix">{window.location.host}/</span><strong>{profile ? formatHandle(profile.alias_handle) : '…'}</strong><button onClick={copyLink} disabled={!profile} aria-label="Copy Link">{copied ? <Check size={17} /> : <Copy size={17} />}<span>{copied ? 'Copied!' : 'Copy Link'}</span></button></div></div></section>
       <section className="send-money-card" aria-labelledby="send-money-title">
@@ -826,7 +849,14 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
         </div>
         <form className="send-money-form" onSubmit={submitTransfer}>
           <label>Recipient @handle or UPI ID<input autoCapitalize="none" autoComplete="off" placeholder="@username or name@bank" value={transferRecipient} onChange={event => setTransferRecipient(event.target.value)} disabled={transferBusy} required /></label>
-          <label>Amount (₹)<input inputMode="decimal" type="number" min="0.01" max="1000000" step="0.01" placeholder="0.00" value={transferAmount} onChange={event => setTransferAmount(event.target.value)} disabled={transferBusy} required /></label>
+          <label>Amount (₹)<input inputMode="decimal" type="number" min="0.01" max="1000000" step="0.01" placeholder="0.00" value={transferAmount} onChange={event => setTransferAmount(event.target.value)} disabled={transferBusy} required />
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              {[100, 500, 1000].map(amt => <button key={amt} type="button" disabled={transferBusy} onClick={() => {
+                const current = parseFloat(String(transferAmount || '0')) || 0
+                setTransferAmount(String(current + amt))
+              }} style={{ padding: '5px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid rgba(37, 99, 235, 0.3)', backgroundColor: 'rgba(37, 99, 235, 0.1)', color: '#3B82F6', transition: 'all 0.15s ease' }}>+₹{amt.toLocaleString('en-IN')}</button>)}
+            </div>
+          </label>
           <button className="button button-primary send-money-submit" disabled={transferBusy || busy || !profile}>{transferBusy ? <><span className="spinner auth-button-spinner" /> Sending securely…</> : <>Send Securely <ArrowRight size={16} /></>}</button>
         </form>
       </section>
@@ -905,13 +935,24 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
               <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {editAvatarUrl && !editAvatarUrl.startsWith('preset:') ? <img src={editAvatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (editHandle || profile?.alias_handle || 'U').replace(/^@+/, '').charAt(0).toUpperCase()}
               </div>
-              <span aria-hidden="true" style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#0F172A', color: '#FFFFFF', border: '2px solid #FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px' }}>📷</span>
+              <span aria-hidden="true" style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: '#2563EB', color: '#FFFFFF', border: `2px solid ${isDark ? '#0F172A' : '#FFFFFF'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>
+              </span>
             </button>
             <span style={{ fontSize: '12px', opacity: 0.65, marginTop: '8px', fontWeight: 500 }}>Tap photo to change</span>
-            {avatarMenuOpen && <div style={{ position: 'absolute', top: '102px', zIndex: 50, width: '210px', backgroundColor: '#FFFFFF', color: '#0F172A', borderRadius: '16px', boxShadow: '0 14px 34px rgba(15, 23, 42, 0.18)', border: '1px solid #E2E8F0', padding: '6px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <button type="button" onClick={() => { setAvatarMenuOpen(false); deviceFileInputRef.current?.click() }} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', color: '#0F172A', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>🖼️ Choose from Device</button>
-              <button type="button" onClick={() => { setAvatarMenuOpen(false); cameraFileInputRef.current?.click() }} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', color: '#0F172A', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>📸 Take Photo (Camera)</button>
-              {editAvatarUrl && <button type="button" onClick={() => { setEditAvatarUrl(''); setAvatarMenuOpen(false) }} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', color: '#EF4444', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>🗑️ Remove Photo</button>}
+            {avatarMenuOpen && <div style={{ position: 'absolute', top: '104px', zIndex: 60, width: '220px', backgroundColor: isDark ? '#1E293B' : '#FFFFFF', color: isDark ? '#F8FAFC' : '#0F172A', borderRadius: '16px', boxShadow: isDark ? '0 18px 40px rgba(0, 0, 0, 0.55)' : '0 14px 34px rgba(15, 23, 42, 0.16)', border: `1px solid ${isDark ? 'rgba(148, 163, 184, 0.2)' : '#E2E8F0'}`, padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px', backdropFilter: 'blur(12px)' }}>
+              <button type="button" onClick={() => { setAvatarMenuOpen(false); deviceFileInputRef.current?.click() }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', color: isDark ? '#F8FAFC' : '#0F172A', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                Choose from Device
+              </button>
+              <button type="button" onClick={() => { setAvatarMenuOpen(false); cameraFileInputRef.current?.click() }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', color: isDark ? '#F8FAFC' : '#0F172A', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>
+                Take Photo (Camera)
+              </button>
+              {editAvatarUrl && <button type="button" onClick={() => { setEditAvatarUrl(''); setAvatarMenuOpen(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', color: '#EF4444', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg>
+                Remove Photo
+              </button>}
             </div>}
             <input ref={deviceFileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={async event => {
               const input = event.currentTarget
@@ -995,7 +1036,7 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
     const blob = await toBlob(cardElement, {
       cacheBust: true,
       pixelRatio: 2,
-      backgroundColor: '#ffffff',
+      backgroundColor: '#0F172A',
     });
 
     if (!blob) {
@@ -1082,29 +1123,19 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
       <p className="modal-privacy"><LockKeyhole size={13} /> Payments route through GhostPay to keep your real identity completely hidden.</p>
     </section>
     <div style={{ position: 'fixed', top: 0, left: 0, zIndex: -9999, opacity: 0.01, pointerEvents: 'none' }}>
-      <div
-        id="ghostpay-export-card"
-        style={{
-          width: '380px',
-          backgroundColor: '#ffffff',
-          borderRadius: '24px',
-          padding: '32px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-          <span style={{ color: '#2563EB', fontWeight: 'bold', fontSize: '20px' }}>ghostpay</span>
+      <div id="ghostpay-export-card" style={{ width: '380px', background: 'linear-gradient(180deg, #0F172A 0%, #1E293B 100%)', borderRadius: '28px', padding: '32px 26px', display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#FFFFFF', fontFamily: 'Inter, system-ui, sans-serif', border: '1px solid rgba(59, 130, 246, 0.35)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '15px', color: '#FFFFFF' }}>G</div>
+            <span style={{ fontWeight: 800, fontSize: '19px', letterSpacing: '-0.02em', color: '#FFFFFF' }}>ghostpay</span>
+          </div>
+          <span style={{ fontSize: '11px', fontWeight: 700, padding: '5px 10px', borderRadius: '999px', backgroundColor: 'rgba(37, 99, 235, 0.22)', color: '#60A5FA', border: '1px solid rgba(96, 165, 250, 0.35)', letterSpacing: '0.04em' }}>SHIELDED ESCROW</span>
         </div>
-
-        <div style={{ padding: '16px', border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#f9fafb', marginBottom: '24px' }}>
-          <QRCode value={`https://ghostpay-orpin.vercel.app/@${profile.alias_handle}`} size={200} />
+        <div style={{ padding: '20px', borderRadius: '22px', backgroundColor: '#FFFFFF', marginBottom: '22px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <QRCode value={`https://ghostpay-orpin.vercel.app/@${profile?.alias_handle}`} size={210} />
         </div>
-
-        <div style={{ fontSize: '16px', color: '#4b5563', fontWeight: '500' }}>
-          @{profile.alias_handle}
-        </div>
+        <div style={{ fontSize: '20px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', marginBottom: '4px' }}>@{profile?.alias_handle}</div>
+        <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 500 }}>Scan to pay privately · Zero bank details exposed</div>
       </div>
     </div>
   </div>
