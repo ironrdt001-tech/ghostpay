@@ -791,6 +791,65 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 @keyframes payment-toast-in { from { opacity: 0; transform: translate(-50%, -5px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 /* P2P wallet transfer widget */
+.cashflow-received { color: #10b981 !important; }
+.cashflow-sent { color: #ef4444 !important; }
+.cashflow-total { color: #0f172a !important; }
+.cashflow-legend { display: flex; align-items: center; gap: 10px; font-size: 10px; font-weight: 600; }
+.cashflow-legend > span { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; white-space: nowrap; }
+.cashflow-legend i { width: 7px; height: 7px; border-radius: 50%; }
+.cashflow-legend-received { color: #059669; background: #ecfdf5; }
+.cashflow-legend-received i { background: #10b981; }
+.cashflow-legend-sent { color: #dc2626; background: #fef2f2; }
+.cashflow-legend-sent i { background: #ef4444; }
+.cashflow-chart { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: end; gap: 12px; padding-top: 24px; }
+.cashflow-chart-day { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 9px; }
+.cashflow-chart-values { display: flex; min-height: 34px; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; font-size: 9px; font-weight: 700; white-space: nowrap; }
+.cashflow-chart-track { display: flex; width: 100%; max-width: 64px; height: 150px; align-items: flex-end; justify-content: center; gap: 6px; padding: 8px 8px 6px; border: 1px solid #f1f5f9; border-radius: 16px; background: #f8fafc; }
+.cashflow-chart-bar { min-width: 0; flex: 1; border-radius: 8px; transition: height .3s ease; }
+.cashflow-chart-bar.received { background: linear-gradient(180deg, #34d399 0%, #10b981 100%); }
+.cashflow-chart-bar.sent { background: linear-gradient(180deg, #f87171 0%, #ef4444 100%); }
+.cashflow-chart-bar.zero { background: #e2e8f0; }
+.cashflow-chart.is-ready .cashflow-chart-bar { transition: height .7s ease-out; }
+.cashflow-chart-label { color: #334155; font-size: 10px; line-height: 1.25; text-align: center; }
+.cashflow-chart-label small { color: #94a3b8; font-size: 9px; }
+.ledger-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; padding: 16px 0; }
+.ledger-column { min-width: 0; padding: 16px; border: 1px solid #e2e8f0; border-radius: 18px; background: #f8fafc; }
+.ledger-column-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.ledger-column-heading h3 { margin: 0; color: #0f172a; font-size: 12px; font-weight: 700; }
+.ledger-column-heading > span { padding: 5px 9px; border-radius: 999px; color: #475569; background: #e2e8f0; font: 650 10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: nowrap; }
+.ledger-received .ledger-column-heading > span { color: #059669; background: #ecfdf5; }
+.ledger-sent .ledger-column-heading > span { color: #dc2626; background: #fef2f2; }
+.ledger-rows { display: flex; flex-direction: column; }
+.ledger-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; padding: 10px 0; border-top: 1px solid #e2e8f0; }
+.ledger-direction-icon { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; font-size: 16px; font-weight: 700; }
+.ledger-direction-icon.received { color: #10b981; background: #ecfdf5; }
+.ledger-direction-icon.sent { color: #ef4444; background: #fef2f2; }
+.ledger-counterparty { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.ledger-counterparty strong { overflow: hidden; color: #0f172a; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.ledger-counterparty span { color: #64748b; font-size: 9px; white-space: nowrap; }
+.ledger-amount-status { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.ledger-amount-status strong { font-size: 10px; white-space: nowrap; }
+.ledger-amount-status > span { padding: 3px 7px; border-radius: 999px; color: #059669; background: #ecfdf5; font-size: 8px; font-weight: 650; white-space: nowrap; }
+.ledger-amount-status > span.sent { color: #dc2626; background: #fef2f2; }
+.ledger-empty { display: grid; min-height: 112px; place-items: center; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 10px; text-align: center; }
+.dark .cashflow-total { color: #f8fafc !important; }
+.dark .cashflow-legend-received, .dark .ledger-received .ledger-column-heading > span, .dark .ledger-direction-icon.received, .dark .ledger-amount-status > span { color: #6ee7b7; background: rgba(6, 78, 59, .3); }
+.dark .cashflow-legend-sent, .dark .ledger-sent .ledger-column-heading > span, .dark .ledger-direction-icon.sent, .dark .ledger-amount-status > span.sent { color: #fca5a5; background: rgba(127, 29, 29, .3); }
+.dark .cashflow-chart-track, .dark .ledger-column { border-color: #27272a; background: #09090b; }
+.dark .cashflow-chart-label, .dark .ledger-column-heading h3, .dark .ledger-counterparty strong { color: #f8fafc; }
+.dark .cashflow-chart-label small, .dark .ledger-counterparty span, .dark .ledger-empty { color: #a1a1aa; }
+.dark .ledger-column-heading > span { color: #d4d4d8; background: #27272a; }
+.dark .ledger-row, .dark .ledger-empty { border-color: #27272a; }
+.dark .cashflow-chart-bar.zero { background: #3f3f46; }
+.cashflow-legend, .cashflow-chart-values, .ledger-amount-status { font-variant-numeric: tabular-nums; }
+@media (max-width: 700px) {
+  .cashflow-legend { flex-direction: column; align-items: flex-end; gap: 5px; font-size: 9px; }
+  .cashflow-chart { gap: 5px; }
+  .cashflow-chart-track { padding-right: 5px; padding-left: 5px; gap: 4px; }
+  .cashflow-chart-values { font-size: 8px; }
+  .ledger-grid { grid-template-columns: 1fr; }
+}
+
 .send-money-card { margin-top: 16px; padding: 22px 24px; border: 1px solid #e4e4e7; border-radius: 2rem; background: #fff; box-shadow: 0 12px 36px rgba(37, 99, 235, .07), 0 2px 8px rgba(37, 99, 235, .035); }
 .send-money-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .send-money-heading .form-eyebrow { margin-bottom: 5px; font-size: 9px; letter-spacing: .1em; }

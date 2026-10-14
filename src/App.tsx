@@ -1,14 +1,48 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Activity, ArrowDownLeft, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, Download, LockKeyhole, LogOut, Moon, Plus, QrCode, Share2, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowRight, Check, CircleHelp, Copy, Download, LockKeyhole, LogOut, Moon, Plus, QrCode, Share2, Shield, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
 import { toBlob } from 'html-to-image'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import type { Session } from '@supabase/supabase-js'
 import { formatHandle, supabase } from './lib/supabase'
 
 type Profile = { id: string; alias_handle: string; real_legal_name?: string; real_upi_id?: string; avatar_url?: string | null; wallet_balance?: number }
-type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_alias?: string; sender_name?: string }
+type Transaction = { id: string; amount_inr: number; status: string; created_at: string; sender_id?: string | null; receiver_id?: string; sender_alias?: string; sender_name?: string; direction?: 'sent' | 'received'; counterpartyLabel?: string }
 type DemoTransaction = Transaction & { receiver_id: string; sender_alias: string; status: 'simulated' }
+
+async function fetchLedgerTransactions(userId: string): Promise<Transaction[]> {
+  if (!supabase) return []
+  const allRows: Transaction[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('id, sender_id, receiver_id, amount_inr, status, created_at, sender_name')
+      .or(`receiver_id.eq.${userId},sender_id.eq.${userId}`)
+      .order('created_at', { ascending: false })
+      .range(from, from + 999)
+    if (error) throw error
+    allRows.push(...(data ?? []) as Transaction[])
+    if (!data || data.length < 1000) break
+  }
+
+  const uniqueUserIds = [...new Set(allRows.flatMap(tx => [tx.sender_id, tx.receiver_id]).filter((id): id is string => Boolean(id)))]
+  const aliasesById = new Map<string, string>()
+  if (uniqueUserIds.length) {
+    const { data: users, error } = await supabase.from('users').select('id, alias_handle').in('id', uniqueUserIds)
+    if (error) throw error
+    for (const user of users ?? []) aliasesById.set(user.id, user.alias_handle)
+  }
+
+  return allRows.map(tx => {
+    const direction = tx.sender_id === userId ? 'sent' : 'received'
+    const senderHandle = tx.sender_id ? aliasesById.get(tx.sender_id) : undefined
+    const receiverHandle = aliasesById.get(tx.receiver_id ?? '')
+    const counterpartyLabel = direction === 'sent'
+      ? receiverHandle ? formatHandle(receiverHandle) : tx.sender_name || 'GhostPay User'
+      : tx.sender_name || (senderHandle ? formatHandle(senderHandle) : 'Anonymous Sender')
+    return { ...tx, direction, counterpartyLabel }
+  })
+}
 
 function Brand({ light = false }: { light?: boolean }) {
   return <Link className={`brand ${light ? 'brand-light' : ''}`} to="/" aria-label="GhostPay home"><span className="brand-mark"><Shield size={17} strokeWidth={2.4} /></span><span>ghostpay</span></Link>
@@ -292,13 +326,8 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
       if (!supabase) { setError('Connect your Supabase project to load your dashboard.'); setBusy(false); return }
       const client = supabase
       async function loadRealRows() {
-        const rows: Transaction[] = []
-        for (let from = 0; ; from += 1000) {
-          const { data, error } = await client.from('transactions').select('id, amount_inr, status, created_at, sender_name').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).range(from, from + 999)
-          if (error) return { rows: null as Transaction[] | null, error }
-          rows.push(...(data ?? []) as Transaction[])
-          if (!data || data.length < 1000) return { rows, error: null }
-        }
+        try { return { rows: await fetchLedgerTransactions(session.user.id), error: null as Error | null } }
+        catch (loadError) { return { rows: null as Transaction[] | null, error: loadError as Error } }
       }
       async function loadDemoRows() {
         const rows: DemoTransaction[] = []
@@ -359,31 +388,40 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     return () => { void client.removeChannel(channel) }
   }, [session.user.id])
 
-  const recentTransactions: Transaction[] = [...transactions, ...demoTransactions]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 10)
-  const transactionCount = transactions.length + demoTransactions.length
+  const ledgerTransactions: Transaction[] = [
+    ...transactions,
+    ...demoTransactions.map(tx => ({ ...tx, direction: 'received' as const, counterpartyLabel: tx.sender_alias || 'Anonymous Sender' })),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   const completedTransactions = transactions.filter(tx => tx.status === 'completed')
-  const totalVolume = completedTransactions.reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
-  const now = Date.now()
-  const todaysRevenue = completedTransactions.filter(tx => {
-    const timestamp = new Date(tx.created_at).getTime()
-    return timestamp >= now - 24 * 60 * 60 * 1000 && timestamp <= now
-  }).reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
-  const activityDays = Array.from({ length: 7 }, (_, index) => {
+  const receivedTransactions = completedTransactions.filter(tx => tx.direction === 'received')
+  const sentTransactions = completedTransactions.filter(tx => tx.direction === 'sent')
+  const totalReceived = receivedTransactions.reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
+  const totalSent = sentTransactions.reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
+  const receivedCount = receivedTransactions.length
+  const sentCount = sentTransactions.length
+  const sevenDayData = Array.from({ length: 7 }, (_, index) => {
     const day = new Date()
     day.setHours(0, 0, 0, 0)
     day.setDate(day.getDate() - (6 - index))
     const nextDay = new Date(day)
     nextDay.setDate(nextDay.getDate() + 1)
-    const volume = completedTransactions.filter(tx => {
+    const dayTransactions = completedTransactions.filter(tx => {
       const timestamp = new Date(tx.created_at).getTime()
       return timestamp >= day.getTime() && timestamp < nextDay.getTime()
-    }).reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
-    return { label: day.toLocaleDateString('en-IN', { weekday: 'short' }), date: day.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }), volume }
+    })
+    const received = dayTransactions.filter(tx => tx.direction === 'received').reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
+    const sent = dayTransactions.filter(tx => tx.direction === 'sent').reduce((sum, tx) => sum + Number(tx.amount_inr), 0)
+    return {
+      key: day.toISOString().slice(0, 10),
+      dayName: day.toLocaleDateString('en-IN', { weekday: 'short' }),
+      dateLabel: day.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+      received,
+      sent,
+    }
   })
-  const chartMaximum = Math.max(...activityDays.map(day => day.volume), 0)
-  const chartBucket = (volume: number) => chartMaximum ? Math.max(10, Math.ceil(volume / chartMaximum * 10) * 10) : 0
+  const sevenDayReceived = sevenDayData.reduce((sum, day) => sum + day.received, 0)
+  const sevenDaySent = sevenDayData.reduce((sum, day) => sum + day.sent, 0)
+  const maxDayValue = Math.max(...sevenDayData.flatMap(day => [day.received, day.sent]), 100)
   const avatarUrl = profile?.avatar_url && /^https?:\/\//i.test(profile.avatar_url) ? profile.avatar_url : null
 
   async function copyLink() {
@@ -402,14 +440,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     }
     setProfile(current => current ? { ...current, wallet_balance: Number(wallet.wallet_balance) } : current)
 
-    const rows: Transaction[] = []
-    for (let from = 0; ; from += 1000) {
-      const { data, error: rowsError } = await client.from('transactions').select('id, amount_inr, status, created_at, sender_name').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).range(from, from + 999)
-      if (rowsError) throw rowsError
-      rows.push(...(data ?? []) as Transaction[])
-      if (!data || data.length < 1000) break
-    }
-    setTransactions(rows)
+    setTransactions(await fetchLedgerTransactions(session.user.id))
   }
 
   async function submitTransfer(event: FormEvent) {
@@ -475,11 +506,61 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
           <button className="button button-primary send-money-submit" disabled={transferBusy || busy || !profile}>{transferBusy ? <><span className="spinner auth-button-spinner" /> Sending securely…</> : <>Send Securely <ArrowRight size={16} /></>}</button>
         </form>
       </section>
-      <section className="analytics-section" aria-labelledby="analytics-title"><div className="analytics-heading"><div><div className="form-eyebrow">PERFORMANCE</div><h2 id="analytics-title">Analytics</h2></div><span className="analytics-note">Completed demo payments</span></div>
-        <div className="stats-grid"><section className="stat-card"><span className="stat-caption">TOTAL VOLUME</span><div className={`stat-value numeric-data ${totalVolume > 0 ? 'revenue-positive' : ''}`}>₹{busy ? '—' : totalVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Completed payments</span></section><section className="stat-card"><span className="stat-caption">TODAY’S REVENUE</span><div className={`stat-value numeric-data ${todaysRevenue > 0 ? 'revenue-positive' : ''}`}>₹{busy ? '—' : todaysRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><span className="stat-sub">Last 24 hours</span></section><section className="stat-card"><span className="stat-caption">TOTAL TRANSACTIONS</span><div className="stat-value numeric-data">{busy ? '—' : transactionCount.toLocaleString('en-IN')}</div><span className="stat-sub">Real and demo records</span></section></div>
-        <section className="activity-card"><div className="activity-heading"><div><h3>Recent 7-Day Activity</h3><p>Daily completed transaction volume</p></div><span className="activity-legend"><i /> Volume</span></div>{busy ? <div className="transactions-loading"><span className="spinner" /></div> : transactionCount === 0 ? <div className="activity-empty"><Activity size={27} strokeWidth={1.25} /><p>No recent activity</p></div> : <div className={`activity-chart ${chartReady ? 'is-ready' : ''}`} role="img" aria-label="Completed transaction volume over the last seven days">{activityDays.map(day => <div className="activity-day" key={day.date} title={`${day.date}: ₹${day.volume.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}><span className="activity-value numeric-data">{day.volume ? `₹${day.volume.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : ''}</span><div className="activity-track"><div className={`activity-bar-fill height-${chartBucket(day.volume)}`} /></div><span className="activity-label">{day.label}</span><span className="activity-date numeric-data">{day.date}</span></div>)}</div>}</section>
+      <section className="analytics-section" aria-labelledby="analytics-title">
+        <div className="analytics-heading"><div><div className="form-eyebrow">PERFORMANCE</div><h2 id="analytics-title">Analytics</h2></div><span className="analytics-note">Completed transactions</span></div>
+        <div className="stats-grid">
+          <section className="stat-card"><span className="stat-caption">TOTAL RECEIVED</span><div className="stat-value numeric-data cashflow-received">{busy ? '—' : `+₹${totalReceived.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</div><span className="stat-sub">{receivedCount} incoming payments</span></section>
+          <section className="stat-card"><span className="stat-caption">TOTAL SENT</span><div className="stat-value numeric-data cashflow-sent">{busy ? '—' : `-₹${totalSent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</div><span className="stat-sub">{sentCount} outgoing transfers</span></section>
+          <section className="stat-card"><span className="stat-caption">TOTAL TRANSACTIONS</span><div className="stat-value numeric-data cashflow-total">{busy ? '—' : (receivedCount + sentCount).toLocaleString('en-IN')}</div><span className="stat-sub">{receivedCount} received · {sentCount} sent</span></section>
+        </div>
+        <section className="activity-card">
+          <div className="activity-heading"><div><h3>Recent 7-Day Activity</h3><p>Completed money received and sent</p></div>
+            <div className="cashflow-legend">
+              <span className="cashflow-legend-received"><i />Received (+₹{sevenDayReceived.toLocaleString('en-IN')})</span>
+              <span className="cashflow-legend-sent"><i />Sent (-₹{sevenDaySent.toLocaleString('en-IN')})</span>
+            </div>
+          </div>
+          {busy ? <div className="transactions-loading"><span className="spinner" /></div> : transactions.length === 0 ? <div className="activity-empty"><Activity size={27} strokeWidth={1.25} /><p>No recent activity</p></div> : <div className={`cashflow-chart ${chartReady ? 'is-ready' : ''}`} role="img" aria-label="Received and sent transaction totals over the last seven days">
+            {sevenDayData.map(day => {
+              const recHeight = day.received > 0 ? Math.max(Math.round((day.received / maxDayValue) * 140), 14) : 4
+              const sentHeight = day.sent > 0 ? Math.max(Math.round((day.sent / maxDayValue) * 140), 14) : 4
+              return <div key={day.key} className="cashflow-chart-day">
+                <div className="cashflow-chart-values">
+                  {day.received > 0 && <span className="cashflow-received">+₹{Math.round(day.received).toLocaleString('en-IN')}</span>}
+                  {day.sent > 0 && <span className="cashflow-sent">-₹{Math.round(day.sent).toLocaleString('en-IN')}</span>}
+                </div>
+                <div className="cashflow-chart-track">
+                  <div title={`Received: ₹${day.received}`} className={`cashflow-chart-bar ${day.received > 0 ? 'received' : 'zero'}`} style={{ height: `${recHeight}px` }} />
+                  <div title={`Sent: ₹${day.sent}`} className={`cashflow-chart-bar ${day.sent > 0 ? 'sent' : 'zero'}`} style={{ height: `${sentHeight}px` }} />
+                </div>
+                <div className="cashflow-chart-label"><div>{day.dayName}</div><small>{day.dateLabel}</small></div>
+              </div>
+            })}
+          </div>}
+        </section>
       </section>
-      <section className="transactions-card"><div className="section-title"><div><h2>Recent Transactions</h2><p>Completed demo payments are recorded in Supabase.</p></div><button className="text-button">View all <ChevronRight size={16} /></button></div>{busy ? <div className="transactions-loading"><span className="spinner" /></div> : recentTransactions.length === 0 ? <div className="empty-state"><div className="empty-icon"><ArrowDownLeft size={20} /></div><p>No payments received yet. Share your link to get paid safely.</p><button className="button button-secondary" onClick={copyLink}><Copy size={15} /> Copy Link</button></div> : <div className="transaction-list">{recentTransactions.map(tx => <div className="transaction-row" key={tx.id}><div className="transaction-symbol"><ArrowDownLeft size={18} /></div><div className="transaction-main"><strong>{tx.sender_name || tx.sender_alias || 'Anonymous'}</strong><span className="transaction-date numeric-data">{new Date(tx.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</span></div><div className={`transaction-state ${tx.status === 'payout_successful' || tx.status === 'completed' ? 'status-success' : ''}`}>{tx.status === 'simulated' ? 'test only' : tx.status.replaceAll('_', ' ')}</div><strong className="transaction-amount numeric-data">₹{Number(tx.amount_inr).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>)}</div>}</section>
+      <section className="transactions-card">
+        <div className="section-title"><div><h2>Recent Transactions</h2><p>Your incoming and outgoing GhostPay activity.</p></div></div>
+        {busy ? <div className="transactions-loading"><span className="spinner" /></div> : <div className="ledger-grid">
+          {[
+            { key: 'all', title: 'All Transactions', rows: ledgerTransactions, total: ledgerTransactions.length },
+            { key: 'received', title: 'Received', rows: ledgerTransactions.filter(tx => tx.direction === 'received'), total: `+₹${totalReceived.toLocaleString('en-IN')}` },
+            { key: 'sent', title: 'Sent', rows: ledgerTransactions.filter(tx => tx.direction === 'sent'), total: `-₹${totalSent.toLocaleString('en-IN')}` },
+          ].map(column => <section className={`ledger-column ledger-${column.key}`} key={column.key}>
+            <header className="ledger-column-heading"><h3>{column.title}</h3><span>{column.total}</span></header>
+            {column.rows.length === 0 ? <div className="ledger-empty">{column.key === 'sent' ? 'No sent transactions yet' : column.key === 'received' ? 'No received payments yet' : 'No transactions yet'}</div> : <div className="ledger-rows">{column.rows.map(tx => {
+              const direction = tx.direction ?? 'received'
+              const received = direction === 'received'
+              const date = new Date(tx.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+              return <div className="ledger-row" key={`${column.key}-${tx.id}`}>
+                <div className={`ledger-direction-icon ${received ? 'received' : 'sent'}`} aria-label={received ? 'Received' : 'Sent'}>{received ? '↙' : '↗'}</div>
+                <div className="ledger-counterparty"><strong>{tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'Anonymous Sender'}</strong><span className="numeric-data">{date}</span></div>
+                <div className="ledger-amount-status"><strong className={`numeric-data ${received ? 'cashflow-received' : 'cashflow-sent'}`}>{received ? '+' : '-'}₹{Number(tx.amount_inr).toFixed(2)}</strong><span className={received ? 'received' : 'sent'}>{tx.status === 'completed' ? received ? 'Received' : 'Sent' : tx.status.replaceAll('_', ' ')}</span></div>
+              </div>
+            })}</div>}
+          </section>)}
+        </div>}
+      </section>
       <footer className="dashboard-footer"><span><LockKeyhole size={13} /> Your privacy is always on.</span><button aria-label="Help"><CircleHelp size={15} /> Help & support</button></footer>
     </div>
     {editOpen && profile && <EditProfileModal profile={profile} onClose={() => setEditOpen(false)} onSaved={updated => { setProfile(updated); setEditOpen(false) }} />}
