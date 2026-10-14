@@ -40,41 +40,54 @@ const playChaChingSound = () => {
     }
 
     const now = ctx.currentTime
-    const strikeNotes = [1975.53, 2637.02]
-    strikeNotes.forEach(freq => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'triangle'
-      osc.frequency.setValueAtTime(freq, now)
-      gain.gain.setValueAtTime(0.001, now)
-      gain.gain.exponentialRampToValueAtTime(0.22, now + 0.012)
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start(now)
-      osc.stop(now + 0.15)
-    })
 
-    const bellNotes = [
-      { freq: 2637.02, gainPeak: 0.28, duration: 0.75 },
-      { freq: 3951.07, gainPeak: 0.16, duration: 0.65 },
-      { freq: 5274.04, gainPeak: 0.10, duration: 0.50 },
+    const dropOsc = ctx.createOscillator()
+    const dropGain = ctx.createGain()
+    dropOsc.type = 'sine'
+    dropOsc.frequency.setValueAtTime(260, now)
+    dropOsc.frequency.exponentialRampToValueAtTime(95, now + 0.085)
+    dropGain.gain.setValueAtTime(0.001, now)
+    dropGain.gain.linearRampToValueAtTime(0.26, now + 0.01)
+    dropGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.095)
+    dropOsc.connect(dropGain)
+    dropGain.connect(ctx.destination)
+    dropOsc.start(now)
+    dropOsc.stop(now + 0.1)
+
+    const gpayNotes = [
+      { freq: 587.33, start: 0.08, dur: 0.28, peak: 0.22 },
+      { freq: 739.99, start: 0.16, dur: 0.30, peak: 0.24 },
+      { freq: 880.00, start: 0.24, dur: 0.34, peak: 0.26 },
+      { freq: 1174.66, start: 0.33, dur: 0.72, peak: 0.32 },
     ]
-    bellNotes.forEach(({ freq, gainPeak, duration }) => {
+
+    gpayNotes.forEach(({ freq, start, dur, peak }) => {
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
       osc.type = 'sine'
-      osc.frequency.setValueAtTime(freq, now + 0.09)
-      gain.gain.setValueAtTime(0.001, now + 0.09)
-      gain.gain.exponentialRampToValueAtTime(gainPeak, now + 0.11)
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09 + duration)
+      osc.frequency.setValueAtTime(freq, now + start)
+      gain.gain.setValueAtTime(0.0001, now + start)
+      gain.gain.linearRampToValueAtTime(peak, now + start + 0.018)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur)
       osc.connect(gain)
       gain.connect(ctx.destination)
-      osc.start(now + 0.09)
-      osc.stop(now + 0.1 + duration)
+      osc.start(now + start)
+      osc.stop(now + start + dur + 0.02)
+
+      const overtone = ctx.createOscillator()
+      const overGain = ctx.createGain()
+      overtone.type = 'triangle'
+      overtone.frequency.setValueAtTime(freq * 2, now + start)
+      overGain.gain.setValueAtTime(0.0001, now + start)
+      overGain.gain.linearRampToValueAtTime(peak * 0.18, now + start + 0.012)
+      overGain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur * 0.65)
+      overtone.connect(overGain)
+      overGain.connect(ctx.destination)
+      overtone.start(now + start)
+      overtone.stop(now + start + dur)
     })
   } catch (err) {
-    console.log('Cha-ching audio error:', err)
+    console.log('Payment sound error:', err)
   }
 }
 
@@ -109,6 +122,74 @@ const processAvatarFileToDataUrl = (file: File): Promise<string> => {
     reader.onerror = () => reject(new Error('Failed to read file from device'))
     reader.readAsDataURL(file)
   })
+}
+
+let lastSharedQuote = ''
+
+const fetchDynamicTrustQuoteFromWeb = async (): Promise<string> => {
+  const cacheBuster = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+
+  try {
+    const res = await fetch(
+      `https://api.quotable.io/quotes/random?tags=trust|wisdom|honesty|character|business&maxLength=120&_cb=${cacheBuster}`,
+      { cache: 'no-store' },
+    )
+    if (res.ok) {
+      const data = await res.json()
+      const item = Array.isArray(data) ? data[0] : data
+      if (item?.content && item.content !== lastSharedQuote) {
+        lastSharedQuote = item.content
+        return item.content
+      }
+    }
+  } catch {
+    // Continue to the secondary web source.
+  }
+
+  try {
+    const randomSkip = Math.floor(Math.random() * 1200)
+    const res = await fetch(
+      `https://dummyjson.com/quotes?limit=30&skip=${randomSkip}&_cb=${cacheBuster}`,
+      { cache: 'no-store' },
+    )
+    if (res.ok) {
+      const data = await res.json()
+      const quotes: Array<{ quote: string }> = data?.quotes || []
+      if (quotes.length > 0) {
+        const candidates = quotes.filter(q => q.quote !== lastSharedQuote)
+        const trustMatch = candidates.find(q => /trust|honest|truth|character|promise|value|respect|integrity|money|wealth/i.test(q.quote))
+        const chosen = trustMatch?.quote || candidates[Math.floor(Math.random() * candidates.length)]?.quote
+        if (chosen) {
+          lastSharedQuote = chosen
+          return chosen
+        }
+      }
+    }
+  } catch (e) {
+    console.log('Web quote fetch error:', e)
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetch(`https://dummyjson.com/quotes/random?_cb=${cacheBuster}-${attempt}`, { cache: 'no-store' })
+      const data = await res.json()
+      if (typeof data?.quote === 'string' && data.quote !== lastSharedQuote) {
+        lastSharedQuote = data.quote
+        return data.quote
+      }
+    } catch {
+      // Use the local no-repeat fallback if the quote services are unavailable.
+    }
+  }
+
+  const fallbackQuotes = [
+    'Privacy is the foundation of trust.',
+    'Integrity is choosing your thoughts and actions based on values rather than personal gain.',
+    'The way to gain a good reputation is to endeavor to be what you desire to appear.',
+  ]
+  const fallback = fallbackQuotes.find(quote => quote !== lastSharedQuote) || fallbackQuotes[0]
+  lastSharedQuote = fallback
+  return fallback
 }
 
 async function fetchLedgerTransactions(userId: string): Promise<Transaction[]> {
@@ -412,7 +493,10 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
   const [editFullName, setEditFullName] = useState('')
   const [editUpi, setEditUpi] = useState('')
   const [editAvatarUrl, setEditAvatarUrl] = useState('')
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
+  const deviceFileInputRef = useRef<HTMLInputElement | null>(null)
+  const cameraFileInputRef = useRef<HTMLInputElement | null>(null)
   const [transferRecipient, setTransferRecipient] = useState('')
   const [transferAmount, setTransferAmount] = useState('')
   const [transferBusy, setTransferBusy] = useState(false)
@@ -623,6 +707,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
 
   function openProfileEditor() {
     setProfileMenuOpen(false)
+    setAvatarMenuOpen(false)
     setEditHandle(profile?.alias_handle ?? '')
     setEditEmail(session.user.email ?? '')
     setEditPassword('')
@@ -718,7 +803,7 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     await supabase?.auth.signOut()
   }
   return <main className="dashboard-page">
-    <header className="dashboard-topbar"><Brand /><div className="topbar-actions"><span className="secure-pill"><span /> SECURE SPACE</span><button className="icon-button" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><div className="profile-menu-wrap" ref={profileMenuRef}><button type="button" className="avatar profile-avatar-button" onClick={() => setProfileMenuOpen(open => !open)} aria-label="Open profile menu" aria-expanded={profileMenuOpen} disabled={!profile}>{avatarUrl ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <span className={`avatar-monogram ${profile?.avatar_url?.startsWith('preset:') ? `avatar-${profile.avatar_url.slice(7)}` : ''}`}>{profile?.avatar_url?.startsWith('preset:') ? profile.avatar_url.slice(7, 8).toUpperCase() : profile?.alias_handle?.slice(0, 1).toUpperCase() ?? session.user.email?.slice(0, 1).toUpperCase() ?? 'G'}</span>}</button>{profileMenuOpen && <div className="profile-dropdown" role="menu"><div className="profile-dropdown-identity"><strong>{formatHandle(profile?.alias_handle ?? '')}</strong><span>{session.user.email ?? 'Email unavailable'}</span></div><button type="button" role="menuitem" onClick={openProfileEditor}>Edit Profile &amp; Email</button><button type="button" role="menuitem" onClick={() => { setProfileMenuOpen(false); setQrOpen(true) }}>Share QR Code</button><button type="button" role="menuitem" className="profile-dropdown-signout" onClick={signOut}>Sign Out</button></div>}</div></div></header>
+    <header className="dashboard-topbar"><Brand /><div className="topbar-actions"><span className="secure-pill"><span /> SECURE SPACE</span><button className="icon-button" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><div className="profile-menu-wrap" ref={profileMenuRef}><button type="button" className="avatar profile-avatar-button" onClick={() => setProfileMenuOpen(open => !open)} aria-label="Open profile menu" aria-expanded={profileMenuOpen} disabled={!profile}>{avatarUrl ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <span className={`avatar-monogram ${profile?.avatar_url?.startsWith('preset:') ? `avatar-${profile.avatar_url.slice(7)}` : ''}`}>{profile?.avatar_url?.startsWith('preset:') ? profile.avatar_url.slice(7, 8).toUpperCase() : profile?.alias_handle?.slice(0, 1).toUpperCase() ?? session.user.email?.slice(0, 1).toUpperCase() ?? 'G'}</span>}</button>{profileMenuOpen && <div className="profile-dropdown" role="menu"><div className="profile-dropdown-identity"><strong>{formatHandle(profile?.alias_handle ?? '')}</strong><span>{session.user.email ?? 'Email unavailable'}</span></div><button type="button" role="menuitem" onClick={openProfileEditor}>Edit Profile</button><button type="button" role="menuitem" className="profile-dropdown-signout" onClick={signOut}>Sign Out</button></div>}</div></div></header>
     <div className="dashboard-container">
       <div className="dashboard-welcome"><div><div className="form-eyebrow">YOUR PRIVATE WORKSPACE</div><h1>Good to see you<span>.</span></h1><p>Here’s what’s happening with your payments.</p></div><div className="dashboard-actions"><button className="button button-secondary" onClick={() => setQrOpen(true)} disabled={!profile}><QrCode size={16} /> Share QR Code</button></div></div>
       {error && <div className="notice-error">{error}</div>}
@@ -813,44 +898,57 @@ function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: { sessio
     {qrOpen && profile && <ShareQrModal profile={profile} onClose={() => setQrOpen(false)} />}
     {editProfileModalOpen && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setEditProfileModalOpen(false) }}>
       <section className="profile-modal account-edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-account-title">
-        <header className="modal-heading"><div><div className="form-eyebrow">ACCOUNT SETTINGS</div><h2 id="edit-account-title">Edit Profile &amp; Account</h2></div><button type="button" className="icon-button" onClick={() => setEditProfileModalOpen(false)} aria-label="Close"><X size={17} /></button></header>
+        <header className="modal-heading"><div><div className="form-eyebrow">ACCOUNT SETTINGS</div><h2 id="edit-account-title">Edit Profile</h2></div><button type="button" className="icon-button" onClick={() => setEditProfileModalOpen(false)} aria-label="Close"><X size={17} /></button></header>
         <form className="form-stack" onSubmit={handleSaveProfileAndAccount}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', marginBottom: '24px', marginTop: '4px' }}>
+            <button type="button" onClick={() => setAvatarMenuOpen(previous => !previous)} style={{ width: '88px', height: '88px', borderRadius: '50%', padding: 0, border: '3px solid #2563EB', backgroundColor: '#2563EB', color: '#FFFFFF', fontSize: '32px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative', overflow: 'visible', boxShadow: '0 8px 20px rgba(37, 99, 235, 0.22)' }} title="Change profile photo" aria-label="Change profile photo" aria-expanded={avatarMenuOpen}>
+              <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {editAvatarUrl && !editAvatarUrl.startsWith('preset:') ? <img src={editAvatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (editHandle || profile?.alias_handle || 'U').replace(/^@+/, '').charAt(0).toUpperCase()}
+              </div>
+              <span aria-hidden="true" style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#0F172A', color: '#FFFFFF', border: '2px solid #FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px' }}>📷</span>
+            </button>
+            <span style={{ fontSize: '12px', opacity: 0.65, marginTop: '8px', fontWeight: 500 }}>Tap photo to change</span>
+            {avatarMenuOpen && <div style={{ position: 'absolute', top: '102px', zIndex: 50, width: '210px', backgroundColor: '#FFFFFF', color: '#0F172A', borderRadius: '16px', boxShadow: '0 14px 34px rgba(15, 23, 42, 0.18)', border: '1px solid #E2E8F0', padding: '6px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <button type="button" onClick={() => { setAvatarMenuOpen(false); deviceFileInputRef.current?.click() }} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', color: '#0F172A', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>🖼️ Choose from Device</button>
+              <button type="button" onClick={() => { setAvatarMenuOpen(false); cameraFileInputRef.current?.click() }} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', color: '#0F172A', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>📸 Take Photo (Camera)</button>
+              {editAvatarUrl && <button type="button" onClick={() => { setEditAvatarUrl(''); setAvatarMenuOpen(false) }} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', color: '#EF4444', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>🗑️ Remove Photo</button>}
+            </div>}
+            <input ref={deviceFileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={async event => {
+              const input = event.currentTarget
+              const file = input.files?.[0]
+              if (!file) return
+              try {
+                const dataUrl = await processAvatarFileToDataUrl(file)
+                setEditAvatarUrl(dataUrl)
+                setProfileEditError('')
+                showTransferToast('success', 'Photo ready! Click Save to apply.')
+              } catch (imageError) {
+                const message = imageError instanceof Error ? imageError.message : 'Could not process image'
+                setProfileEditError(message)
+                showTransferToast('error', message)
+              } finally { input.value = '' }
+            }} />
+            <input ref={cameraFileInputRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }} onChange={async event => {
+              const input = event.currentTarget
+              const file = input.files?.[0]
+              if (!file) return
+              try {
+                const dataUrl = await processAvatarFileToDataUrl(file)
+                setEditAvatarUrl(dataUrl)
+                setProfileEditError('')
+                showTransferToast('success', 'Photo ready! Click Save to apply.')
+              } catch (imageError) {
+                const message = imageError instanceof Error ? imageError.message : 'Could not capture photo'
+                setProfileEditError(message)
+                showTransferToast('error', message)
+              } finally { input.value = '' }
+            }} />
+          </div>
           <label>GhostPay Handle (@handle)<input autoCapitalize="none" value={editHandle} onChange={event => setEditHandle(event.target.value)} required /></label>
           <label>Full Name<input autoComplete="name" value={editFullName} onChange={event => setEditFullName(event.target.value)} required /></label>
           <label>UPI ID<input autoCapitalize="none" value={editUpi} onChange={event => setEditUpi(event.target.value)} required /></label>
           <label>Email Address<input type="email" autoComplete="email" value={editEmail} onChange={event => setEditEmail(event.target.value)} required /></label>
           <label>New Password (optional)<input type="password" autoComplete="new-password" minLength={6} placeholder="Leave blank to keep current" value={editPassword} onChange={event => setEditPassword(event.target.value)} /></label>
-          <div className="avatar-upload-section">
-            <span className="avatar-upload-title">Profile Photo</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
-              <div style={{ width: '68px', height: '68px', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#2563EB', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 700, flexShrink: 0, border: '2px solid rgba(37, 99, 235, 0.35)' }}>
-                {editAvatarUrl && !editAvatarUrl.startsWith('preset:') ? <img src={editAvatarUrl} alt="Profile Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (editHandle || profile?.alias_handle || 'A').replace(/^@+/, '').charAt(0).toUpperCase()}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '10px 16px', borderRadius: '12px', backgroundColor: '#2563EB', color: '#FFFFFF', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-                  Upload from Device
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async event => {
-                    const input = event.currentTarget
-                    const file = input.files?.[0]
-                    if (!file) return
-                    try {
-                      const dataUrl = await processAvatarFileToDataUrl(file)
-                      setEditAvatarUrl(dataUrl)
-                      setProfileEditError('')
-                      showTransferToast('success', 'Photo ready! Click Save to apply.')
-                    } catch (imageError) {
-                      const message = imageError instanceof Error ? imageError.message : 'Could not process image'
-                      setProfileEditError(message)
-                      showTransferToast('error', message)
-                    } finally {
-                      input.value = ''
-                    }
-                  }} />
-                </label>
-                {editAvatarUrl && <button type="button" onClick={() => setEditAvatarUrl('')} style={{ background: 'transparent', border: 'none', color: '#EF4444', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', padding: 0 }}>Remove photo</button>}
-              </div>
-            </div>
-          </div>
           {profileEditError && <p className="error-note" role="alert">{profileEditError}</p>}
           <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setEditProfileModalOpen(false)}>Cancel</button><button className="button button-primary" disabled={isSavingProfile}>{isSavingProfile ? 'Saving…' : 'Save changes'}<Check size={16} /></button></div>
         </form>
@@ -939,15 +1037,7 @@ function ShareQrModal({ profile, onClose }: { profile: Pick<Profile, 'alias_hand
     try {
       const handle = profile?.alias_handle || 'user';
 
-      // 1. Fetch Quote with Fallback
-      let dynamicQuote = "Trust is an expensive thing, cheap people can't afford it.";
-      try {
-        const quoteRes = await fetch('https://dummyjson.com/quotes/random');
-        const quoteData = await quoteRes.json();
-        if (quoteData.quote) dynamicQuote = quoteData.quote;
-      } catch (apiErr) {
-        console.log('Quote fetch failed, using fallback quote.');
-      }
+      const dynamicQuote = await fetchDynamicTrustQuoteFromWeb();
 
       const shareUrl = `https://ghostpay-orpin.vercel.app/@${handle}`;
       const shareText = `Pay me securely here: ${shareUrl}\n\n"${dynamicQuote}"`;
