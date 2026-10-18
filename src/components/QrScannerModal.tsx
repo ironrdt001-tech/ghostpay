@@ -307,68 +307,86 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
               height: '250px',
               position: 'relative',
               borderRadius: '20px',
-              border: '2px solid rgba(255, 255, 255, 0.3)',
               overflow: 'hidden',
               boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.52)',
             }}
           >
-            {/* Animated laser scan line */}
-            <div className="qr-scan-laser" />
+            {/* Animated Laser Sweep Line */}
+            <div
+              style={{
+                position: 'absolute',
+                height: '2px',
+                width: '100%',
+                background: '#10B981',
+                boxShadow: '0 0 12px #10B981',
+                animation: 'scanLaser 2s linear infinite',
+                pointerEvents: 'none',
+                zIndex: 2,
+              }}
+            />
 
             {/* Corner Bracket: Top-Left */}
             <div
               style={{
                 position: 'absolute',
-                top: '-2px',
-                left: '-2px',
-                width: '26px',
-                height: '26px',
-                borderTop: '4px solid #FFFFFF',
-                borderLeft: '4px solid #FFFFFF',
-                borderTopLeftRadius: '18px',
+                top: 0,
+                left: 0,
+                width: '32px',
+                height: '32px',
+                borderTop: '3px solid #10B981',
+                borderLeft: '3px solid #10B981',
+                borderTopLeftRadius: '16px',
+                boxShadow: '0 0 10px rgba(16, 185, 129, 0.5)',
                 pointerEvents: 'none',
+                zIndex: 3,
               }}
             />
             {/* Corner Bracket: Top-Right */}
             <div
               style={{
                 position: 'absolute',
-                top: '-2px',
-                right: '-2px',
-                width: '26px',
-                height: '26px',
-                borderTop: '4px solid #FFFFFF',
-                borderRight: '4px solid #FFFFFF',
-                borderTopRightRadius: '18px',
+                top: 0,
+                right: 0,
+                width: '32px',
+                height: '32px',
+                borderTop: '3px solid #10B981',
+                borderRight: '3px solid #10B981',
+                borderTopRightRadius: '16px',
+                boxShadow: '0 0 10px rgba(16, 185, 129, 0.5)',
                 pointerEvents: 'none',
+                zIndex: 3,
               }}
             />
             {/* Corner Bracket: Bottom-Left */}
             <div
               style={{
                 position: 'absolute',
-                bottom: '-2px',
-                left: '-2px',
-                width: '26px',
-                height: '26px',
-                borderBottom: '4px solid #FFFFFF',
-                borderLeft: '4px solid #FFFFFF',
-                borderBottomLeftRadius: '18px',
+                bottom: 0,
+                left: 0,
+                width: '32px',
+                height: '32px',
+                borderBottom: '3px solid #10B981',
+                borderLeft: '3px solid #10B981',
+                borderBottomLeftRadius: '16px',
+                boxShadow: '0 0 10px rgba(16, 185, 129, 0.5)',
                 pointerEvents: 'none',
+                zIndex: 3,
               }}
             />
             {/* Corner Bracket: Bottom-Right */}
             <div
               style={{
                 position: 'absolute',
-                bottom: '-2px',
-                right: '-2px',
-                width: '26px',
-                height: '26px',
-                borderBottom: '4px solid #FFFFFF',
-                borderRight: '4px solid #FFFFFF',
-                borderBottomRightRadius: '18px',
+                bottom: 0,
+                right: 0,
+                width: '32px',
+                height: '32px',
+                borderBottom: '3px solid #10B981',
+                borderRight: '3px solid #10B981',
+                borderBottomRightRadius: '16px',
+                boxShadow: '0 0 10px rgba(16, 185, 129, 0.5)',
                 pointerEvents: 'none',
+                zIndex: 3,
               }}
             />
           </div>

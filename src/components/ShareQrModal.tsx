@@ -140,18 +140,53 @@ export function ShareQrModal({
           </button>
         </div>
 
-        {/* QR Code Container */}
+        {/* QR Code Container with Legendary Animated Glow */}
         <div
           style={{
             display: 'flex',
             justifyContent: 'center',
-            padding: 'var(--space-5)',
-            backgroundColor: '#FFFFFF',
-            borderRadius: 'var(--radius-card)',
-            margin: 'var(--space-3) 0 var(--space-4)',
+            alignItems: 'center',
+            margin: 'var(--space-6) 0 var(--space-6)',
           }}
         >
-          <QRCodeSVG value={activeQrShareUrl} size={220} level="M" />
+          <div
+            style={{
+              position: 'relative',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              isolation: 'isolate',
+            }}
+          >
+            {/* Animated Rotating Gradient Glow */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: '-6px',
+                background: 'linear-gradient(45deg, #3B82F6, #10B981, #8B5CF6, #3B82F6)',
+                backgroundSize: '400% 400%',
+                filter: 'blur(14px)',
+                zIndex: -1,
+                borderRadius: '20px',
+                animation: 'gradientShift 6s ease infinite',
+              }}
+            />
+
+            {/* QR code solid white surface */}
+            <div
+              style={{
+                position: 'relative',
+                backgroundColor: '#FFFFFF',
+                borderRadius: '16px',
+                padding: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <QRCodeSVG value={activeQrShareUrl} size={220} level="M" />
+            </div>
+          </div>
         </div>
 
         {/* Requested Amount Section */}

@@ -188,6 +188,15 @@ export function ActivityLedger({
               role="tab"
               aria-selected={activeFilter === 'received'}
               className={`segmented-tab ${activeFilter === 'received' ? 'active' : ''}`}
+              style={
+                activeFilter === 'received'
+                  ? {
+                      backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10B981',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                    }
+                  : undefined
+              }
               onClick={() => onChangeFilter('received')}
             >
               Received
@@ -197,6 +206,15 @@ export function ActivityLedger({
               role="tab"
               aria-selected={activeFilter === 'sent'}
               className={`segmented-tab ${activeFilter === 'sent' ? 'active' : ''}`}
+              style={
+                activeFilter === 'sent'
+                  ? {
+                      backgroundColor: 'rgba(244, 63, 94, 0.15)',
+                      color: '#F43F5E',
+                      border: '1px solid rgba(244, 63, 94, 0.25)',
+                    }
+                  : undefined
+              }
               onClick={() => onChangeFilter('sent')}
             >
               Sent
@@ -416,6 +434,13 @@ export function ActivityLedger({
                           }
                         }}
                         style={{
+                          position: 'sticky',
+                          top: '0px',
+                          zIndex: 20,
+                          backdropFilter: 'blur(16px)',
+                          WebkitBackdropFilter: 'blur(16px)',
+                          backgroundColor: isExpanded ? 'rgba(15, 23, 42, 0.85)' : 'transparent',
+                          borderBottom: isExpanded ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
