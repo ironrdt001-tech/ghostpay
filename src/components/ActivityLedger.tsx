@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { formatMoneyParts, formatIstTime, groupTransactionsByDate } from '../lib/formatters'
 import { ArrowIncomingIcon, ArrowOutgoingIcon, SearchIcon } from './Icons'
-import type { Transaction, ActivityFilter, CashflowDay } from '../lib/types'
+import type { Transaction, ActivityFilter } from '../lib/types'
 
 interface ActivityLedgerProps {
   transactions: Transaction[]
@@ -20,6 +20,18 @@ function getIstDateKey(dateString: string): string {
   }
 }
 
+interface DaySummary {
+  key: string
+  dayOffset: number
+  dayTitle: string
+  dayName: string
+  dateLabel: string
+  received: number
+  sent: number
+  totalVolume: number
+  txnCount: number
+}
+
 export function ActivityLedger({
   transactions,
   activeFilter,
@@ -29,13 +41,11 @@ export function ActivityLedger({
 }: ActivityLedgerProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null)
-  const [hoveredDayKey, setHoveredDayKey] = useState<string | null>(null)
 
   // Clear day selection if user leaves 7d tab
   useEffect(() => {
     if (activeFilter !== '7d') {
       setSelectedDayKey(null)
-      setHoveredDayKey(null)
     }
   }, [activeFilter])
 
@@ -43,15 +53,24 @@ export function ActivityLedger({
     return transactions.filter(tx => tx.status === 'completed')
   }, [transactions])
 
-  // Compute 7-day breakdown and today's metrics
-  const { sevenDays, todayData, sevenDayTotals } = useMemo(() => {
+  // Always generate exact last 7 consecutive local calendar days: index 0 = Today down to index 6 = 6 days ago
+  const { sevenDaysReverse, todayData, sevenDayTotals, max7dTotal } = useMemo(() => {
     const now = new Date()
-    const days: CashflowDay[] = Array.from({ length: 7 }, (_, index) => {
+    const days: DaySummary[] = Array.from({ length: 7 }, (_, index) => {
       const d = new Date(now)
-      d.setDate(now.getDate() - (6 - index))
+      d.setDate(now.getDate() - index)
       const istKey = d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })
       const dayName = d.toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'Asia/Kolkata' })
       const dateLabel = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' })
+
+      let displayTitle: string
+      if (index === 0) {
+        displayTitle = 'Today'
+      } else if (index === 1) {
+        displayTitle = 'Yesterday'
+      } else {
+        displayTitle = `${dayName}, ${dateLabel}`
+      }
 
       const dayTxs = completedTransactions.filter(tx => getIstDateKey(tx.created_at) === istKey)
       const rec = dayTxs.filter(tx => tx.direction === 'received').reduce((sum, tx) => sum + Number(tx.amount_inr || 0), 0)
@@ -59,19 +78,24 @@ export function ActivityLedger({
 
       return {
         key: istKey,
+        dayOffset: index,
+        dayTitle: displayTitle,
         dayName,
         dateLabel,
         received: rec,
         sent: sent,
+        totalVolume: rec + sent,
+        txnCount: dayTxs.length,
       }
     })
 
-    const today = days[6] || { received: 0, sent: 0 }
+    const today = days[0] || { received: 0, sent: 0 }
     const totalRec = days.reduce((sum, d) => sum + d.received, 0)
     const totalSent = days.reduce((sum, d) => sum + d.sent, 0)
+    const maxVolume = Math.max(...days.map(d => d.totalVolume), 1)
 
     return {
-      sevenDays: days,
+      sevenDaysReverse: days,
       todayData: {
         received: today.received,
         sent: today.sent,
@@ -82,27 +106,23 @@ export function ActivityLedger({
         sent: totalSent,
         net: totalRec - totalSent,
       },
+      max7dTotal: maxVolume,
     }
   }, [completedTransactions])
 
   const is7d = activeFilter === '7d'
 
-  // Active inspected day when hovering or tapping a day in 7d mode
-  const inspectedDay = useMemo(() => {
-    const targetKey = hoveredDayKey || selectedDayKey
-    return targetKey ? sevenDays.find(d => d.key === targetKey) || null : null
-  }, [hoveredDayKey, selectedDayKey, sevenDays])
+  // Selected day object when user clicks a day row
+  const selectedDay = useMemo(() => {
+    return selectedDayKey ? sevenDaysReverse.find(d => d.key === selectedDayKey) || null : null
+  }, [selectedDayKey, sevenDaysReverse])
 
-  const maxDayValue = useMemo(() => {
-    return Math.max(...sevenDays.flatMap(d => [d.received, d.sent]), 1)
-  }, [sevenDays])
-
-  // Scope metrics: inspected day > 7-day total > today
+  // Summary numbers: selected day > 7-day total > today
   const activeReceived = is7d
-    ? (inspectedDay ? inspectedDay.received : sevenDayTotals.received)
+    ? (selectedDay ? selectedDay.received : sevenDayTotals.received)
     : todayData.received
   const activeSent = is7d
-    ? (inspectedDay ? inspectedDay.sent : sevenDayTotals.sent)
+    ? (selectedDay ? selectedDay.sent : sevenDayTotals.sent)
     : todayData.sent
   const activeNet = activeReceived - activeSent
   const activeVolume = activeReceived + activeSent
@@ -123,7 +143,7 @@ export function ActivityLedger({
       if (selectedDayKey) {
         list = list.filter(tx => getIstDateKey(tx.created_at) === selectedDayKey)
       } else {
-        const sevenDayKeys = new Set(sevenDays.map(d => d.key))
+        const sevenDayKeys = new Set(sevenDaysReverse.map(d => d.key))
         list = list.filter(tx => sevenDayKeys.has(getIstDateKey(tx.created_at)))
       }
     }
@@ -138,7 +158,7 @@ export function ActivityLedger({
     }
 
     return list
-  }, [transactions, activeFilter, selectedDayKey, sevenDays, searchQuery])
+  }, [transactions, activeFilter, selectedDayKey, sevenDaysReverse, searchQuery])
 
   const grouped = useMemo(() => {
     return groupTransactionsByDate(filteredTransactions)
@@ -199,7 +219,7 @@ export function ActivityLedger({
           </div>
         </div>
 
-        {/* 2. Unified Cashflow Summary Card with Clean Human Copy */}
+        {/* 2. Unified Cashflow Summary Card */}
         <div
           style={{
             backgroundColor: 'var(--bg-inset)',
@@ -220,7 +240,7 @@ export function ActivityLedger({
           >
             <span style={{ fontSize: '13px', fontWeight: 500, opacity: 0.8, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <span>
-                {is7d ? (inspectedDay ? `${inspectedDay.dayName}, ${inspectedDay.dateLabel}` : 'Last 7 days') : 'Today'}
+                {is7d ? (selectedDay ? selectedDay.dayTitle : 'Last 7 days') : 'Today'}
               </span>
               {is7d && selectedDayKey && (
                 <button
@@ -245,7 +265,7 @@ export function ActivityLedger({
             </span>
             <span style={{ fontSize: '12px', opacity: 0.55 }}>
               {is7d
-                ? (inspectedDay ? 'Daily breakdown' : `${sevenDays[0]?.dateLabel || ''} - ${sevenDays[6]?.dateLabel || ''}`)
+                ? (selectedDay ? 'Selected day' : `${sevenDaysReverse[6]?.dateLabel || ''} - ${sevenDaysReverse[0]?.dateLabel || ''}`)
                 : 'Daily summary'}
             </span>
           </div>
@@ -360,65 +380,27 @@ export function ActivityLedger({
             </div>
           </div>
 
-          {/* 3. Merged 7-day chart directly inside the summary card when on 7 days */}
+          {/* 3. All 7 consecutive days in reverse chronological order (Today first down to 6 days ago) */}
           {is7d && (
             <div
               style={{
                 marginTop: '16px',
-                paddingTop: '16px',
+                paddingTop: '14px',
                 borderTop: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.16))',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
               }}
             >
-              {/* Structured financial chart grid with 3 dashed reference lines */}
-              <div
-                role="img"
-                aria-label="7-day cashflow bar chart"
-                style={{
-                  position: 'relative',
-                  height: '100px',
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  justifyContent: 'space-between',
-                  gap: '4px',
-                }}
-              >
-                {/* 3 subtle horizontal dashed reference lines across chart background */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '0%',
-                    left: 0,
-                    right: 0,
-                    borderBottom: '1px dashed rgba(148, 163, 184, 0.14)',
-                    pointerEvents: 'none',
-                  }}
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: 0,
-                    right: 0,
-                    borderBottom: '1px dashed rgba(148, 163, 184, 0.14)',
-                    pointerEvents: 'none',
-                  }}
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    borderBottom: '1px dashed rgba(148, 163, 184, 0.14)',
-                    pointerEvents: 'none',
-                  }}
-                />
+              {sevenDaysReverse.map(day => {
+                const isActive = day.received > 0 || day.sent > 0
+                const isSelected = selectedDayKey === day.key
+                const dayTotal = day.received + day.sent
+                const fillPercent = Math.max(18, Math.round(Math.sqrt(dayTotal / max7dTotal) * 100))
+                const recPercent = dayTotal > 0 ? (day.received / dayTotal) * 100 : 0
+                const sentPercent = dayTotal > 0 ? (day.sent / dayTotal) * 100 : 0
 
-                {sevenDays.map(day => {
-                  const isHighlighted = (hoveredDayKey || selectedDayKey) === day.key
-                  const recH = day.received > 0 ? Math.max(14, Math.round(Math.sqrt(day.received / maxDayValue) * 88)) : 3
-                  const sentH = day.sent > 0 ? Math.max(14, Math.round(Math.sqrt(day.sent / maxDayValue) * 88)) : 3
-
+                if (isActive) {
                   return (
                     <div
                       key={day.key}
@@ -431,89 +413,137 @@ export function ActivityLedger({
                           setSelectedDayKey(prev => prev === day.key ? null : day.key)
                         }
                       }}
-                      onMouseEnter={() => setHoveredDayKey(day.key)}
-                      onMouseLeave={() => setHoveredDayKey(null)}
-                      title={`${day.dayName}, ${day.dateLabel}: Money in +₹${day.received.toLocaleString('en-IN')} · Money out -₹${day.sent.toLocaleString('en-IN')}`}
+                      title={`${day.dayTitle}: Money in +₹${day.received.toLocaleString('en-IN')} · Money out -₹${day.sent.toLocaleString('en-IN')} (${day.txnCount} txns)`}
                       style={{
-                        flex: 1,
-                        height: '100%',
                         display: 'flex',
-                        alignItems: 'flex-end',
-                        justifyContent: 'center',
-                        gap: '4px',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 12px',
+                        borderRadius: '12px',
+                        background: isSelected ? 'rgba(37, 99, 235, 0.10)' : 'rgba(148, 163, 184, 0.05)',
+                        border: isSelected ? '1px solid var(--accent-primary, #2563EB)' : '1px solid transparent',
                         cursor: 'pointer',
-                        padding: '0 2px',
-                        backgroundColor: isHighlighted ? 'rgba(148, 163, 184, 0.08)' : 'transparent',
-                        borderRadius: '6px 6px 0 0',
-                        transition: 'background-color 150ms ease',
-                        position: 'relative',
-                        zIndex: 1,
+                        transition: 'all 160ms ease',
                       }}
                     >
-                      {/* Money in bar */}
-                      <div
-                        style={{
-                          width: '12px',
-                          height: `${recH}px`,
-                          background: day.received > 0
-                            ? 'linear-gradient(180deg, #34D399 0%, #059669 100%)'
-                            : 'rgba(148, 163, 184, 0.22)',
-                          borderRadius: '4px 4px 2px 2px',
-                          transition: 'height 240ms ease',
-                        }}
-                      />
+                      {/* Left column */}
+                      <div style={{ minWidth: '105px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                          {day.dayTitle}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                          {day.txnCount === 1 ? '1 txn' : `${day.txnCount} txns`}
+                        </div>
+                      </div>
 
-                      {/* Money out bar */}
-                      <div
-                        style={{
-                          width: '12px',
-                          height: `${sentH}px`,
-                          background: day.sent > 0
-                            ? 'linear-gradient(180deg, #FB7185 0%, #E11D48 100%)'
-                            : 'rgba(148, 163, 184, 0.22)',
-                          borderRadius: '4px 4px 2px 2px',
-                          transition: 'height 240ms ease',
-                        }}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
+                      {/* Middle column: 8px horizontal pill track */}
+                      <div style={{ flex: 1, padding: '0 12px', display: 'flex', alignItems: 'center' }}>
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '8px',
+                            background: 'rgba(148, 163, 184, 0.14)',
+                            borderRadius: '999px',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${fillPercent}%`,
+                              height: '100%',
+                              display: 'flex',
+                              borderRadius: '999px',
+                              overflow: 'hidden',
+                              transition: 'width 240ms ease',
+                            }}
+                          >
+                            {day.received > 0 && (
+                              <div
+                                style={{
+                                  width: `${recPercent}%`,
+                                  height: '100%',
+                                  backgroundColor: '#10B981',
+                                }}
+                              />
+                            )}
+                            {day.sent > 0 && (
+                              <div
+                                style={{
+                                  width: `${sentPercent}%`,
+                                  height: '100%',
+                                  backgroundColor: '#F43F5E',
+                                }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
 
-              {/* Day labels below baseline */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '4px', marginTop: '8px' }}>
-                {sevenDays.map(day => {
-                  const isHighlighted = (hoveredDayKey || selectedDayKey) === day.key
-                  return (
-                    <div
-                      key={day.key}
-                      onClick={() => setSelectedDayKey(prev => prev === day.key ? null : day.key)}
-                      style={{
-                        flex: 1,
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        padding: '2px 0',
-                        borderRadius: '6px',
-                        backgroundColor: isHighlighted ? 'rgba(148, 163, 184, 0.08)' : 'transparent',
-                      }}
-                    >
+                      {/* Right column */}
                       <div
                         style={{
-                          fontSize: '11px',
-                          fontWeight: isHighlighted ? 600 : 500,
-                          color: isHighlighted ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          textAlign: 'right',
+                          fontVariantNumeric: 'tabular-nums',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                          minWidth: '95px',
+                          flexShrink: 0,
                         }}
                       >
-                        {day.dayName}
-                      </div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                        {day.dateLabel}
+                        {day.received > 0 && day.sent > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25 }}>
+                            <span style={{ color: '#10B981' }}>+{formatMoneyParts(day.received).full}</span>
+                            <span style={{ color: '#F43F5E', fontSize: '12px' }}>-{formatMoneyParts(day.sent).full}</span>
+                          </div>
+                        ) : day.received > 0 ? (
+                          <span style={{ color: '#10B981' }}>+{formatMoneyParts(day.received).full}</span>
+                        ) : (
+                          <span style={{ color: '#F43F5E' }}>-{formatMoneyParts(day.sent).full}</span>
+                        )}
                       </div>
                     </div>
                   )
-                })}
-              </div>
+                }
+
+                // Quiet Days (dayReceived === 0 && daySent === 0)
+                return (
+                  <div
+                    key={day.key}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '6px 12px',
+                      opacity: 0.55,
+                      borderRadius: '8px',
+                    }}
+                  >
+                    {/* Left column */}
+                    <div style={{ minWidth: '105px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      {day.dayTitle}
+                    </div>
+
+                    {/* Middle column */}
+                    <div style={{ flex: 1, padding: '0 12px', display: 'flex', alignItems: 'center' }}>
+                      <div style={{ width: '100%', borderBottom: '1px dashed rgba(148, 163, 184, 0.22)' }} />
+                    </div>
+
+                    {/* Right column */}
+                    <div
+                      style={{
+                        textAlign: 'right',
+                        fontSize: '12px',
+                        fontVariantNumeric: 'tabular-nums',
+                        color: 'var(--text-muted)',
+                        minWidth: '95px',
+                        flexShrink: 0,
+                      }}
+                    >
+                      No activity · ₹0.00
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -616,4 +646,5 @@ export function ActivityLedger({
     </div>
   )
 }
+
 
