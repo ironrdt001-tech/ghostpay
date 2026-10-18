@@ -124,7 +124,7 @@ export function ShareQrModal({
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
           <div>
-            <h2 id="qr-dialog-title" className="text-section-title">Payment QR pass</h2>
+            <h2 id="qr-dialog-title" className="text-section-title">My payment QR</h2>
             <p className="text-secondary" style={{ marginTop: '2px' }}>
               Scan to open your private payment portal
             </p>
@@ -202,7 +202,7 @@ export function ShareQrModal({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
           <button type="button" onClick={handleShare} className="btn-secondary">
             <ShareIcon size={15} />
-            <span>Share pass</span>
+            <span>Share QR</span>
           </button>
           <button type="button" onClick={handleDownloadQR} disabled={downloading} className="btn-primary">
             {downloading ? <SpinnerIcon size={15} /> : <DownloadIcon size={15} />}

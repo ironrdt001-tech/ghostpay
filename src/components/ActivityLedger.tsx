@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
-import { formatMoneyParts, formatIstTime, groupTransactionsByDate } from '../lib/formatters'
+import { useState, useMemo, useEffect } from 'react'
+import { formatMoneyParts, formatCompactRupee, formatIstTime, groupTransactionsByDate } from '../lib/formatters'
 import { ArrowIncomingIcon, ArrowOutgoingIcon, SearchIcon, ChevronDownIcon } from './Icons'
 import type { Transaction, ActivityFilter } from '../lib/types'
 
@@ -42,7 +42,6 @@ export function ActivityLedger({
 }: ActivityLedgerProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedDayKey, setExpandedDayKey] = useState<string | null>(null)
-  const hasInitializedDefault = useRef(false)
 
   const is7d = activeFilter === '7d'
 
@@ -108,19 +107,12 @@ export function ActivityLedger({
     }
   }, [completedTransactions])
 
-  // Default expanded day to the most recent day with transactions when entering 7d
+  // Collapse accordion when navigating away from 7d
   useEffect(() => {
-    if (activeFilter === '7d') {
-      if (!hasInitializedDefault.current) {
-        hasInitializedDefault.current = true
-        const firstActive = sevenDaysReverse.find(d => d.txnCount > 0)?.key || null
-        setExpandedDayKey(firstActive)
-      }
-    } else {
-      hasInitializedDefault.current = false
+    if (activeFilter !== '7d') {
       setExpandedDayKey(null)
     }
-  }, [activeFilter, sevenDaysReverse])
+  }, [activeFilter])
 
   // Active expanded day object
   const expandedDay = useMemo(() => {
@@ -399,10 +391,8 @@ export function ActivityLedger({
               {sevenDaysReverse.map(day => {
                 const isActive = day.txnCount > 0
                 const isExpanded = expandedDayKey === day.key
-                const dayTotal = day.received + day.sent
-                const fillPercent = Math.max(18, Math.round(Math.sqrt(dayTotal / max7dTotal) * 100))
-                const recPercent = dayTotal > 0 ? (day.received / dayTotal) * 100 : 0
-                const sentPercent = dayTotal > 0 ? (day.sent / dayTotal) * 100 : 0
+                const dayNet = day.received - day.sent
+                const dayNetParts = formatMoneyParts(Math.abs(dayNet))
 
                 if (isActive) {
                   return (
@@ -438,79 +428,43 @@ export function ActivityLedger({
                         title={`${day.dayTitle} · Click to ${isExpanded ? 'collapse' : 'expand'} transactions`}
                       >
                         {/* Left column */}
-                        <div style={{ minWidth: '105px', flexShrink: 0 }}>
+                        <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
                             {day.dayTitle}
                           </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
                             {day.txnCount === 1 ? '1 txn' : `${day.txnCount} txns`}
                           </div>
                         </div>
 
-                        {/* Middle column: 8px horizontal pill track */}
-                        <div style={{ flex: 1, padding: '0 12px', display: 'flex', alignItems: 'center' }}>
-                          <div
-                            style={{
-                              width: '100%',
-                              height: '8px',
-                              background: 'rgba(148, 163, 184, 0.14)',
-                              borderRadius: '999px',
-                              overflow: 'hidden',
-                            }}
-                          >
+                        {/* Right column: Single clean Net Flow + chevron */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                          <div style={{ textAlign: 'right' }}>
                             <div
+                              className="tabular-nums"
                               style={{
-                                width: `${fillPercent}%`,
-                                height: '100%',
-                                display: 'flex',
-                                borderRadius: '999px',
-                                overflow: 'hidden',
-                                transition: 'width 240ms ease',
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                color: dayNet >= 0 ? '#10B981' : '#F43F5E',
+                                fontVariantNumeric: 'tabular-nums',
+                                lineHeight: 1.25,
                               }}
                             >
-                              {day.received > 0 && (
-                                <div
-                                  style={{
-                                    width: `${recPercent}%`,
-                                    height: '100%',
-                                    backgroundColor: '#10B981',
-                                  }}
-                                />
-                              )}
-                              {day.sent > 0 && (
-                                <div
-                                  style={{
-                                    width: `${sentPercent}%`,
-                                    height: '100%',
-                                    backgroundColor: '#F43F5E',
-                                  }}
-                                />
-                              )}
+                              {dayNet >= 0 ? '+' : '-'}{dayNetParts.full}
                             </div>
-                          </div>
-                        </div>
-
-                        {/* Right column: horizontal figures + rotating chevron icon */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                          <div
-                            className="tabular-nums"
-                            style={{
-                              fontSize: '13px',
-                              fontWeight: 500,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              lineHeight: 1.35,
-                            }}
-                          >
-                            {day.received > 0 && (
-                              <span style={{ color: '#10B981' }}>+{formatMoneyParts(day.received).full}</span>
-                            )}
                             {day.received > 0 && day.sent > 0 && (
-                              <span style={{ opacity: 0.35 }}>·</span>
-                            )}
-                            {day.sent > 0 && (
-                              <span style={{ color: '#F43F5E' }}>-{formatMoneyParts(day.sent).full}</span>
+                              <div
+                                className="tabular-nums"
+                                style={{
+                                  fontSize: '11px',
+                                  opacity: 0.6,
+                                  marginTop: '2px',
+                                  lineHeight: 1.2,
+                                  color: 'var(--text-secondary)',
+                                }}
+                              >
+                                +{formatCompactRupee(day.received)} · -{formatCompactRupee(day.sent)}
+                              </div>
                             )}
                           </div>
 
@@ -613,29 +567,21 @@ export function ActivityLedger({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '6px 12px',
+                      padding: '8px 12px',
                       opacity: 0.5,
                       borderRadius: '8px',
                     }}
                   >
-                    {/* Left column */}
-                    <div style={{ minWidth: '105px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
                       {day.dayTitle}
                     </div>
-
-                    {/* Middle column */}
-                    <div style={{ flex: 1, padding: '0 12px', display: 'flex', alignItems: 'center' }}>
-                      <div style={{ width: '100%', borderBottom: '1px dashed rgba(148, 163, 184, 0.22)' }} />
-                    </div>
-
-                    {/* Right column */}
                     <div
+                      className="tabular-nums"
                       style={{
                         textAlign: 'right',
                         fontSize: '12px',
                         fontVariantNumeric: 'tabular-nums',
                         color: 'var(--text-muted)',
-                        minWidth: '95px',
                         flexShrink: 0,
                       }}
                     >

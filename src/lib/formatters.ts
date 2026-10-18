@@ -41,6 +41,26 @@ export function formatHandle(value: string): string {
   return `@${value.replace(/^@+/, '')}`
 }
 
+export function formatCompactRupee(amount: number): string {
+  const safe = Math.abs(amount)
+  if (safe >= 10000000) {
+    const cr = safe / 10000000
+    const str = cr < 100 ? cr.toFixed(1).replace(/\.0$/, '') : Math.round(cr).toString()
+    return `₹${str}Cr`
+  }
+  if (safe >= 100000) {
+    const l = safe / 100000
+    const str = l < 100 ? l.toFixed(1).replace(/\.0$/, '') : Math.round(l).toString()
+    return `₹${str}L`
+  }
+  if (safe >= 1000) {
+    const k = safe / 1000
+    const str = k < 100 ? k.toFixed(1).replace(/\.0$/, '') : Math.round(k).toString()
+    return `₹${str}k`
+  }
+  return `₹${Math.round(safe)}`
+}
+
 export function generateUtrNumber(tx: { id?: string; created_at?: string }): string {
   const raw = String(tx?.id || tx?.created_at || '1029384756')
   let hash = 0

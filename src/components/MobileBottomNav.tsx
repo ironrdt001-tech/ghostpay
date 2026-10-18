@@ -39,7 +39,7 @@ export function MobileBottomNav({
         onClick={onOpenQr}
       >
         <QrScanIcon size={20} strokeWidth={1.75} />
-        <span>QR pass</span>
+        <span>My QR</span>
       </button>
 
       <button

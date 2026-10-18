@@ -597,7 +597,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   /* Add padding to page container on mobile so content isn't covered by bottom nav */
   .dashboard-layout,
   .payment-wrap {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 20px));
   }
 }
 

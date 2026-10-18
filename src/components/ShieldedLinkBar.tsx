@@ -88,7 +88,7 @@ export function ShieldedLinkBar({ handle, onOpenQr }: ShieldedLinkBarProps) {
           style={{ minHeight: '36px', padding: '0 14px', fontSize: '13px' }}
         >
           <QrScanIcon size={14} strokeWidth={2} />
-          <span>QR pass</span>
+          <span>My QR</span>
         </button>
       </div>
     </div>

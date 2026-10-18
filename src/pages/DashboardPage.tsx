@@ -391,25 +391,29 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
             />
 
             {/* Send Money Surface */}
-            <SendMoneyForm
-              userId={session.user.id}
-              recentPeople={recentPeople}
-              onSuccess={refreshWalletAndTransactions}
-              onToast={showToast}
-              disabled={busy || !profile}
-            />
+            <div id="send-money-section">
+              <SendMoneyForm
+                userId={session.user.id}
+                recentPeople={recentPeople}
+                onSuccess={refreshWalletAndTransactions}
+                onToast={showToast}
+                disabled={busy || !profile}
+              />
+            </div>
           </div>
 
           {/* Right Statement Column */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {/* Flat Activity Ledger (Statement List, 1px Hairlines, No Cards Inside Cards) */}
-            <ActivityLedger
-              transactions={allLedgerRows}
-              activeFilter={activeTxFilter}
-              onChangeFilter={handleFilterChange}
-              onSelectTx={tx => setSelectedTx(tx)}
-              busy={busy}
-            />
+            <div id="activity-ledger-section">
+              <ActivityLedger
+                transactions={allLedgerRows}
+                activeFilter={activeTxFilter}
+                onChangeFilter={handleFilterChange}
+                onSelectTx={tx => setSelectedTx(tx)}
+                busy={busy}
+              />
+            </div>
           </div>
         </div>
       </main>
@@ -419,7 +423,21 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
         activeTab={mobileTab}
         onSelectTab={tab => {
           setMobileTab(tab)
-          window.scrollTo({ top: 0, behavior: 'smooth' })
+          if (tab === 'home') {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          } else if (tab === 'send') {
+            const sendEl = document.getElementById('send-money-section')
+            if (sendEl) {
+              sendEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            } else {
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }
+          } else if (tab === 'activity') {
+            const actEl = document.getElementById('activity-ledger-section')
+            if (actEl) {
+              actEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+          }
         }}
         onOpenQr={() => setQrOpen(true)}
         onOpenProfile={() => setEditProfileOpen(true)}
