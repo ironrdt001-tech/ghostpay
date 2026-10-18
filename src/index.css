@@ -817,17 +817,19 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 /* Scrollbar Hiding */
-.no-scrollbar,
-.recent-people-strip,
-.ledger-list-scroll {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+* {
+  scrollbar-width: thin;
 }
 
 .no-scrollbar::-webkit-scrollbar,
-.recent-people-strip::-webkit-scrollbar,
-.ledger-list-scroll::-webkit-scrollbar {
-  display: none;
+.recent-people-strip::-webkit-scrollbar {
+  display: none !important;
+}
+
+.no-scrollbar,
+.recent-people-strip {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
 /* 7-Day Cashflow Metrics Responsive Grid */

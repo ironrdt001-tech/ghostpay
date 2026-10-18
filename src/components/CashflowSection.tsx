@@ -21,7 +21,7 @@ export function CashflowSection({ sevenDayData }: CashflowSectionProps) {
   const netFlow = sevenDayReceived - sevenDaySent
 
   const maxDayValue = Math.max(...sevenDayData.flatMap(day => [day.received, day.sent]), 100)
-  const maxBarHeight = 82
+  const maxBarHeight = 78
 
   const recParts = formatMoneyParts(sevenDayReceived)
   const sentParts = formatMoneyParts(sevenDaySent)
@@ -38,31 +38,74 @@ export function CashflowSection({ sevenDayData }: CashflowSectionProps) {
         </div>
       </div>
 
-      {/* Responsive Metrics Grid */}
-      <div className="cashflow-metrics-grid">
-        {/* Item 1: Received */}
-        <div className="cashflow-metric-cell">
-          <span className="cashflow-metric-label">Received</span>
-          <span className="cashflow-metric-value" style={{ color: 'var(--semantic-credit-text)' }}>
-            +{recParts.full}
-          </span>
-        </div>
-
-        {/* Item 2: Sent */}
-        <div className="cashflow-metric-cell">
-          <span className="cashflow-metric-label">Sent</span>
-          <span className="cashflow-metric-value" style={{ color: 'var(--semantic-debit-text)' }}>
-            -{sentParts.full}
-          </span>
-        </div>
-
-        {/* Item 3: Full-width bottom row on mobile / 3rd column on desktop */}
-        <div className="cashflow-metric-cell net-row">
-          <span className="cashflow-metric-label">Net cashflow (7d)</span>
-          <span
-            className="cashflow-metric-value"
+      {/* Stacked 2-row layout that never overflows on mobile */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          gap: '12px',
+          backgroundColor: 'var(--bg-inset, rgba(148, 163, 184, 0.1))',
+          border: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.18))',
+          borderRadius: '14px',
+          padding: '14px',
+          marginBottom: 'var(--space-4)',
+        }}
+      >
+        {/* Left box: Received */}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: '4px' }}>Received</div>
+          <div
+            className="tabular-nums"
             style={{
-              color: netFlow >= 0 ? 'var(--semantic-credit-text)' : 'var(--semantic-debit-text)',
+              fontSize: '15px',
+              fontWeight: 600,
+              color: '#10B981',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            +{recParts.full}
+          </div>
+        </div>
+
+        {/* Right box: Sent */}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: '4px' }}>Sent</div>
+          <div
+            className="tabular-nums"
+            style={{
+              fontSize: '15px',
+              fontWeight: 600,
+              color: '#F43F5E',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            -{sentParts.full}
+          </div>
+        </div>
+
+        {/* Bottom row: Net flow */}
+        <div
+          style={{
+            gridColumn: '1 / -1',
+            borderTop: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.18))',
+            paddingTop: '10px',
+            marginTop: '4px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <span style={{ fontSize: '12px', opacity: 0.7 }}>Net flow</span>
+          <span
+            className="tabular-nums"
+            style={{
+              fontSize: '15px',
+              fontWeight: 600,
+              color: netFlow >= 0 ? '#10B981' : '#F43F5E',
             }}
           >
             {netFlow >= 0 ? '+' : '-'}{netParts.full}
@@ -71,29 +114,78 @@ export function CashflowSection({ sevenDayData }: CashflowSectionProps) {
       </div>
 
       {/* Structured Track Pills Bar Chart */}
-      <div className="cashflow-bars-container" role="img" aria-label="Dual bar chart showing daily received and sent totals over the last seven days">
+      <div
+        className="cashflow-bars-container"
+        role="img"
+        aria-label="Dual bar chart showing daily received and sent totals over the last seven days"
+        style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '148px', paddingTop: 'var(--space-2)', gap: '8px' }}
+      >
         {sevenDayData.map(day => {
           const dayVolume = Number(day.received || 0) + Number(day.sent || 0)
           const recHeight = day.received > 0 ? Math.max(Math.round((day.received / maxDayValue) * maxBarHeight), 8) : 6
           const sentHeight = day.sent > 0 ? Math.max(Math.round((day.sent / maxDayValue) * maxBarHeight), 8) : 6
 
           return (
-            <div key={day.key} className="chart-day-column">
-              <div className="chart-day-track-pill">
+            <div
+              key={day.key}
+              className="chart-day-column"
+              style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', height: '100%', justifyContent: 'flex-end' }}
+            >
+              {/* Visible vertical pill track */}
+              <div
+                style={{
+                  height: '108px',
+                  width: '100%',
+                  backgroundColor: 'rgba(148, 163, 184, 0.12)',
+                  borderRadius: '10px',
+                  padding: '6px 4px',
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  position: 'relative',
+                }}
+              >
                 {dayVolume > 0 && (
-                  <span className="chart-day-amount-badge">
+                  <span
+                    className="tabular-nums"
+                    style={{
+                      position: 'absolute',
+                      top: '5px',
+                      left: 0,
+                      right: 0,
+                      textAlign: 'center',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      color: 'var(--text-muted, #6B7280)',
+                      lineHeight: 1,
+                      pointerEvents: 'none',
+                    }}
+                  >
                     {formatCompactAmount(dayVolume)}
                   </span>
                 )}
                 <div
                   title={`Received: ₹${day.received.toLocaleString('en-IN')}`}
-                  className={`chart-day-pill-bar ${day.received > 0 ? 'credit' : 'empty'}`}
-                  style={{ height: `${recHeight}px` }}
+                  style={{
+                    width: '8px',
+                    borderRadius: '999px',
+                    height: `${recHeight}px`,
+                    backgroundColor: day.received > 0 ? '#10B981' : 'rgba(148, 163, 184, 0.35)',
+                    minHeight: '6px',
+                    transition: 'height 240ms ease',
+                  }}
                 />
                 <div
                   title={`Sent: ₹${day.sent.toLocaleString('en-IN')}`}
-                  className={`chart-day-pill-bar ${day.sent > 0 ? 'debit' : 'empty'}`}
-                  style={{ height: `${sentHeight}px` }}
+                  style={{
+                    width: '8px',
+                    borderRadius: '999px',
+                    height: `${sentHeight}px`,
+                    backgroundColor: day.sent > 0 ? '#F43F5E' : 'rgba(148, 163, 184, 0.35)',
+                    minHeight: '6px',
+                    transition: 'height 240ms ease',
+                  }}
                 />
               </div>
 
