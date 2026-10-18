@@ -85,26 +85,31 @@ export function ActivityLedger({
     }
   }, [completedTransactions])
 
-  // Summary strip metrics based on active tab
   const is7d = activeFilter === '7d'
-  const activeReceived = is7d ? sevenDayTotals.received : todayData.received
-  const activeSent = is7d ? sevenDayTotals.sent : todayData.sent
-  const activeNet = is7d ? sevenDayTotals.net : todayData.net
-  const activeVolume = activeReceived + activeSent
 
-  const recParts = formatMoneyParts(activeReceived)
-  const sentParts = formatMoneyParts(activeSent)
-  const netParts = formatMoneyParts(Math.abs(activeNet))
-
-  // Inspected day for 7d chart hover/tap caption
+  // Active inspected day when hovering or tapping a day in 7d mode
   const inspectedDay = useMemo(() => {
     const targetKey = hoveredDayKey || selectedDayKey
     return targetKey ? sevenDays.find(d => d.key === targetKey) || null : null
   }, [hoveredDayKey, selectedDayKey, sevenDays])
 
   const maxDayValue = useMemo(() => {
-    return Math.max(...sevenDays.flatMap(d => [d.received, d.sent]), 100)
+    return Math.max(...sevenDays.flatMap(d => [d.received, d.sent]), 1)
   }, [sevenDays])
+
+  // Scope metrics: inspected day > 7-day total > today
+  const activeReceived = is7d
+    ? (inspectedDay ? inspectedDay.received : sevenDayTotals.received)
+    : todayData.received
+  const activeSent = is7d
+    ? (inspectedDay ? inspectedDay.sent : sevenDayTotals.sent)
+    : todayData.sent
+  const activeNet = activeReceived - activeSent
+  const activeVolume = activeReceived + activeSent
+
+  const recParts = formatMoneyParts(activeReceived)
+  const sentParts = formatMoneyParts(activeSent)
+  const netParts = formatMoneyParts(Math.abs(activeNet))
 
   // Filtered transaction list
   const filteredTransactions = useMemo(() => {
@@ -143,7 +148,7 @@ export function ActivityLedger({
     <div className="surface-card" style={{ overflow: 'hidden' }}>
       <div style={{ padding: 'var(--space-6) var(--space-6) var(--space-4)' }}>
         {/* Section Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
           <div>
             <h2 className="text-section-title">Recent activity</h2>
             <p className="text-secondary" style={{ marginTop: '2px' }}>
@@ -152,339 +157,8 @@ export function ActivityLedger({
           </div>
         </div>
 
-        {/* Sleek, compact Cashflow Summary Strip directly below header */}
-        <div
-          style={{
-            backgroundColor: 'var(--bg-inset)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '14px',
-            padding: '14px',
-            marginBottom: 'var(--space-4)',
-          }}
-        >
-          {/* Top 2-column grid */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              gap: '12px',
-            }}
-          >
-            {/* Left box: Received */}
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: '4px' }}>
-                {is7d ? '7d received' : 'Today received'}
-              </div>
-              <div
-                className="tabular-nums"
-                style={{
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  color: '#10B981',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                +{recParts.full}
-              </div>
-            </div>
-
-            {/* Right box: Sent */}
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: '4px' }}>
-                {is7d ? '7d sent' : 'Today sent'}
-              </div>
-              <div
-                className="tabular-nums"
-                style={{
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  color: '#F43F5E',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                -{sentParts.full}
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom hairline row */}
-          <div
-            style={{
-              borderTop: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.18))',
-              paddingTop: '10px',
-              marginTop: '10px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px', opacity: 0.7 }}>
-                {is7d ? '7d net flow' : "Today's net flow"}
-              </span>
-              <span
-                className="tabular-nums"
-                style={{
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  color: activeNet >= 0 ? '#10B981' : '#F43F5E',
-                }}
-              >
-                {activeNet >= 0 ? '+' : '-'}{netParts.full}
-              </span>
-            </div>
-
-            {/* Thin 6px proportional split bar */}
-            <div
-              style={{
-                display: 'flex',
-                width: '100%',
-                height: '6px',
-                borderRadius: '999px',
-                overflow: 'hidden',
-                backgroundColor: 'rgba(148, 163, 184, 0.18)',
-                marginTop: '8px',
-              }}
-            >
-              {activeVolume === 0 ? (
-                <div style={{ width: '100%', height: '100%', backgroundColor: 'rgba(148, 163, 184, 0.2)' }} />
-              ) : (
-                <>
-                  {activeReceived > 0 && (
-                    <div
-                      style={{
-                        width: `${(activeReceived / activeVolume) * 100}%`,
-                        backgroundColor: '#10B981',
-                        height: '100%',
-                        transition: 'width 240ms ease',
-                      }}
-                      title={`Received: ₹${activeReceived.toLocaleString('en-IN')}`}
-                    />
-                  )}
-                  {activeSent > 0 && (
-                    <div
-                      style={{
-                        width: `${(activeSent / activeVolume) * 100}%`,
-                        backgroundColor: '#F43F5E',
-                        height: '100%',
-                        transition: 'width 240ms ease',
-                      }}
-                      title={`Sent: ₹${activeSent.toLocaleString('en-IN')}`}
-                    />
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Clean Baseline Chart revealed only when 7 days tab is selected */}
-        {is7d && (
-          <div
-            style={{
-              backgroundColor: 'var(--bg-inset)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '14px',
-              padding: '14px',
-              marginBottom: 'var(--space-4)',
-            }}
-          >
-            {/* Caption right above the chart */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '10px',
-                fontSize: '12px',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <span style={{ fontWeight: 500, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <span>{inspectedDay ? `${inspectedDay.dayName}, ${inspectedDay.dateLabel}` : '7-day daily settlement'}</span>
-                {selectedDayKey && (
-                  <button
-                    type="button"
-                    onClick={e => {
-                      e.stopPropagation()
-                      setSelectedDayKey(null)
-                    }}
-                    style={{
-                      fontSize: '11px',
-                      padding: '1px 7px',
-                      borderRadius: '999px',
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--border-subtle)',
-                      cursor: 'pointer',
-                      color: 'var(--text-muted)',
-                    }}
-                  >
-                    Show all
-                  </button>
-                )}
-              </span>
-              <span className="tabular-nums" style={{ fontSize: '12px' }}>
-                <span style={{ color: '#10B981', fontWeight: 600 }}>
-                  +{formatMoneyParts(inspectedDay ? inspectedDay.received : sevenDayTotals.received).full}
-                </span>
-                <span style={{ margin: '0 4px', opacity: 0.5 }}>·</span>
-                <span style={{ color: '#F43F5E', fontWeight: 600 }}>
-                  -{formatMoneyParts(inspectedDay ? inspectedDay.sent : sevenDayTotals.sent).full}
-                </span>
-              </span>
-            </div>
-
-            {/* Minimalist 92px baseline chart */}
-            <div
-              role="img"
-              aria-label="7-day cashflow baseline chart"
-              style={{
-                height: '92px',
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                gap: '8px',
-                borderBottom: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.25))',
-                paddingBottom: '0',
-              }}
-            >
-              {sevenDays.map(day => {
-                const isSelected = selectedDayKey === day.key
-                const isHovered = hoveredDayKey === day.key
-                const isActiveDay = day.received > 0 || day.sent > 0
-                const recH = day.received > 0 ? Math.max(Math.round((day.received / maxDayValue) * 76), 6) : 0
-                const sentH = day.sent > 0 ? Math.max(Math.round((day.sent / maxDayValue) * 76), 6) : 0
-
-                return (
-                  <div
-                    key={day.key}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setSelectedDayKey(prev => prev === day.key ? null : day.key)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setSelectedDayKey(prev => prev === day.key ? null : day.key)
-                      }
-                    }}
-                    onMouseEnter={() => setHoveredDayKey(day.key)}
-                    onMouseLeave={() => setHoveredDayKey(null)}
-                    title={`${day.dayName}, ${day.dateLabel}: +₹${day.received.toLocaleString('en-IN')} / -₹${day.sent.toLocaleString('en-IN')}`}
-                    style={{
-                      flex: 1,
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'flex-end',
-                      cursor: 'pointer',
-                      padding: '0 2px',
-                      backgroundColor: isSelected
-                        ? 'rgba(37, 99, 235, 0.08)'
-                        : isHovered
-                        ? 'rgba(148, 163, 184, 0.1)'
-                        : 'transparent',
-                      borderRadius: '6px 6px 0 0',
-                      transition: 'background-color 150ms ease',
-                    }}
-                  >
-                    {isActiveDay ? (
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-end',
-                          justifyContent: 'center',
-                          gap: '4px',
-                          width: '100%',
-                          height: '100%',
-                        }}
-                      >
-                        {day.received > 0 ? (
-                          <div
-                            style={{
-                              width: '6px',
-                              height: `${recH}px`,
-                              backgroundColor: '#10B981',
-                              borderRadius: '3px 3px 0 0',
-                              transition: 'height 200ms ease',
-                            }}
-                          />
-                        ) : (
-                          <div style={{ width: '6px', height: '2px', backgroundColor: 'rgba(148, 163, 184, 0.35)', borderRadius: '1px' }} />
-                        )}
-                        {day.sent > 0 ? (
-                          <div
-                            style={{
-                              width: '6px',
-                              height: `${sentH}px`,
-                              backgroundColor: '#F43F5E',
-                              borderRadius: '3px 3px 0 0',
-                              transition: 'height 200ms ease',
-                            }}
-                          />
-                        ) : (
-                          <div style={{ width: '6px', height: '2px', backgroundColor: 'rgba(148, 163, 184, 0.35)', borderRadius: '1px' }} />
-                        )}
-                      </div>
-                    ) : (
-                      /* Empty days show a single 14px x 2px neutral dash on the baseline */
-                      <div
-                        style={{
-                          width: '14px',
-                          height: '2px',
-                          backgroundColor: 'var(--border-strong, #CBD5E1)',
-                          borderRadius: '1px',
-                          marginBottom: '0px',
-                        }}
-                      />
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Day labels below baseline */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', paddingTop: '6px' }}>
-              {sevenDays.map(day => {
-                const isSelected = selectedDayKey === day.key
-                const isHovered = hoveredDayKey === day.key
-                return (
-                  <div
-                    key={day.key}
-                    onClick={() => setSelectedDayKey(prev => prev === day.key ? null : day.key)}
-                    style={{
-                      flex: 1,
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      userSelect: 'none',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: isSelected || isHovered ? 600 : 500,
-                        color: isSelected
-                          ? 'var(--accent-primary, #2563EB)'
-                          : isHovered
-                          ? 'var(--text-primary)'
-                          : 'var(--text-secondary)',
-                      }}
-                    >
-                      {day.dayName}
-                    </div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                      {day.dateLabel}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Segmented Filter Pills */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+        {/* 1. Locked Segmented Pill Bar directly below header and ABOVE summary card */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
           <div className="segmented-pill" role="tablist" aria-label="Filter activity">
             <button
               type="button"
@@ -525,6 +199,325 @@ export function ActivityLedger({
           </div>
         </div>
 
+        {/* 2. Unified Cashflow Summary Card with Clean Human Copy */}
+        <div
+          style={{
+            backgroundColor: 'var(--bg-inset)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '16px',
+            padding: '16px',
+            marginBottom: 'var(--space-4)',
+          }}
+        >
+          {/* Top header row */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '12px',
+            }}
+          >
+            <span style={{ fontSize: '13px', fontWeight: 500, opacity: 0.8, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span>
+                {is7d ? (inspectedDay ? `${inspectedDay.dayName}, ${inspectedDay.dateLabel}` : 'Last 7 days') : 'Today'}
+              </span>
+              {is7d && selectedDayKey && (
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation()
+                    setSelectedDayKey(null)
+                  }}
+                  style={{
+                    fontSize: '11px',
+                    padding: '1px 7px',
+                    borderRadius: '999px',
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  Show 7d
+                </button>
+              )}
+            </span>
+            <span style={{ fontSize: '12px', opacity: 0.55 }}>
+              {is7d
+                ? (inspectedDay ? 'Daily breakdown' : `${sevenDays[0]?.dateLabel || ''} - ${sevenDays[6]?.dateLabel || ''}`)
+                : 'Daily summary'}
+            </span>
+          </div>
+
+          {/* 2-column metrics row: Money in & Money out */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '12px',
+            }}
+          >
+            {/* Left: Money in */}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: '4px' }}>Money in</div>
+              <div
+                className="tabular-nums"
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: '#10B981',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                +{recParts.full}
+              </div>
+            </div>
+
+            {/* Right: Money out */}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: '4px' }}>Money out</div>
+              <div
+                className="tabular-nums"
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: '#F43F5E',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                -{sentParts.full}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom hairline row: Net flow + 6px proportional split bar */}
+          <div
+            style={{
+              borderTop: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.18))',
+              paddingTop: '10px',
+              marginTop: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '12px', opacity: 0.7 }}>Net flow</span>
+              <span
+                className="tabular-nums"
+                style={{
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  color: activeNet >= 0 ? '#10B981' : '#F43F5E',
+                }}
+              >
+                {activeNet >= 0 ? '+' : '-'}{netParts.full}
+              </span>
+            </div>
+
+            {/* Proportional 6px split bar */}
+            <div
+              style={{
+                display: 'flex',
+                width: '100%',
+                height: '6px',
+                borderRadius: '999px',
+                overflow: 'hidden',
+                backgroundColor: 'rgba(148, 163, 184, 0.18)',
+                marginTop: '8px',
+              }}
+            >
+              {activeVolume === 0 ? (
+                <div style={{ width: '100%', height: '100%', backgroundColor: 'rgba(148, 163, 184, 0.2)' }} />
+              ) : (
+                <>
+                  {activeReceived > 0 && (
+                    <div
+                      style={{
+                        width: `${(activeReceived / activeVolume) * 100}%`,
+                        background: 'linear-gradient(180deg, #34D399 0%, #059669 100%)',
+                        height: '100%',
+                        transition: 'width 240ms ease',
+                      }}
+                      title={`Money in: ₹${activeReceived.toLocaleString('en-IN')}`}
+                    />
+                  )}
+                  {activeSent > 0 && (
+                    <div
+                      style={{
+                        width: `${(activeSent / activeVolume) * 100}%`,
+                        background: 'linear-gradient(180deg, #FB7185 0%, #E11D48 100%)',
+                        height: '100%',
+                        transition: 'width 240ms ease',
+                      }}
+                      title={`Money out: ₹${activeSent.toLocaleString('en-IN')}`}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Merged 7-day chart directly inside the summary card when on 7 days */}
+          {is7d && (
+            <div
+              style={{
+                marginTop: '16px',
+                paddingTop: '16px',
+                borderTop: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.16))',
+              }}
+            >
+              {/* Structured financial chart grid with 3 dashed reference lines */}
+              <div
+                role="img"
+                aria-label="7-day cashflow bar chart"
+                style={{
+                  position: 'relative',
+                  height: '100px',
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'space-between',
+                  gap: '4px',
+                }}
+              >
+                {/* 3 subtle horizontal dashed reference lines across chart background */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '0%',
+                    left: 0,
+                    right: 0,
+                    borderBottom: '1px dashed rgba(148, 163, 184, 0.14)',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: 0,
+                    right: 0,
+                    borderBottom: '1px dashed rgba(148, 163, 184, 0.14)',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    borderBottom: '1px dashed rgba(148, 163, 184, 0.14)',
+                    pointerEvents: 'none',
+                  }}
+                />
+
+                {sevenDays.map(day => {
+                  const isHighlighted = (hoveredDayKey || selectedDayKey) === day.key
+                  const recH = day.received > 0 ? Math.max(14, Math.round(Math.sqrt(day.received / maxDayValue) * 88)) : 3
+                  const sentH = day.sent > 0 ? Math.max(14, Math.round(Math.sqrt(day.sent / maxDayValue) * 88)) : 3
+
+                  return (
+                    <div
+                      key={day.key}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedDayKey(prev => prev === day.key ? null : day.key)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setSelectedDayKey(prev => prev === day.key ? null : day.key)
+                        }
+                      }}
+                      onMouseEnter={() => setHoveredDayKey(day.key)}
+                      onMouseLeave={() => setHoveredDayKey(null)}
+                      title={`${day.dayName}, ${day.dateLabel}: Money in +₹${day.received.toLocaleString('en-IN')} · Money out -₹${day.sent.toLocaleString('en-IN')}`}
+                      style={{
+                        flex: 1,
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'flex-end',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        cursor: 'pointer',
+                        padding: '0 2px',
+                        backgroundColor: isHighlighted ? 'rgba(148, 163, 184, 0.08)' : 'transparent',
+                        borderRadius: '6px 6px 0 0',
+                        transition: 'background-color 150ms ease',
+                        position: 'relative',
+                        zIndex: 1,
+                      }}
+                    >
+                      {/* Money in bar */}
+                      <div
+                        style={{
+                          width: '12px',
+                          height: `${recH}px`,
+                          background: day.received > 0
+                            ? 'linear-gradient(180deg, #34D399 0%, #059669 100%)'
+                            : 'rgba(148, 163, 184, 0.22)',
+                          borderRadius: '4px 4px 2px 2px',
+                          transition: 'height 240ms ease',
+                        }}
+                      />
+
+                      {/* Money out bar */}
+                      <div
+                        style={{
+                          width: '12px',
+                          height: `${sentH}px`,
+                          background: day.sent > 0
+                            ? 'linear-gradient(180deg, #FB7185 0%, #E11D48 100%)'
+                            : 'rgba(148, 163, 184, 0.22)',
+                          borderRadius: '4px 4px 2px 2px',
+                          transition: 'height 240ms ease',
+                        }}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Day labels below baseline */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '4px', marginTop: '8px' }}>
+                {sevenDays.map(day => {
+                  const isHighlighted = (hoveredDayKey || selectedDayKey) === day.key
+                  return (
+                    <div
+                      key={day.key}
+                      onClick={() => setSelectedDayKey(prev => prev === day.key ? null : day.key)}
+                      style={{
+                        flex: 1,
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        padding: '2px 0',
+                        borderRadius: '6px',
+                        backgroundColor: isHighlighted ? 'rgba(148, 163, 184, 0.08)' : 'transparent',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: isHighlighted ? 600 : 500,
+                          color: isHighlighted ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        }}
+                      >
+                        {day.dayName}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                        {day.dateLabel}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Search input */}
         <div className="input-with-prefix" style={{ marginBottom: 'var(--space-2)' }}>
           <span className="input-prefix">
@@ -551,7 +544,7 @@ export function ActivityLedger({
             {searchQuery
               ? 'Try clearing your search query.'
               : selectedDayKey
-              ? 'No transactions on this selected day. Click "Show all" to view all 7 days.'
+              ? 'No transactions on this selected day. Click "Show 7d" to view all 7 days.'
               : activeFilter === '7d'
               ? 'No transactions recorded in the last 7 days.'
               : 'Share your payment link to receive your first payment.'}
