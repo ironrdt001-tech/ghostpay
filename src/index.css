@@ -524,6 +524,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   border: 1px solid var(--border-subtle);
 }
 
+@media (max-width: 480px) {
+  .segmented-tab {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+}
+
 /* Layout: Desktop 2-Column Asymmetric */
 .dashboard-layout {
   max-width: 1200px;

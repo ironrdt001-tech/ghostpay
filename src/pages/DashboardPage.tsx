@@ -8,7 +8,6 @@ import { Brand } from '../components/Brand'
 import { BalanceHeader } from '../components/BalanceHeader'
 import { ShieldedLinkBar } from '../components/ShieldedLinkBar'
 import { SendMoneyForm } from '../components/SendMoneyForm'
-import { CashflowSection } from '../components/CashflowSection'
 import { ActivityLedger } from '../components/ActivityLedger'
 import { ReceiptModal } from '../components/ReceiptModal'
 import { ShareQrModal } from '../components/ShareQrModal'
@@ -16,7 +15,7 @@ import { TopUpModal } from '../components/TopUpModal'
 import { EditProfileModal } from '../components/EditProfileModal'
 import { MobileBottomNav } from '../components/MobileBottomNav'
 import { SunIcon, MoonIcon, CheckIcon } from '../components/Icons'
-import type { Profile, Transaction, DemoTransaction, RecentPerson, CashflowDay } from '../lib/types'
+import type { Profile, Transaction, DemoTransaction, RecentPerson, ActivityFilter } from '../lib/types'
 
 interface DashboardPageProps {
   session: Session
@@ -33,10 +32,11 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
   const [busy, setBusy] = useState(true)
 
   // URL-synced transaction filter state
-  const urlFilter = searchParams.get('filter') as 'all' | 'received' | 'sent' | null
-  const activeTxFilter: 'all' | 'received' | 'sent' = urlFilter === 'received' || urlFilter === 'sent' ? urlFilter : 'all'
+  const urlFilter = searchParams.get('filter') as ActivityFilter | null
+  const activeTxFilter: ActivityFilter =
+    urlFilter === 'received' || urlFilter === 'sent' || urlFilter === '7d' ? urlFilter : 'all'
 
-  function handleFilterChange(newFilter: 'all' | 'received' | 'sent') {
+  function handleFilterChange(newFilter: ActivityFilter) {
     const nextParams = new URLSearchParams(searchParams)
     if (newFilter === 'all') {
       nextParams.delete('filter')
@@ -242,43 +242,6 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
     return list
   }, [transactions, session.user.id, profile?.alias_handle])
 
-  // 7-Day Dual Bar Chart calculations
-  const completedTransactions = useMemo(() => {
-    return transactions.filter(tx => tx.status === 'completed')
-  }, [transactions])
-
-  const { totalReceived, totalSent, sevenDayData } = useMemo(() => {
-    const recTx = completedTransactions.filter(tx => tx.direction === 'received')
-    const sentTx = completedTransactions.filter(tx => tx.direction === 'sent')
-    const totalRec = recTx.reduce((sum, tx) => sum + Number(tx.amount_inr || 0), 0)
-    const totalS = sentTx.reduce((sum, tx) => sum + Number(tx.amount_inr || 0), 0)
-
-    const sevenDay: CashflowDay[] = Array.from({ length: 7 }, (_, index) => {
-      const day = new Date()
-      day.setHours(0, 0, 0, 0)
-      day.setDate(day.getDate() - (6 - index))
-      const nextDay = new Date(day)
-      nextDay.setDate(nextDay.getDate() + 1)
-
-      const dayTxs = completedTransactions.filter(tx => {
-        const time = new Date(tx.created_at).getTime()
-        return time >= day.getTime() && time < nextDay.getTime()
-      })
-      const rec = dayTxs.filter(tx => tx.direction === 'received').reduce((sum, tx) => sum + Number(tx.amount_inr || 0), 0)
-      const s = dayTxs.filter(tx => tx.direction === 'sent').reduce((sum, tx) => sum + Number(tx.amount_inr || 0), 0)
-
-      return {
-        key: day.toISOString().slice(0, 10),
-        dayName: day.toLocaleDateString('en-IN', { weekday: 'short' }),
-        dateLabel: day.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-        received: rec,
-        sent: s,
-      }
-    })
-
-    return { totalReceived: totalRec, totalSent: totalS, sevenDayData: sevenDay }
-  }, [completedTransactions])
-
   async function handleSignOut() {
     onResetTheme()
     await supabase?.auth.signOut()
@@ -437,15 +400,8 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
             />
           </div>
 
-          {/* Right Statement & Cashflow Column */}
+          {/* Right Statement Column */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {/* 7-Day Dual Bar Chart with Typographic Ledger Strip */}
-            <CashflowSection
-              sevenDayData={sevenDayData}
-              totalReceived={totalReceived}
-              totalSent={totalSent}
-            />
-
             {/* Flat Activity Ledger (Statement List, 1px Hairlines, No Cards Inside Cards) */}
             <ActivityLedger
               transactions={allLedgerRows}

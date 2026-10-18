@@ -44,3 +44,6 @@ export interface CashflowDay {
   received: number
   sent: number
 }
+
+export type ActivityFilter = 'all' | 'received' | 'sent' | '7d'
+
