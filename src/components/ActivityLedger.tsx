@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { formatMoneyParts, formatIstTime, groupTransactionsByDate } from '../lib/formatters'
-import { ArrowIncomingIcon, ArrowOutgoingIcon, SearchIcon } from './Icons'
+import { ArrowIncomingIcon, ArrowOutgoingIcon, SearchIcon, ChevronDownIcon } from './Icons'
 import type { Transaction, ActivityFilter } from '../lib/types'
 
 interface ActivityLedgerProps {
@@ -30,6 +30,7 @@ interface DaySummary {
   sent: number
   totalVolume: number
   txnCount: number
+  dayTransactions: Transaction[]
 }
 
 export function ActivityLedger({
@@ -40,14 +41,10 @@ export function ActivityLedger({
   busy = false,
 }: ActivityLedgerProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null)
+  const [expandedDayKey, setExpandedDayKey] = useState<string | null>(null)
+  const hasInitializedDefault = useRef(false)
 
-  // Clear day selection if user leaves 7d tab
-  useEffect(() => {
-    if (activeFilter !== '7d') {
-      setSelectedDayKey(null)
-    }
-  }, [activeFilter])
+  const is7d = activeFilter === '7d'
 
   const completedTransactions = useMemo(() => {
     return transactions.filter(tx => tx.status === 'completed')
@@ -86,6 +83,7 @@ export function ActivityLedger({
         sent: sent,
         totalVolume: rec + sent,
         txnCount: dayTxs.length,
+        dayTransactions: dayTxs,
       }
     })
 
@@ -110,19 +108,31 @@ export function ActivityLedger({
     }
   }, [completedTransactions])
 
-  const is7d = activeFilter === '7d'
+  // Default expanded day to the most recent day with transactions when entering 7d
+  useEffect(() => {
+    if (activeFilter === '7d') {
+      if (!hasInitializedDefault.current) {
+        hasInitializedDefault.current = true
+        const firstActive = sevenDaysReverse.find(d => d.txnCount > 0)?.key || null
+        setExpandedDayKey(firstActive)
+      }
+    } else {
+      hasInitializedDefault.current = false
+      setExpandedDayKey(null)
+    }
+  }, [activeFilter, sevenDaysReverse])
 
-  // Selected day object when user clicks a day row
-  const selectedDay = useMemo(() => {
-    return selectedDayKey ? sevenDaysReverse.find(d => d.key === selectedDayKey) || null : null
-  }, [selectedDayKey, sevenDaysReverse])
+  // Active expanded day object
+  const expandedDay = useMemo(() => {
+    return expandedDayKey ? sevenDaysReverse.find(d => d.key === expandedDayKey) || null : null
+  }, [expandedDayKey, sevenDaysReverse])
 
   // Summary numbers: selected day > 7-day total > today
   const activeReceived = is7d
-    ? (selectedDay ? selectedDay.received : sevenDayTotals.received)
+    ? (expandedDay ? expandedDay.received : sevenDayTotals.received)
     : todayData.received
   const activeSent = is7d
-    ? (selectedDay ? selectedDay.sent : sevenDayTotals.sent)
+    ? (expandedDay ? expandedDay.sent : sevenDayTotals.sent)
     : todayData.sent
   const activeNet = activeReceived - activeSent
   const activeVolume = activeReceived + activeSent
@@ -131,21 +141,15 @@ export function ActivityLedger({
   const sentParts = formatMoneyParts(activeSent)
   const netParts = formatMoneyParts(Math.abs(activeNet))
 
-  // Filtered transaction list
+  // Filtered transactions for the All/Received/Sent statement list
   const filteredTransactions = useMemo(() => {
-    let list = transactions
+    if (is7d) return []
 
+    let list = transactions
     if (activeFilter === 'received') {
       list = list.filter(tx => tx.direction === 'received')
     } else if (activeFilter === 'sent') {
       list = list.filter(tx => tx.direction === 'sent')
-    } else if (activeFilter === '7d') {
-      if (selectedDayKey) {
-        list = list.filter(tx => getIstDateKey(tx.created_at) === selectedDayKey)
-      } else {
-        const sevenDayKeys = new Set(sevenDaysReverse.map(d => d.key))
-        list = list.filter(tx => sevenDayKeys.has(getIstDateKey(tx.created_at)))
-      }
     }
 
     const query = searchQuery.trim().toLowerCase()
@@ -158,7 +162,7 @@ export function ActivityLedger({
     }
 
     return list
-  }, [transactions, activeFilter, selectedDayKey, sevenDaysReverse, searchQuery])
+  }, [transactions, activeFilter, is7d, searchQuery])
 
   const grouped = useMemo(() => {
     return groupTransactionsByDate(filteredTransactions)
@@ -226,7 +230,7 @@ export function ActivityLedger({
             border: '1px solid var(--border-subtle)',
             borderRadius: '16px',
             padding: '16px',
-            marginBottom: 'var(--space-4)',
+            marginBottom: is7d ? 0 : 'var(--space-4)',
           }}
         >
           {/* Top header row */}
@@ -240,14 +244,14 @@ export function ActivityLedger({
           >
             <span style={{ fontSize: '13px', fontWeight: 500, opacity: 0.8, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <span>
-                {is7d ? (selectedDay ? selectedDay.dayTitle : 'Last 7 days') : 'Today'}
+                {is7d ? (expandedDay ? expandedDay.dayTitle : 'Last 7 days') : 'Today'}
               </span>
-              {is7d && selectedDayKey && (
+              {is7d && expandedDayKey && (
                 <button
                   type="button"
                   onClick={e => {
                     e.stopPropagation()
-                    setSelectedDayKey(null)
+                    setExpandedDayKey(null)
                   }}
                   style={{
                     fontSize: '11px',
@@ -265,7 +269,7 @@ export function ActivityLedger({
             </span>
             <span style={{ fontSize: '12px', opacity: 0.55 }}>
               {is7d
-                ? (selectedDay ? 'Selected day' : `${sevenDaysReverse[6]?.dateLabel || ''} - ${sevenDaysReverse[0]?.dateLabel || ''}`)
+                ? (expandedDay ? 'Daily breakdown' : `${sevenDaysReverse[6]?.dateLabel || ''} - ${sevenDaysReverse[0]?.dateLabel || ''}`)
                 : 'Daily summary'}
             </span>
           </div>
@@ -380,7 +384,7 @@ export function ActivityLedger({
             </div>
           </div>
 
-          {/* 3. All 7 consecutive days in reverse chronological order (Today first down to 6 days ago) */}
+          {/* 3. 7-day chronological accordion stack inside summary card when on 7 days */}
           {is7d && (
             <div
               style={{
@@ -389,12 +393,12 @@ export function ActivityLedger({
                 borderTop: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.16))',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '6px',
+                gap: '8px',
               }}
             >
               {sevenDaysReverse.map(day => {
-                const isActive = day.received > 0 || day.sent > 0
-                const isSelected = selectedDayKey === day.key
+                const isActive = day.txnCount > 0
+                const isExpanded = expandedDayKey === day.key
                 const dayTotal = day.received + day.sent
                 const fillPercent = Math.max(18, Math.round(Math.sqrt(dayTotal / max7dTotal) * 100))
                 const recPercent = dayTotal > 0 ? (day.received / dayTotal) * 100 : 0
@@ -404,108 +408,204 @@ export function ActivityLedger({
                   return (
                     <div
                       key={day.key}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedDayKey(prev => prev === day.key ? null : day.key)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          setSelectedDayKey(prev => prev === day.key ? null : day.key)
-                        }
-                      }}
-                      title={`${day.dayTitle}: Money in +₹${day.received.toLocaleString('en-IN')} · Money out -₹${day.sent.toLocaleString('en-IN')} (${day.txnCount} txns)`}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '10px 12px',
                         borderRadius: '12px',
-                        background: isSelected ? 'rgba(37, 99, 235, 0.10)' : 'rgba(148, 163, 184, 0.05)',
-                        border: isSelected ? '1px solid var(--accent-primary, #2563EB)' : '1px solid transparent',
-                        cursor: 'pointer',
-                        transition: 'all 160ms ease',
+                        background: isExpanded ? 'rgba(37, 99, 235, 0.08)' : 'rgba(148, 163, 184, 0.05)',
+                        border: isExpanded ? '1px solid var(--accent-primary, #2563EB)' : '1px solid transparent',
+                        overflow: 'hidden',
+                        transition: 'background-color 160ms ease, border-color 160ms ease',
                       }}
                     >
-                      {/* Left column */}
-                      <div style={{ minWidth: '105px' }}>
-                        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
-                          {day.dayTitle}
+                      {/* Day Header Row */}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setExpandedDayKey(prev => (prev === day.key ? null : day.key))}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setExpandedDayKey(prev => (prev === day.key ? null : day.key))
+                          }
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 12px',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                        }}
+                        title={`${day.dayTitle} · Click to ${isExpanded ? 'collapse' : 'expand'} transactions`}
+                      >
+                        {/* Left column */}
+                        <div style={{ minWidth: '105px', flexShrink: 0 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                            {day.dayTitle}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                            {day.txnCount === 1 ? '1 txn' : `${day.txnCount} txns`}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
-                          {day.txnCount === 1 ? '1 txn' : `${day.txnCount} txns`}
-                        </div>
-                      </div>
 
-                      {/* Middle column: 8px horizontal pill track */}
-                      <div style={{ flex: 1, padding: '0 12px', display: 'flex', alignItems: 'center' }}>
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '8px',
-                            background: 'rgba(148, 163, 184, 0.14)',
-                            borderRadius: '999px',
-                            overflow: 'hidden',
-                          }}
-                        >
+                        {/* Middle column: 8px horizontal pill track */}
+                        <div style={{ flex: 1, padding: '0 12px', display: 'flex', alignItems: 'center' }}>
                           <div
                             style={{
-                              width: `${fillPercent}%`,
-                              height: '100%',
-                              display: 'flex',
+                              width: '100%',
+                              height: '8px',
+                              background: 'rgba(148, 163, 184, 0.14)',
                               borderRadius: '999px',
                               overflow: 'hidden',
-                              transition: 'width 240ms ease',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${fillPercent}%`,
+                                height: '100%',
+                                display: 'flex',
+                                borderRadius: '999px',
+                                overflow: 'hidden',
+                                transition: 'width 240ms ease',
+                              }}
+                            >
+                              {day.received > 0 && (
+                                <div
+                                  style={{
+                                    width: `${recPercent}%`,
+                                    height: '100%',
+                                    backgroundColor: '#10B981',
+                                  }}
+                                />
+                              )}
+                              {day.sent > 0 && (
+                                <div
+                                  style={{
+                                    width: `${sentPercent}%`,
+                                    height: '100%',
+                                    backgroundColor: '#F43F5E',
+                                  }}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right column: horizontal figures + rotating chevron icon */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                          <div
+                            className="tabular-nums"
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 500,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              lineHeight: 1.35,
                             }}
                           >
                             {day.received > 0 && (
-                              <div
-                                style={{
-                                  width: `${recPercent}%`,
-                                  height: '100%',
-                                  backgroundColor: '#10B981',
-                                }}
-                              />
+                              <span style={{ color: '#10B981' }}>+{formatMoneyParts(day.received).full}</span>
+                            )}
+                            {day.received > 0 && day.sent > 0 && (
+                              <span style={{ opacity: 0.35 }}>·</span>
                             )}
                             {day.sent > 0 && (
-                              <div
-                                style={{
-                                  width: `${sentPercent}%`,
-                                  height: '100%',
-                                  backgroundColor: '#F43F5E',
-                                }}
-                              />
+                              <span style={{ color: '#F43F5E' }}>-{formatMoneyParts(day.sent).full}</span>
                             )}
+                          </div>
+
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: isExpanded ? 'var(--accent-primary, #2563EB)' : 'var(--text-muted, #6B7280)',
+                              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                              transition: 'transform 200ms ease, color 200ms ease',
+                            }}
+                          >
+                            <ChevronDownIcon size={16} strokeWidth={2.2} />
                           </div>
                         </div>
                       </div>
 
-                      {/* Right column */}
-                      <div
-                        style={{
-                          textAlign: 'right',
-                          fontVariantNumeric: 'tabular-nums',
-                          fontSize: '13px',
-                          fontWeight: 500,
-                          minWidth: '95px',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {day.received > 0 && day.sent > 0 ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25 }}>
-                            <span style={{ color: '#10B981' }}>+{formatMoneyParts(day.received).full}</span>
-                            <span style={{ color: '#F43F5E', fontSize: '12px' }}>-{formatMoneyParts(day.sent).full}</span>
-                          </div>
-                        ) : day.received > 0 ? (
-                          <span style={{ color: '#10B981' }}>+{formatMoneyParts(day.received).full}</span>
-                        ) : (
-                          <span style={{ color: '#F43F5E' }}>-{formatMoneyParts(day.sent).full}</span>
-                        )}
-                      </div>
+                      {/* Inline Dropdown Drawer for this day's transactions */}
+                      {isExpanded && (
+                        <div
+                          style={{
+                            borderTop: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.18))',
+                            padding: '6px 8px',
+                            backgroundColor: 'var(--bg-surface, #FFFFFF)',
+                            borderBottomLeftRadius: '12px',
+                            borderBottomRightRadius: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px',
+                          }}
+                        >
+                          {day.dayTransactions.map(tx => {
+                            const isReceived = tx.direction === 'received'
+                            const parts = formatMoneyParts(tx.amount_inr)
+                            const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
+                              String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
+                            const rail = isTopUp ? 'Wallet top-up' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
+                            const counterparty = tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'GhostPay User'
+
+                            return (
+                              <div
+                                key={tx.id}
+                                className="ledger-item"
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => onSelectTx(tx)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    onSelectTx(tx)
+                                  }
+                                }}
+                                title="View verified UTR receipt"
+                                style={{
+                                  padding: '8px 10px',
+                                  borderRadius: '8px',
+                                }}
+                              >
+                                <div className="ledger-item-left">
+                                  <div className={`ledger-icon-circle ${isReceived ? 'credit' : 'debit'}`} style={{ width: '32px', height: '32px' }}>
+                                    {isReceived ? (
+                                      <ArrowIncomingIcon size={14} strokeWidth={2} />
+                                    ) : (
+                                      <ArrowOutgoingIcon size={14} strokeWidth={2} />
+                                    )}
+                                  </div>
+                                  <div className="ledger-item-info">
+                                    <span className="ledger-item-title" style={{ fontSize: '13px' }}>{counterparty}</span>
+                                    <div className="ledger-item-subtitle" style={{ fontSize: '11px' }}>
+                                      <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
+                                      <span>·</span>
+                                      <span className="rail-tag">{rail}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="ledger-item-right">
+                                  <span className={`ledger-amount ${isReceived ? 'credit' : 'debit'}`} style={{ fontSize: '14px' }}>
+                                    {isReceived ? '+' : '-'}{parts.full}
+                                  </span>
+                                  <span className="ledger-status" style={{ fontSize: '10px' }}>
+                                    {tx.status === 'completed' ? (isReceived ? 'Received' : 'Sent') : tx.status.replaceAll('_', ' ')}
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   )
                 }
 
-                // Quiet Days (dayReceived === 0 && daySent === 0)
+                // Quiet Days (0 transactions)
                 return (
                   <div
                     key={day.key}
@@ -514,7 +614,7 @@ export function ActivityLedger({
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '6px 12px',
-                      opacity: 0.55,
+                      opacity: 0.5,
                       borderRadius: '8px',
                     }}
                   >
@@ -548,103 +648,105 @@ export function ActivityLedger({
           )}
         </div>
 
-        {/* Search input */}
-        <div className="input-with-prefix" style={{ marginBottom: 'var(--space-2)' }}>
-          <span className="input-prefix">
-            <SearchIcon size={16} strokeWidth={2} />
-          </span>
-          <input
-            type="search"
-            placeholder="Filter by @handle, name, or amount"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            aria-label="Filter transactions"
-          />
-        </div>
+        {/* Search input - only shown on All, Received, Sent */}
+        {!is7d && (
+          <div className="input-with-prefix" style={{ marginBottom: 'var(--space-2)' }}>
+            <span className="input-prefix">
+              <SearchIcon size={16} strokeWidth={2} />
+            </span>
+            <input
+              type="search"
+              placeholder="Filter by @handle, name, or amount"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              aria-label="Filter transactions"
+            />
+          </div>
+        )}
       </div>
 
-      {busy ? (
-        <div style={{ padding: 'var(--space-10) var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-          Loading transactions...
-        </div>
-      ) : filteredTransactions.length === 0 ? (
-        <div style={{ padding: 'var(--space-10) var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <p style={{ fontSize: '14px', marginBottom: '4px' }}>No transactions found</p>
-          <span style={{ fontSize: '12px' }}>
-            {searchQuery
-              ? 'Try clearing your search query.'
-              : selectedDayKey
-              ? 'No transactions on this selected day. Click "Show 7d" to view all 7 days.'
-              : activeFilter === '7d'
-              ? 'No transactions recorded in the last 7 days.'
-              : 'Share your payment link to receive your first payment.'}
-          </span>
-        </div>
-      ) : (
-        <div>
-          {grouped.map(group => (
-            <div key={group.dateLabel}>
-              <div className="ledger-group-header">
-                {group.dateLabel}
-              </div>
-              {group.transactions.map(tx => {
-                const isReceived = tx.direction === 'received'
-                const parts = formatMoneyParts(tx.amount_inr)
-                const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
-                  String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
-                const rail = isTopUp ? 'Wallet top-up' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
-                const counterparty = tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'GhostPay User'
+      {/* Normal transaction statement list - only shown on All, Received, Sent */}
+      {!is7d && (
+        busy ? (
+          <div style={{ padding: 'var(--space-10) var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
+            Loading transactions...
+          </div>
+        ) : filteredTransactions.length === 0 ? (
+          <div style={{ padding: 'var(--space-10) var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <p style={{ fontSize: '14px', marginBottom: '4px' }}>No transactions found</p>
+            <span style={{ fontSize: '12px' }}>
+              {searchQuery
+                ? 'Try clearing your search query.'
+                : 'Share your payment link to receive your first payment.'}
+            </span>
+          </div>
+        ) : (
+          <div>
+            {grouped.map(group => (
+              <div key={group.dateLabel}>
+                <div className="ledger-group-header">
+                  {group.dateLabel}
+                </div>
+                {group.transactions.map(tx => {
+                  const isReceived = tx.direction === 'received'
+                  const parts = formatMoneyParts(tx.amount_inr)
+                  const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
+                    String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
+                  const rail = isTopUp ? 'Wallet top-up' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
+                  const counterparty = tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'GhostPay User'
 
-                return (
-                  <div
-                    key={tx.id}
-                    className="ledger-item"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onSelectTx(tx)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        onSelectTx(tx)
-                      }
-                    }}
-                    title="View verified UTR receipt"
-                  >
-                    <div className="ledger-item-left">
-                      <div className={`ledger-icon-circle ${isReceived ? 'credit' : 'debit'}`}>
-                        {isReceived ? (
-                          <ArrowIncomingIcon size={16} strokeWidth={2} />
-                        ) : (
-                          <ArrowOutgoingIcon size={16} strokeWidth={2} />
-                        )}
-                      </div>
-                      <div className="ledger-item-info">
-                        <span className="ledger-item-title">{counterparty}</span>
-                        <div className="ledger-item-subtitle">
-                          <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
-                          <span>·</span>
-                          <span className="rail-tag">{rail}</span>
+                  return (
+                    <div
+                      key={tx.id}
+                      className="ledger-item"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onSelectTx(tx)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          onSelectTx(tx)
+                        }
+                      }}
+                      title="View verified UTR receipt"
+                    >
+                      <div className="ledger-item-left">
+                        <div className={`ledger-icon-circle ${isReceived ? 'credit' : 'debit'}`}>
+                          {isReceived ? (
+                            <ArrowIncomingIcon size={16} strokeWidth={2} />
+                          ) : (
+                            <ArrowOutgoingIcon size={16} strokeWidth={2} />
+                          )}
+                        </div>
+                        <div className="ledger-item-info">
+                          <span className="ledger-item-title">{counterparty}</span>
+                          <div className="ledger-item-subtitle">
+                            <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
+                            <span>·</span>
+                            <span className="rail-tag">{rail}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="ledger-item-right">
-                      <span className={`ledger-amount ${isReceived ? 'credit' : 'debit'}`}>
-                        {isReceived ? '+' : '-'}{parts.full}
-                      </span>
-                      <span className="ledger-status">
-                        {tx.status === 'completed' ? (isReceived ? 'Received' : 'Sent') : tx.status.replaceAll('_', ' ')}
-                      </span>
+                      <div className="ledger-item-right">
+                        <span className={`ledger-amount ${isReceived ? 'credit' : 'debit'}`}>
+                          {isReceived ? '+' : '-'}{parts.full}
+                        </span>
+                        <span className="ledger-status">
+                          {tx.status === 'completed' ? (isReceived ? 'Received' : 'Sent') : tx.status.replaceAll('_', ' ')}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          ))}
-        </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   )
 }
+
 
 
