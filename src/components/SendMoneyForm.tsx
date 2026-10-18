@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { formatHandle, formatMoneyParts } from '../lib/formatters'
 import { RecentPeople } from './RecentPeople'
 import { ArrowRightIcon, ShieldCheckIcon, SpinnerIcon } from './Icons'
+import { triggerHaptic } from '../lib/haptics'
 import type { RecentPerson } from '../lib/types'
 
 interface SendMoneyFormProps {
@@ -46,6 +47,7 @@ export function SendMoneyForm({
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    triggerHaptic()
     // 1. Mobile-safe Web Audio unlock called synchronously on the very first line before any await
     unlockAudioEngine()
     event.preventDefault()
@@ -189,6 +191,7 @@ export function SendMoneyForm({
           type="submit"
           className="btn-primary btn-full"
           disabled={busy || disabled || !hasValidAmount || !cleanRecipient}
+          onClick={() => triggerHaptic()}
           style={{ marginTop: 'var(--space-2)' }}
         >
           {busy ? (

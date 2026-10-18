@@ -13,6 +13,7 @@ import { ReceiptModal } from '../components/ReceiptModal'
 import { ShareQrModal } from '../components/ShareQrModal'
 import { TopUpModal } from '../components/TopUpModal'
 import { EditProfileModal } from '../components/EditProfileModal'
+import { QrScannerModal } from '../components/QrScannerModal'
 import { MobileBottomNav } from '../components/MobileBottomNav'
 import { SunIcon, MoonIcon, CheckIcon } from '../components/Icons'
 import type { Profile, Transaction, DemoTransaction, RecentPerson, ActivityFilter } from '../lib/types'
@@ -48,6 +49,7 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
 
   // Modals state
   const [qrOpen, setQrOpen] = useState(false)
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [qrRequestAmount, setQrRequestAmount] = useState('')
   const [topUpOpen, setTopUpOpen] = useState(false)
   const [editProfileOpen, setEditProfileOpen] = useState(false)
@@ -439,11 +441,16 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
             }
           }
         }}
-        onOpenQr={() => setQrOpen(true)}
+        onOpenScan={() => setIsScannerOpen(true)}
         onOpenProfile={() => setEditProfileOpen(true)}
       />
 
       {/* Modals */}
+      <QrScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+      />
+
       {qrOpen && profile && (
         <ShareQrModal
           handle={profile.alias_handle}

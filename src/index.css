@@ -573,6 +573,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
     border-top: 1px solid var(--border-subtle);
     padding: var(--space-2) 0;
     padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
+    overflow: visible;
   }
 
   .mobile-nav-item {
@@ -588,10 +589,49 @@ button:focus-visible, a:focus-visible, input:focus-visible {
     padding: 6px 0;
     background: transparent;
     border: none;
+    cursor: pointer;
   }
 
   .mobile-nav-item.active {
     color: var(--accent-text);
+  }
+
+  /* Central Floating Action Button (FAB) for Scan */
+  .mobile-nav-fab-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    margin-top: -20px;
+    position: relative;
+    pointer-events: auto;
+  }
+
+  .mobile-nav-fab {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--accent-primary, #2563EB);
+    color: #FFFFFF;
+    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid var(--bg-surface);
+    cursor: pointer;
+    transition: transform var(--duration-interaction) var(--ease-standard), background-color var(--duration-interaction) var(--ease-standard);
+    outline: none;
+  }
+
+  .mobile-nav-fab:active {
+    transform: scale(0.93);
+  }
+
+  .mobile-nav-fab-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-top: 2px;
   }
 
   /* Add padding to page container on mobile so content isn't covered by bottom nav */
@@ -599,6 +639,50 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   .payment-wrap {
     padding-bottom: calc(100px + env(safe-area-inset-bottom, 20px));
   }
+}
+
+/* Full-Screen QR Scanner Viewfinder Pulse and Laser Animations */
+@keyframes qrPulse {
+  0%, 100% {
+    opacity: 0.65;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes qrLaser {
+  0% {
+    top: 4%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    top: 96%;
+    opacity: 0;
+  }
+}
+
+.qr-viewfinder-pulse {
+  animation: qrPulse 2.4s ease-in-out infinite;
+}
+
+.qr-scan-laser {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #3B82F6, #60A5FA, #3B82F6, transparent);
+  box-shadow: 0 0 10px #3B82F6, 0 0 20px #60A5FA;
+  animation: qrLaser 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  z-index: 2;
 }
 
 /* Ledger Statement List (Flat List, 1px Hairlines, No Cards Inside Cards) */
