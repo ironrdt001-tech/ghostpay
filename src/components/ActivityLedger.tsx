@@ -50,7 +50,7 @@ export function ActivityLedger({
   }, [transactions])
 
   // Always generate exact last 7 consecutive local calendar days: index 0 = Today down to index 6 = 6 days ago
-  const { sevenDaysReverse, todayData, sevenDayTotals, max7dTotal } = useMemo(() => {
+  const { sevenDaysReverse, todayData, sevenDayTotals } = useMemo(() => {
     const now = new Date()
     const days: DaySummary[] = Array.from({ length: 7 }, (_, index) => {
       const d = new Date(now)
@@ -89,7 +89,6 @@ export function ActivityLedger({
     const today = days[0] || { received: 0, sent: 0 }
     const totalRec = days.reduce((sum, d) => sum + d.received, 0)
     const totalSent = days.reduce((sum, d) => sum + d.sent, 0)
-    const maxVolume = Math.max(...days.map(d => d.totalVolume), 1)
 
     return {
       sevenDaysReverse: days,
@@ -103,7 +102,6 @@ export function ActivityLedger({
         sent: totalSent,
         net: totalRec - totalSent,
       },
-      max7dTotal: maxVolume,
     }
   }, [completedTransactions])
 
