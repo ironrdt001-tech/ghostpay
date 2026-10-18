@@ -115,7 +115,7 @@ export function ActivityLedger({
           </span>
         </div>
       ) : (
-        <div style={{ maxHeight: '520px', overflowY: 'auto' }}>
+        <div className="ledger-list-scroll" style={{ maxHeight: '520px', overflowY: 'auto' }}>
           {grouped.map(group => (
             <div key={group.dateLabel}>
               <div className="ledger-group-header">
@@ -124,7 +124,11 @@ export function ActivityLedger({
               {group.transactions.map(tx => {
                 const isReceived = tx.direction === 'received'
                 const parts = formatMoneyParts(tx.amount_inr)
-                const rail = tx.sender_id ? 'Internal P2P' : 'Shielded link'
+                const isTopUp = Boolean(
+                  (tx.sender_name && /top-?up/i.test(tx.sender_name)) ||
+                  (tx.counterpartyLabel && /top-?up/i.test(tx.counterpartyLabel))
+                )
+                const rail = isTopUp ? 'Wallet top-up' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
                 const counterparty = tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'GhostPay User'
 
                 return (

@@ -15,7 +15,11 @@ export function ReceiptModal({ tx, onClose, onToast }: ReceiptModalProps) {
   const utr = `GP${generateUtrNumber(tx)}`
   const counterparty = tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'GhostPay User'
   const isInternal = Boolean(tx.sender_id)
-  const railName = isInternal ? 'GhostPay Internal P2P' : 'Shielded Nodal Escrow'
+  const isTopUp = Boolean(
+    (tx.sender_name && /top-?up/i.test(tx.sender_name)) ||
+    (tx.counterpartyLabel && /top-?up/i.test(tx.counterpartyLabel))
+  )
+  const railName = isTopUp ? 'Wallet top-up' : isInternal ? 'GhostPay Internal P2P' : 'Shielded Nodal Escrow'
   const dateFormatted = formatIstDateTime(tx.created_at)
 
   useEffect(() => {

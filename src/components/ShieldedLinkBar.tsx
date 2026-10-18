@@ -51,7 +51,7 @@ export function ShieldedLinkBar({ handle, onOpenQr }: ShieldedLinkBarProps) {
           <ShieldIcon size={16} strokeWidth={2} />
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
             Shielded payment link
           </div>
           <div

@@ -213,23 +213,29 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
     const seen = new Set<string>()
     const list: RecentPerson[] = []
     const currentUserId = session.user.id
-    const ownHandle = `@${profile?.alias_handle?.replace(/^@+/, '').toLowerCase() ?? ''}`
+    const ownHandleClean = (profile?.alias_handle || '').trim().replace(/^@+/, '').toLowerCase()
 
     for (const tx of transactions) {
       if (tx.counterpartyUserId === currentUserId) continue
       if (tx.sender_name?.startsWith('Simulated Wallet Top-Up')) continue
-      const handle = (tx.counterpartyLabel || '').trim()
-      const cleanKey = handle.toLowerCase()
+
+      const rawHandle = (tx.counterpartyLabel || tx.sender_name || tx.sender_alias || '').trim()
+      const cleanKey = rawHandle.trim().replace(/^@+/, '').toLowerCase()
+
       if (
         cleanKey &&
         cleanKey !== 'anonymous sender' &&
         cleanKey !== 'ghostpay user' &&
         cleanKey !== 'ghostpay wallet' &&
-        cleanKey !== ownHandle &&
+        cleanKey !== ownHandleClean &&
         !seen.has(cleanKey)
       ) {
         seen.add(cleanKey)
-        list.push({ handle, label: handle.replace(/^@+/, ''), avatarUrl: tx.counterpartyAvatarUrl })
+        list.push({
+          handle: `@${cleanKey}`,
+          label: cleanKey,
+          avatarUrl: tx.counterpartyAvatarUrl,
+        })
       }
       if (list.length >= 5) break
     }

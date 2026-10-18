@@ -58,25 +58,25 @@
 }
 
 [data-theme="light"] {
-  --bg-canvas: #F5F4F0;
+  --bg-canvas: #F7F8FC;
   --bg-surface: #FFFFFF;
-  --bg-elevated: #FAF9F6;
-  --bg-inset: #ECEAE4;
-  --border-subtle: #E2DFD7;
-  --border-strong: #CBC7BC;
-  --text-primary: #111315;
-  --text-secondary: #525860;
-  --text-muted: #7C828D;
+  --bg-elevated: #FFFFFF;
+  --bg-inset: #F1F5F9;
+  --border-subtle: #E5E7EB;
+  --border-strong: #CBD5E1;
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --text-muted: #6B7280;
 
-  --accent-primary: #1D4ED8;
-  --accent-hover: #1E40AF;
-  --accent-subtle: rgba(29, 78, 216, 0.08);
-  --accent-text: #1D4ED8;
+  --accent-primary: #2563EB;
+  --accent-hover: #1D4ED8;
+  --accent-subtle: rgba(37, 99, 235, 0.08);
+  --accent-text: #2563EB;
 
-  --semantic-credit: #0F766E;
+  --semantic-credit: #059669;
   --semantic-credit-text: #059669;
-  --semantic-credit-tint: rgba(16, 185, 129, 0.10);
-  --semantic-debit: #BE123C;
+  --semantic-credit-tint: rgba(5, 150, 105, 0.10);
+  --semantic-debit: #E11D48;
   --semantic-debit-text: #E11D48;
   --semantic-debit-tint: rgba(225, 29, 72, 0.08);
 
@@ -272,8 +272,16 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .btn-primary:disabled {
-  opacity: 0.45;
+  background-color: rgba(37, 99, 235, 0.45);
+  color: #FFFFFF;
+  opacity: 1;
   cursor: not-allowed;
+}
+
+[data-theme="light"] .btn-primary:disabled {
+  background-color: #93C5FD;
+  color: #FFFFFF;
+  opacity: 1;
 }
 
 .btn-secondary {
@@ -808,23 +816,86 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   pointer-events: none;
 }
 
-/* 7-Day Dual Bar Chart */
-.cashflow-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
-  background-color: var(--bg-inset);
-  border-radius: var(--radius-card);
-  margin-bottom: var(--space-4);
-  font-size: 13px;
+/* Scrollbar Hiding */
+.no-scrollbar,
+.recent-people-strip,
+.ledger-list-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
+.no-scrollbar::-webkit-scrollbar,
+.recent-people-strip::-webkit-scrollbar,
+.ledger-list-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* 7-Day Cashflow Metrics Responsive Grid */
+.cashflow-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  padding: 12px 14px;
+  margin-bottom: var(--space-4);
+}
+
+.cashflow-metric-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cashflow-metric-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.cashflow-metric-value {
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashflow-metric-cell.net-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (min-width: 640px) {
+  .cashflow-metrics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-4);
+    padding: 14px 18px;
+  }
+
+  .cashflow-metric-cell.net-row {
+    grid-column: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-top: 0;
+    border-top: none;
+  }
+}
+
+/* 7-Day Structured Track Pills Bar Chart */
 .cashflow-bars-container {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  height: 140px;
+  height: 154px;
   padding-top: var(--space-3);
   gap: 8px;
 }
@@ -837,34 +908,54 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   gap: 6px;
   height: 100%;
   justify-content: flex-end;
+  min-width: 0;
 }
 
-.chart-bars-track {
+.chart-day-track-pill {
+  height: 112px;
+  background: var(--bg-inset);
+  border-radius: 10px;
+  padding: 6px;
   display: flex;
   align-items: flex-end;
-  gap: 3px;
+  justify-content: center;
+  gap: 4px;
+  position: relative;
   width: 100%;
-  max-width: 24px;
-  height: 110px;
 }
 
-.chart-bar {
-  flex: 1;
-  border-radius: 3px 3px 0 0;
-  min-height: 3px;
+.chart-day-amount-badge {
+  position: absolute;
+  top: 5px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.chart-day-pill-bar {
+  width: 8px;
+  border-radius: 999px;
+  min-height: 6px;
   transition: height var(--duration-overlay) var(--ease-standard);
 }
 
-.chart-bar.credit {
+.chart-day-pill-bar.credit {
   background-color: var(--semantic-credit-text);
 }
 
-.chart-bar.debit {
+.chart-day-pill-bar.debit {
   background-color: var(--semantic-debit-text);
 }
 
-.chart-bar.empty {
+.chart-day-pill-bar.empty {
   background-color: var(--border-subtle);
+  opacity: 0.45;
 }
 
 /* Reduced motion preference */

@@ -14,9 +14,9 @@ export function RecentPeople({ people, selectedRecipient, onSelectPerson }: Rece
       <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }}>
         Recent people · 1-tap fill
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', overflowX: 'auto', paddingBottom: '4px' }}>
+      <div className="recent-people-strip" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', overflowX: 'auto', paddingBottom: '4px' }}>
         {people.map(person => {
-          const isSelected = selectedRecipient.trim().toLowerCase() === person.handle.toLowerCase()
+          const isSelected = selectedRecipient.trim().replace(/^@+/, '').toLowerCase() === person.label.toLowerCase()
           return (
             <button
               key={person.handle}

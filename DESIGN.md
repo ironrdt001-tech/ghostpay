@@ -18,16 +18,18 @@ Defined strictly as CSS Custom Properties in `src/index.css`.
 - `--text-secondary`: `#9CA3AF` (Secondary labels, supporting notes)
 - `--text-muted`: `#6B7280` (Micro-labels, timestamps, captions)
 
-### Light Mode (`[data-theme="light"]` / Warm Alabaster Stone)
-- `--bg-canvas`: `#F5F4F0` (Warm alabaster stone, zero pure #FFFFFF canvas glare)
-- `--bg-surface`: `#FFFFFF` (Crisp contrast card surface)
-- `--bg-elevated`: `#FAF9F6` (Elevated modal and popover surface)
-- `--bg-inset`: `#ECEAE4` (Recessed input containers and chips)
-- `--border-subtle`: `#E2DFD7` (1px hairlines)
-- `--border-strong`: `#CBC7BC` (Input borders, dividers)
-- `--text-primary`: `#111315` (Near-black authoritative text)
-- `--text-secondary`: `#525860` (Neutral dark gray secondary text)
-- `--text-muted`: `#7C828D` (Quiet metadata and helper text)
+### Light Mode (`[data-theme="light"]` / Crisp Cool-White & Cobalt)
+- `--bg-canvas`: `#F7F8FC` (Clean cool alabaster page background)
+- `--bg-surface`: `#FFFFFF` (Pure white cards)
+- `--bg-elevated`: `#FFFFFF` (Elevated modal and popover surface)
+- `--bg-inset`: `#F1F5F9` (Crisp cool slate well for inputs, search bars, and segmented tabs)
+- `--border-subtle`: `#E5E7EB` (1px hairlines)
+- `--border-strong`: `#CBD5E1` (Input borders, dividers)
+- `--text-primary`: `#111827` (Authoritative dark text)
+- `--text-secondary`: `#4B5563` (Neutral secondary text)
+- `--text-muted`: `#6B7280` (Quiet metadata and helper text)
+- `--accent-primary`: `#2563EB` (Brand cobalt blue for primary buttons, active states, and brand shield)
+- `--accent-hover`: `#1D4ED8`
 
 ### Accent & Semantic Signal Tokens
 Accent is never used as decorative wallpaper; it is preserved strictly for primary calls-to-action and active selection rings.
