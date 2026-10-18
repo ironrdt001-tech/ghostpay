@@ -653,40 +653,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   }
 }
 
-@keyframes qrLaser {
-  0% {
-    top: 4%;
-    opacity: 0;
-  }
-  15% {
-    opacity: 1;
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    top: 96%;
-    opacity: 0;
-  }
-}
-
-@keyframes scanLaser {
-  0% {
-    top: 0;
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    top: 100%;
-    opacity: 0;
-  }
-}
-
 @keyframes gradientShift {
   0% {
     background-position: 0% 50%;
@@ -701,17 +667,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .qr-viewfinder-pulse {
   animation: qrPulse 2.4s ease-in-out infinite;
-}
-
-.qr-scan-laser {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #3B82F6, #60A5FA, #3B82F6, transparent);
-  box-shadow: 0 0 10px #3B82F6, 0 0 20px #60A5FA;
-  animation: qrLaser 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  z-index: 2;
 }
 
 /* Ledger Statement List (Flat List, 1px Hairlines, No Cards Inside Cards) */

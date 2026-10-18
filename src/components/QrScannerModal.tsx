@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import jsQR from 'jsqr'
-import { CloseIcon, CameraIcon, GalleryIcon } from './Icons'
+import { CloseIcon, GalleryIcon } from './Icons'
 import { triggerHaptic } from '../lib/haptics'
 
 interface QrScannerModalProps {
@@ -18,7 +18,6 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
   const hasDetectedRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const [scanMode, setScanMode] = useState<'camera' | 'gallery'>('camera')
   const [cameraError, setCameraError] = useState<string | null>(null)
 
   function stopMediaStream() {
@@ -60,7 +59,6 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
 
     hasDetectedRef.current = false
     setCameraError(null)
-    setScanMode('camera')
     let isCancelled = false
 
     async function initCamera() {
@@ -311,20 +309,6 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
               boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.52)',
             }}
           >
-            {/* Animated Laser Sweep Line */}
-            <div
-              style={{
-                position: 'absolute',
-                height: '2px',
-                width: '100%',
-                background: '#10B981',
-                boxShadow: '0 0 12px #10B981',
-                animation: 'scanLaser 2s linear infinite',
-                pointerEvents: 'none',
-                zIndex: 2,
-              }}
-            />
-
             {/* Corner Bracket: Top-Left */}
             <div
               style={{
@@ -333,10 +317,10 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
                 left: 0,
                 width: '32px',
                 height: '32px',
-                borderTop: '3px solid #10B981',
-                borderLeft: '3px solid #10B981',
+                borderTop: '3.5px solid #FFFFFF',
+                borderLeft: '3.5px solid #FFFFFF',
                 borderTopLeftRadius: '16px',
-                boxShadow: '0 0 10px rgba(16, 185, 129, 0.5)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
                 pointerEvents: 'none',
                 zIndex: 3,
               }}
@@ -349,10 +333,10 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
                 right: 0,
                 width: '32px',
                 height: '32px',
-                borderTop: '3px solid #10B981',
-                borderRight: '3px solid #10B981',
+                borderTop: '3.5px solid #FFFFFF',
+                borderRight: '3.5px solid #FFFFFF',
                 borderTopRightRadius: '16px',
-                boxShadow: '0 0 10px rgba(16, 185, 129, 0.5)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
                 pointerEvents: 'none',
                 zIndex: 3,
               }}
@@ -365,10 +349,10 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
                 left: 0,
                 width: '32px',
                 height: '32px',
-                borderBottom: '3px solid #10B981',
-                borderLeft: '3px solid #10B981',
+                borderBottom: '3.5px solid #FFFFFF',
+                borderLeft: '3.5px solid #FFFFFF',
                 borderBottomLeftRadius: '16px',
-                boxShadow: '0 0 10px rgba(16, 185, 129, 0.5)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
                 pointerEvents: 'none',
                 zIndex: 3,
               }}
@@ -381,10 +365,10 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
                 right: 0,
                 width: '32px',
                 height: '32px',
-                borderBottom: '3px solid #10B981',
-                borderRight: '3px solid #10B981',
+                borderBottom: '3.5px solid #FFFFFF',
+                borderRight: '3.5px solid #FFFFFF',
                 borderBottomRightRadius: '16px',
-                boxShadow: '0 0 10px rgba(16, 185, 129, 0.5)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
                 pointerEvents: 'none',
                 zIndex: 3,
               }}
@@ -407,75 +391,48 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
           </p>
         </div>
 
-        {/* Bottom Row: Two Pill Buttons (Use Camera & Upload from Gallery) */}
+        {/* Bottom Floating Action Button: Gallery Upload */}
         <div
           style={{
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            gap: '12px',
-            width: '100%',
-            maxWidth: '360px',
-            margin: '0 auto',
+            justifyContent: 'center',
+            gap: '8px',
             pointerEvents: 'auto',
+            marginBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
           }}
         >
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic(50)
-              setScanMode('camera')
-            }}
-            style={{
-              flex: 1,
-              minHeight: '46px',
-              padding: '0 16px',
-              borderRadius: '999px',
-              backgroundColor: scanMode === 'camera' ? 'var(--accent-primary, #2563EB)' : 'rgba(0, 0, 0, 0.5)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-              color: '#FFFFFF',
-              fontSize: '13px',
-              fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              border: scanMode === 'camera' ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid rgba(255, 255, 255, 0.15)',
-              cursor: 'pointer',
-              transition: 'background-color 180ms ease, transform 120ms ease',
-            }}
-          >
-            <CameraIcon size={16} strokeWidth={2} />
-            <span>Use Camera</span>
-          </button>
-
           <label
+            role="button"
+            tabIndex={0}
+            aria-label="Upload QR code from gallery"
+            title="Upload QR code from gallery"
             style={{
-              flex: 1,
-              minHeight: '46px',
-              padding: '0 16px',
-              borderRadius: '999px',
-              backgroundColor: scanMode === 'gallery' ? 'var(--accent-primary, #2563EB)' : 'rgba(0, 0, 0, 0.5)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-              color: '#FFFFFF',
-              fontSize: '13px',
-              fontWeight: 500,
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
-              border: scanMode === 'gallery' ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid rgba(255, 255, 255, 0.15)',
+              color: '#FFFFFF',
               cursor: 'pointer',
-              transition: 'background-color 180ms ease, transform 120ms ease',
+              transition: 'transform 120ms ease, background-color 160ms ease',
             }}
-            onClick={() => {
-              triggerHaptic(50)
-              setScanMode('gallery')
+            onClick={() => triggerHaptic(50)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                fileInputRef.current?.click()
+              }
             }}
           >
-            <GalleryIcon size={16} strokeWidth={2} />
-            <span>Upload from Gallery</span>
+            <GalleryIcon size={22} strokeWidth={1.8} />
             <input
               ref={fileInputRef}
               type="file"
@@ -490,6 +447,17 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
               }}
             />
           </label>
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 500,
+              color: 'rgba(255, 255, 255, 0.75)',
+              letterSpacing: '-0.01em',
+              textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+            }}
+          >
+            Upload image
+          </span>
         </div>
       </div>
     </div>
