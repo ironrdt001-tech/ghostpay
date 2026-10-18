@@ -116,7 +116,7 @@ export function ShareQrModal({
   return (
     <div className="modal-scrim" role="presentation" onClick={onClose}>
       <section
-        className="modal-sheet"
+        className="modal-sheet no-scrollbar"
         role="dialog"
         aria-modal="true"
         aria-labelledby="qr-dialog-title"

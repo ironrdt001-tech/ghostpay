@@ -72,7 +72,7 @@ export function TopUpModal({ onClose, onSuccess, onToast }: TopUpModalProps) {
   return (
     <div className="modal-scrim" role="presentation" onClick={() => { if (!busy) onClose() }}>
       <section
-        className="modal-sheet"
+        className="modal-sheet no-scrollbar"
         role="dialog"
         aria-modal="true"
         aria-labelledby="topup-dialog-title"

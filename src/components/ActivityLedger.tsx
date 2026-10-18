@@ -483,78 +483,86 @@ export function ActivityLedger({
                         </div>
                       </div>
 
-                      {/* Inline Dropdown Drawer for this day's transactions */}
-                      {isExpanded && (
-                        <div
-                          style={{
-                            borderTop: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.18))',
-                            padding: '6px 8px',
-                            backgroundColor: 'var(--bg-surface, #FFFFFF)',
-                            borderBottomLeftRadius: '12px',
-                            borderBottomRightRadius: '12px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '2px',
-                          }}
-                        >
-                          {day.dayTransactions.map(tx => {
-                            const isReceived = tx.direction === 'received'
-                            const parts = formatMoneyParts(tx.amount_inr)
-                            const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
-                              String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
-                            const rail = isTopUp ? 'Wallet top-up' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
-                            const counterparty = tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'GhostPay User'
+                      {/* Smooth Animated Dropdown Drawer (0fr -> 1fr grid transition) */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateRows: isExpanded ? '1fr' : '0fr',
+                          transition: 'grid-template-rows 0.3s ease-out',
+                        }}
+                      >
+                        <div style={{ overflow: 'hidden', minHeight: 0 }}>
+                          <div
+                            style={{
+                              borderTop: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.18))',
+                              padding: '6px 8px',
+                              backgroundColor: 'var(--bg-surface, #FFFFFF)',
+                              borderBottomLeftRadius: '12px',
+                              borderBottomRightRadius: '12px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '2px',
+                            }}
+                          >
+                            {day.dayTransactions.map(tx => {
+                              const isReceived = tx.direction === 'received'
+                              const parts = formatMoneyParts(tx.amount_inr)
+                              const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
+                                String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
+                              const rail = isTopUp ? 'Wallet top-up' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
+                              const counterparty = tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'GhostPay User'
 
-                            return (
-                              <div
-                                key={tx.id}
-                                className="ledger-item"
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => onSelectTx(tx)}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault()
-                                    onSelectTx(tx)
-                                  }
-                                }}
-                                title="View verified UTR receipt"
-                                style={{
-                                  padding: '8px 10px',
-                                  borderRadius: '8px',
-                                }}
-                              >
-                                <div className="ledger-item-left">
-                                  <div className={`ledger-icon-circle ${isReceived ? 'credit' : 'debit'}`} style={{ width: '32px', height: '32px' }}>
-                                    {isReceived ? (
-                                      <ArrowIncomingIcon size={14} strokeWidth={2} />
-                                    ) : (
-                                      <ArrowOutgoingIcon size={14} strokeWidth={2} />
-                                    )}
-                                  </div>
-                                  <div className="ledger-item-info">
-                                    <span className="ledger-item-title" style={{ fontSize: '13px' }}>{counterparty}</span>
-                                    <div className="ledger-item-subtitle" style={{ fontSize: '11px' }}>
-                                      <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
-                                      <span>·</span>
-                                      <span className="rail-tag">{rail}</span>
+                              return (
+                                <div
+                                  key={tx.id}
+                                  className="ledger-item"
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => onSelectTx(tx)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault()
+                                      onSelectTx(tx)
+                                    }
+                                  }}
+                                  title="View verified UTR receipt"
+                                  style={{
+                                    padding: '8px 10px',
+                                    borderRadius: '8px',
+                                  }}
+                                >
+                                  <div className="ledger-item-left">
+                                    <div className={`ledger-icon-circle ${isReceived ? 'credit' : 'debit'}`} style={{ width: '32px', height: '32px' }}>
+                                      {isReceived ? (
+                                        <ArrowIncomingIcon size={14} strokeWidth={2} />
+                                      ) : (
+                                        <ArrowOutgoingIcon size={14} strokeWidth={2} />
+                                      )}
+                                    </div>
+                                    <div className="ledger-item-info">
+                                      <span className="ledger-item-title" style={{ fontSize: '13px' }}>{counterparty}</span>
+                                      <div className="ledger-item-subtitle" style={{ fontSize: '11px' }}>
+                                        <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
+                                        <span>·</span>
+                                        <span className="rail-tag">{rail}</span>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
 
-                                <div className="ledger-item-right">
-                                  <span className={`ledger-amount ${isReceived ? 'credit' : 'debit'}`} style={{ fontSize: '14px' }}>
-                                    {isReceived ? '+' : '-'}{parts.full}
-                                  </span>
-                                  <span className="ledger-status" style={{ fontSize: '10px' }}>
-                                    {tx.status === 'completed' ? (isReceived ? 'Received' : 'Sent') : tx.status.replaceAll('_', ' ')}
-                                  </span>
+                                  <div className="ledger-item-right">
+                                    <span className={`ledger-amount ${isReceived ? 'credit' : 'debit'}`} style={{ fontSize: '14px' }}>
+                                      {isReceived ? '+' : '-'}{parts.full}
+                                    </span>
+                                    <span className="ledger-status" style={{ fontSize: '10px' }}>
+                                      {tx.status === 'completed' ? (isReceived ? 'Received' : 'Sent') : tx.status.replaceAll('_', ' ')}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                            )
-                          })}
+                              )
+                            })}
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   )
                 }

@@ -55,7 +55,7 @@ export function ReceiptModal({ tx, onClose, onToast }: ReceiptModalProps) {
       onClick={onClose}
     >
       <section
-        className="modal-sheet"
+        className="modal-sheet no-scrollbar"
         role="dialog"
         aria-modal="true"
         aria-labelledby="receipt-dialog-title"

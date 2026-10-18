@@ -1060,3 +1060,16 @@ button:focus-visible, a:focus-visible, input:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+/* Nuke ugly scrollbars inside modals/cards while keeping touch/wheel scrolling active */
+.no-scrollbar::-webkit-scrollbar,
+.modal-sheet::-webkit-scrollbar {
+  display: none !important;
+}
+
+.no-scrollbar,
+.modal-sheet {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
