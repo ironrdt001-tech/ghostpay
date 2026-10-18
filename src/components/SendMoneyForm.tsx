@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { unlockAudioEngine, playChaChingSound } from '../lib/audio'
 import { supabase } from '../lib/supabase'
 import { formatHandle, formatMoneyParts } from '../lib/formatters'
@@ -13,6 +13,8 @@ interface SendMoneyFormProps {
   onSuccess: (newBalance?: number) => Promise<void>
   onToast: (kind: 'success' | 'error', message: string) => void
   disabled?: boolean
+  initialRecipient?: string
+  initialAmount?: string
 }
 
 export function SendMoneyForm({
@@ -21,10 +23,24 @@ export function SendMoneyForm({
   onSuccess,
   onToast,
   disabled = false,
+  initialRecipient = '',
+  initialAmount = '',
 }: SendMoneyFormProps) {
-  const [recipient, setRecipient] = useState('')
-  const [amount, setAmount] = useState('')
+  const [recipient, setRecipient] = useState(initialRecipient)
+  const [amount, setAmount] = useState(initialAmount)
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (initialRecipient) {
+      setRecipient(initialRecipient)
+    }
+  }, [initialRecipient])
+
+  useEffect(() => {
+    if (initialAmount) {
+      setAmount(initialAmount)
+    }
+  }, [initialAmount])
 
   const cleanRecipient = recipient.trim()
   const isUpiId = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(cleanRecipient)

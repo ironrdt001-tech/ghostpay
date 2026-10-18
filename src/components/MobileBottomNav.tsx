@@ -46,15 +46,31 @@ export function MobileBottomNav({
           type="button"
           className="mobile-nav-fab"
           onClick={() => {
-            triggerHaptic()
+            triggerHaptic(50)
             onOpenScan()
+          }}
+          style={{
+            position: 'relative',
+            top: '-16px',
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            background: 'var(--accent-primary, #2563EB)',
+            boxShadow: '0 8px 16px rgba(37, 99, 235, 0.25)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            color: 'white',
+            zIndex: 50,
           }}
           aria-label="Scan QR to pay"
           title="Scan QR to pay"
         >
           <QrScanIcon size={24} strokeWidth={2.2} />
         </button>
-        <span className="mobile-nav-fab-label">Scan</span>
+        <span className="mobile-nav-fab-label" style={{ marginTop: '-12px' }}>
+          Scan
+        </span>
       </div>
 
       <button

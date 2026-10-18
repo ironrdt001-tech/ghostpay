@@ -16,6 +16,7 @@ import { EditProfileModal } from '../components/EditProfileModal'
 import { QrScannerModal } from '../components/QrScannerModal'
 import { MobileBottomNav } from '../components/MobileBottomNav'
 import { SunIcon, MoonIcon, CheckIcon } from '../components/Icons'
+import { parsePaymentQrCode } from '../lib/qr'
 import type { Profile, Transaction, DemoTransaction, RecentPerson, ActivityFilter } from '../lib/types'
 
 interface DashboardPageProps {
@@ -55,6 +56,10 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
   const [editProfileOpen, setEditProfileOpen] = useState(false)
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null)
 
+  // Scanner prefill state for Send form
+  const [prefilledRecipient, setPrefilledRecipient] = useState('')
+  const [prefilledAmount, setPrefilledAmount] = useState('')
+
   // Profile menu dropdown
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
@@ -73,6 +78,28 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
       setToast(null)
       toastTimer.current = null
     }, 4000)
+  }
+
+  function handleQrScanSuccess(rawCode: string) {
+    const parsed = parsePaymentQrCode(rawCode)
+    setIsScannerOpen(false)
+    setMobileTab('send')
+
+    if (parsed?.recipient) {
+      setPrefilledRecipient(parsed.recipient)
+    }
+    if (parsed?.amount) {
+      setPrefilledAmount(parsed.amount)
+    }
+
+    setTimeout(() => {
+      const sendEl = document.getElementById('send-money-section')
+      if (sendEl) {
+        sendEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 120)
+
+    showToast('success', parsed?.recipient ? `Ready to pay ${parsed.recipient}` : 'Payment QR detected.')
   }
 
   useEffect(() => () => {
@@ -400,6 +427,8 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
                 onSuccess={refreshWalletAndTransactions}
                 onToast={showToast}
                 disabled={busy || !profile}
+                initialRecipient={prefilledRecipient}
+                initialAmount={prefilledAmount}
               />
             </div>
           </div>
@@ -445,10 +474,12 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
         onOpenProfile={() => setEditProfileOpen(true)}
       />
 
-      {/* Modals */}
+      {/* Full-screen Native Live Camera QR Scanner Modal */}
       <QrScannerModal
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
+        onSuccess={handleQrScanSuccess}
+        onToast={showToast}
       />
 
       {qrOpen && profile && (
