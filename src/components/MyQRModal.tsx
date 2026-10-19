@@ -51,9 +51,17 @@ export function MyQRModal({
     currentUrl += `?am=${amount.trim()}`
   }
 
+  const handleClose = () => {
+    setAmount('')
+    setIsBurner(false)
+    setBurnerToken('')
+    if (setRequestAmount) setRequestAmount('')
+    onClose()
+  }
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') handleClose()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
@@ -121,7 +129,7 @@ export function MyQRModal({
   }
 
   return (
-    <div className="modal-scrim" role="presentation" onClick={onClose}>
+    <div className="modal-scrim" role="presentation" onClick={handleClose}>
       <section
         className="modal-sheet no-scrollbar"
         role="dialog"
@@ -144,7 +152,7 @@ export function MyQRModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="btn-icon"
             style={{ width: '32px', height: '32px' }}
             aria-label="Close modal"

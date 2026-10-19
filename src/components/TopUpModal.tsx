@@ -18,13 +18,19 @@ export function TopUpModal({ onClose, onSuccess, onToast }: TopUpModalProps) {
   const numAmount = parseFloat(amount) || 0
   const hasValidAmount = Number.isFinite(numAmount) && numAmount >= 1 && numAmount <= 100000
 
+  const handleClose = () => {
+    setAmount('500')
+    setMethod('upi')
+    onClose()
+  }
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !busy) onClose()
+      if (event.key === 'Escape' && !busy) handleClose()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, busy])
+  }, [busy])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     // 1. Mobile-safe Web Audio unlock called synchronously on very first line before await
@@ -59,7 +65,7 @@ export function TopUpModal({ onClose, onSuccess, onToast }: TopUpModalProps) {
       // 2. Play rising 4-note GPay chime on completion
       playChaChingSound()
       onToast('success', `${formatMoneyParts(numAmount).full} added to your wallet.`)
-      onClose()
+      handleClose()
       await onSuccess(updatedBalance)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Top-up failed. Please try again.'
@@ -70,7 +76,7 @@ export function TopUpModal({ onClose, onSuccess, onToast }: TopUpModalProps) {
   }
 
   return (
-    <div className="modal-scrim" role="presentation" onClick={() => { if (!busy) onClose() }}>
+    <div className="modal-scrim" role="presentation" onClick={() => { if (!busy) handleClose() }}>
       <section
         className="modal-sheet no-scrollbar"
         role="dialog"
@@ -87,7 +93,7 @@ export function TopUpModal({ onClose, onSuccess, onToast }: TopUpModalProps) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={busy}
             className="btn-icon"
             style={{ width: '32px', height: '32px' }}
