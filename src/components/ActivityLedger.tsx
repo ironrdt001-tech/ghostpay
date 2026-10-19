@@ -80,6 +80,8 @@ export function ActivityLedger({
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedDayKey, setExpandedDayKey] = useState<string | null>(null)
 
+  const toggleDay = (key: string) => setExpandedDayKey(prev => (prev === key ? null : key))
+
   const is7d = activeFilter === '7d'
 
   const completedTransactions = useMemo(() => {
@@ -196,31 +198,6 @@ export function ActivityLedger({
     return groupTransactionsByDate(filteredTransactions)
   }, [filteredTransactions])
 
-  function getTabStyle(tab: ActivityFilter) {
-    const isActive = activeFilter === tab
-    if (!isActive) return undefined
-
-    if (tab === 'received') {
-      return {
-        background: 'rgba(16, 185, 129, 0.15)',
-        color: '#10B981',
-        border: '1px solid rgba(16, 185, 129, 0.25)',
-      }
-    }
-    if (tab === 'sent') {
-      return {
-        background: 'rgba(244, 63, 94, 0.15)',
-        color: '#F43F5E',
-        border: '1px solid rgba(244, 63, 94, 0.25)',
-      }
-    }
-    return {
-      background: 'rgba(37, 99, 235, 0.15)',
-      color: '#3B82F6',
-      border: '1px solid rgba(59, 130, 246, 0.4)',
-    }
-  }
-
   return (
     <div className="surface-card" style={{ overflow: 'hidden' }}>
       <div style={{ padding: 'var(--space-6) var(--space-6) var(--space-4)' }}>
@@ -236,13 +213,16 @@ export function ActivityLedger({
 
         {/* 1. Locked Segmented Pill Bar directly below header and ABOVE summary card */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-          <div className="segmented-pill" role="tablist" aria-label="Filter activity">
+          <div className="flex items-center gap-2" role="tablist" aria-label="Filter activity">
             <button
               type="button"
               role="tab"
               aria-selected={activeFilter === 'all'}
-              className={`segmented-tab ${activeFilter === 'all' ? 'active' : ''}`}
-              style={getTabStyle('all')}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                activeFilter === 'all'
+                  ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-400 dark:border-gray-800 dark:hover:bg-gray-800/50'
+              }`}
               onClick={() => onChangeFilter('all')}
             >
               All
@@ -251,8 +231,11 @@ export function ActivityLedger({
               type="button"
               role="tab"
               aria-selected={activeFilter === 'received'}
-              className={`segmented-tab ${activeFilter === 'received' ? 'active' : ''}`}
-              style={getTabStyle('received')}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                activeFilter === 'received'
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-400 dark:border-gray-800 dark:hover:bg-gray-800/50'
+              }`}
               onClick={() => onChangeFilter('received')}
             >
               Received
@@ -261,8 +244,11 @@ export function ActivityLedger({
               type="button"
               role="tab"
               aria-selected={activeFilter === 'sent'}
-              className={`segmented-tab ${activeFilter === 'sent' ? 'active' : ''}`}
-              style={getTabStyle('sent')}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                activeFilter === 'sent'
+                  ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-400 dark:border-gray-800 dark:hover:bg-gray-800/50'
+              }`}
               onClick={() => onChangeFilter('sent')}
             >
               Sent
@@ -271,8 +257,11 @@ export function ActivityLedger({
               type="button"
               role="tab"
               aria-selected={activeFilter === '7d'}
-              className={`segmented-tab ${activeFilter === '7d' ? 'active' : ''}`}
-              style={getTabStyle('7d')}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                activeFilter === '7d'
+                  ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-400 dark:border-gray-800 dark:hover:bg-gray-800/50'
+              }`}
               onClick={() => onChangeFilter('7d')}
             >
               7 days
@@ -461,43 +450,18 @@ export function ActivityLedger({
                 const dayNetParts = formatMoneyParts(Math.abs(dayNet))
 
                 if (isActive) {
+                  const date = day.key
                   return (
                     <div
-                      key={day.key}
-                      style={{
-                        borderRadius: '12px',
-                        background: isExpanded ? 'rgba(37, 99, 235, 0.08)' : 'rgba(148, 163, 184, 0.05)',
-                        border: isExpanded ? '1px solid var(--accent-primary, #2563EB)' : '1px solid transparent',
-                        overflow: 'hidden',
-                        transition: 'background-color 160ms ease, border-color 160ms ease',
-                      }}
+                      key={date}
+                      className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden mb-4 bg-white dark:bg-[#111827]"
                     >
                       {/* Day Header Row */}
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setExpandedDayKey(prev => (prev === day.key ? null : day.key))}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            setExpandedDayKey(prev => (prev === day.key ? null : day.key))
-                          }
-                        }}
-                        style={{
-                          position: 'sticky',
-                          top: '0px',
-                          zIndex: 20,
-                          backdropFilter: 'blur(16px)',
-                          WebkitBackdropFilter: 'blur(16px)',
-                          backgroundColor: isExpanded ? 'rgba(15, 23, 42, 0.85)' : 'transparent',
-                          borderBottom: isExpanded ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '10px 12px',
-                          cursor: 'pointer',
-                          userSelect: 'none',
-                        }}
+                      <div 
+                        onClick={() => toggleDay(date)}
+                        className={`flex justify-between items-center px-4 py-3 cursor-pointer transition-colors ${
+                          isExpanded ? 'bg-gray-100 dark:bg-gray-800/60' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'
+                        }`}
                         title={`${day.dayTitle} · Click to ${isExpanded ? 'collapse' : 'expand'} transactions`}
                       >
                         {/* Left column */}
@@ -569,9 +533,7 @@ export function ActivityLedger({
                             style={{
                               borderTop: '1px solid var(--border-subtle, rgba(148, 163, 184, 0.18))',
                               padding: '6px 8px',
-                              backgroundColor: 'var(--bg-surface, #FFFFFF)',
-                              borderBottomLeftRadius: '12px',
-                              borderBottomRightRadius: '12px',
+                              backgroundColor: 'transparent',
                               display: 'flex',
                               flexDirection: 'column',
                               gap: '2px',

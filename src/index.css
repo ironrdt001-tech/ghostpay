@@ -832,6 +832,129 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); }
 .shadow-blue-500\/20 { box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.25), 0 8px 10px -6px rgba(59, 130, 246, 0.2); }
 
+.overflow-hidden { overflow: hidden; }
+.mb-4 { margin-bottom: 16px; }
+.cursor-pointer { cursor: pointer; }
+
+/* Light/Dark Mode Ledger & Filter Pill Utility Classes */
+.bg-white { background-color: #FFFFFF; }
+.bg-gray-100 { background-color: #F3F4F6; }
+.hover\:bg-gray-50:hover { background-color: #F9FAFB; }
+.border-gray-200 { border-color: #E5E7EB; }
+.text-gray-600 { color: #4B5563; }
+
+/* Filter Pills: Active Blue */
+.bg-blue-50 { background-color: #EFF6FF; }
+.text-blue-600 { color: #2563EB; }
+.border-blue-200 { border-color: #BFDBFE; }
+
+/* Filter Pills: Active Emerald */
+.bg-emerald-50 { background-color: #ECFDF5; }
+.text-emerald-600 { color: #059669; }
+.border-emerald-200 { border-color: #A7F3D0; }
+
+/* Filter Pills: Active Rose */
+.bg-rose-50 { background-color: #FFF1F2; }
+.text-rose-600 { color: #E11D48; }
+.border-rose-200 { border-color: #FECDD3; }
+
+/* Dark Mode Variants */
+.dark .dark\:bg-\[\#111827\],
+:root.dark .dark\:bg-\[\#111827\],
+[data-theme="dark"] .dark\:bg-\[\#111827\] {
+  background-color: #111827;
+}
+
+.dark .dark\:border-gray-800,
+:root.dark .dark\:border-gray-800,
+[data-theme="dark"] .dark\:border-gray-800 {
+  border-color: #1F2937;
+}
+
+.dark .dark\:bg-gray-800\/60,
+:root.dark .dark\:bg-gray-800\/60,
+[data-theme="dark"] .dark\:bg-gray-800\/60 {
+  background-color: rgba(31, 41, 55, 0.6);
+}
+
+.dark .dark\:hover\:bg-gray-800\/30:hover,
+:root.dark .dark\:hover\:bg-gray-800\/30:hover,
+[data-theme="dark"] .dark\:hover\:bg-gray-800\/30:hover {
+  background-color: rgba(31, 41, 55, 0.3);
+}
+
+.dark .dark\:hover\:bg-gray-800\/50:hover,
+:root.dark .dark\:hover\:bg-gray-800\/50:hover,
+[data-theme="dark"] .dark\:hover\:bg-gray-800\/50:hover {
+  background-color: rgba(31, 41, 55, 0.5);
+}
+
+.dark .dark\:bg-transparent,
+:root.dark .dark\:bg-transparent,
+[data-theme="dark"] .dark\:bg-transparent {
+  background-color: transparent;
+}
+
+.dark .dark\:text-gray-400,
+:root.dark .dark\:text-gray-400,
+[data-theme="dark"] .dark\:text-gray-400 {
+  color: #9CA3AF;
+}
+
+.dark .dark\:bg-blue-500\/10,
+:root.dark .dark\:bg-blue-500\/10,
+[data-theme="dark"] .dark\:bg-blue-500\/10 {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.dark .dark\:text-blue-400,
+:root.dark .dark\:text-blue-400,
+[data-theme="dark"] .dark\:text-blue-400 {
+  color: #60A5FA;
+}
+
+.dark .dark\:border-blue-500\/20,
+:root.dark .dark\:border-blue-500\/20,
+[data-theme="dark"] .dark\:border-blue-500\/20 {
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.dark .dark\:bg-emerald-500\/10,
+:root.dark .dark\:bg-emerald-500\/10,
+[data-theme="dark"] .dark\:bg-emerald-500\/10 {
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+.dark .dark\:text-emerald-400,
+:root.dark .dark\:text-emerald-400,
+[data-theme="dark"] .dark\:text-emerald-400 {
+  color: #34D399;
+}
+
+.dark .dark\:border-emerald-500\/20,
+:root.dark .dark\:border-emerald-500\/20,
+[data-theme="dark"] .dark\:border-emerald-500\/20 {
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.dark .dark\:bg-rose-500\/10,
+:root.dark .dark\:bg-rose-500\/10,
+[data-theme="dark"] .dark\:bg-rose-500\/10 {
+  background-color: rgba(244, 63, 94, 0.1);
+}
+
+.dark .dark\:text-rose-400,
+:root.dark .dark\:text-rose-400,
+[data-theme="dark"] .dark\:text-rose-400 {
+  color: #FB7185;
+}
+
+.dark .dark\:border-rose-500\/20,
+:root.dark .dark\:border-rose-500\/20,
+[data-theme="dark"] .dark\:border-rose-500\/20 {
+  border-color: rgba(244, 63, 94, 0.2);
+}
+
 /* Ledger Statement List (Flat List, 1px Hairlines, No Cards Inside Cards) */
 .ledger-group-header {
   padding: var(--space-3) var(--space-4);
