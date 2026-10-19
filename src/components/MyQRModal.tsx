@@ -23,7 +23,6 @@ export function MyQRModal({
   const [isBurner, setIsBurner] = useState(false)
   const [burnerToken, setBurnerToken] = useState('')
   const [amount, setAmount] = useState(requestAmount || '')
-  const [showAmountInput, setShowAmountInput] = useState(Boolean(requestAmount))
   const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
 
@@ -221,116 +220,18 @@ export function MyQRModal({
           </div>
         </div>
 
-        {/* Smart UI Amount Controls (Below QR Code) */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 'var(--space-6)',
-            minHeight: '44px',
-          }}
-        >
-          {!showAmountInput ? (
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(50)
-                setShowAmountInput(true)
-              }}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--accent-primary, #2563EB)',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                transition: 'opacity 0.15s ease',
-              }}
-            >
-              + Add specific amount
-            </button>
-          ) : (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                width: '100%',
-                maxWidth: '220px',
-              }}
-            >
-              <div
-                style={{
-                  position: 'relative',
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <input
-                  type="number"
-                  min="1"
-                  step="any"
-                  placeholder="₹ Amount"
-                  value={amount}
-                  autoFocus
-                  onChange={e => {
-                    const val = e.target.value
-                    setAmount(val)
-                    if (setRequestAmount) setRequestAmount(val)
-                  }}
-                  className="no-scrollbar tabular-nums"
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '10px',
-                    backgroundColor: 'var(--bg-inset)',
-                    border: '1px solid var(--border-subtle)',
-                    color: 'var(--text-primary)',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    textAlign: 'center',
-                  }}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(50)
-                  setAmount('')
-                  if (setRequestAmount) setRequestAmount('')
-                  setShowAmountInput(false)
-                }}
-                className="btn-icon"
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--bg-inset)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
-                title="Clear amount"
-                aria-label="Clear amount"
-              >
-                <CloseIcon size={14} />
-              </button>
-            </div>
-          )}
+        {/* Persistent Amount Input */}
+        <div className="qr-amount-wrapper" style={{ marginBottom: 'var(--space-6)' }}>
+          <input 
+            type="number" 
+            placeholder="₹ Enter amount (Optional)" 
+            value={amount} 
+            onChange={(e) => {
+              setAmount(e.target.value)
+              if (setRequestAmount) setRequestAmount(e.target.value)
+            }}
+            className="qr-persistent-input"
+          />
         </div>
 
         {/* Action Buttons: Copy link & Download */}
