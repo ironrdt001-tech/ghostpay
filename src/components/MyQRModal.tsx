@@ -4,7 +4,11 @@ import { triggerHaptic } from '../lib/haptics'
 import { supabase } from '../lib/supabase'
 import {
   GPModal,
+  GPAmountField,
   GPChips,
+  GPButton,
+  CopyIcon,
+  ShareIcon,
 } from './GhostPayModalKit'
 
 export interface MyQRModalProps {
@@ -146,37 +150,14 @@ export function MyQRModal({
         </div>
       </div>
 
-      {/* Amount (₹) Section */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-2">
-          <label className="text-sm font-medium text-gray-400">
-            Amount (₹) <span className="text-xs text-gray-500 font-normal">(optional)</span>
-          </label>
-        </div>
-        <div className="relative mb-3">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg font-medium">₹</span>
-          <input
-            type="number"
-            placeholder="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full bg-[#1A1F2E] border border-gray-800 rounded-xl py-3.5 pl-10 pr-12 text-white text-lg font-medium outline-none focus:border-blue-500 transition-colors"
-            style={{ fontVariantNumeric: 'tabular-nums' }}
-          />
-          {amount && (
-            <button
-              onClick={() => setAmount('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-1 bg-gray-800 hover:bg-gray-700 rounded-full text-gray-400 hover:text-white transition-colors"
-              aria-label="Clear amount"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
-        <p className="text-xs text-gray-500 mb-3">Leave empty to let the payer enter any amount.</p>
-      </div>
+      {/* Amount Field bound to existing state */}
+      <GPAmountField
+        value={amount}
+        onChange={setAmount}
+        optional
+        placeholder="Enter amount"
+        hint="Leave empty to let the payer enter any amount."
+      />
 
       {/* Quick Add Chips wired to existing chip handler */}
       <GPChips
@@ -186,31 +167,21 @@ export function MyQRModal({
       />
 
       {/* Actions: Copy link and Share link */}
-      <div className="flex gap-3 mt-6">
-        <button 
-          type="button"
+      <div className="gp-footer">
+        <GPButton
+          variant="secondary"
+          icon={<CopyIcon />}
           onClick={handleCopy}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-transparent border border-gray-700 text-white font-medium hover:bg-gray-800 transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {isCopied ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            )}
-          </svg>
           {isCopied ? 'Copied!' : 'Copy link'}
-        </button>
-        <button 
-          type="button"
+        </GPButton>
+        <GPButton
+          variant="primary"
+          icon={<ShareIcon />}
           onClick={handleShare}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-          </svg>
           Share link
-        </button>
+        </GPButton>
       </div>
     </GPModal>
   )

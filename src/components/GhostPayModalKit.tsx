@@ -1,4 +1,6 @@
+// PROTECTED - owner approval required to edit.
 import './ghostpay-modal.css'
+import './ghostpay-modal.lock.css'
 import { useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
 import { CloseIcon, ShareIcon, DownloadIcon } from './Icons'
 
@@ -78,7 +80,7 @@ export function GPAmountField({
   value,
   onChange,
   optional = false,
-  placeholder = '0',
+  placeholder = 'Enter amount',
   hint,
   disabled = false,
   label = 'Amount (₹)',

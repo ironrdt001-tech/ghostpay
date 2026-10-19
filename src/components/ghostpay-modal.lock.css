@@ -1,0 +1,23 @@
+/* PROTECTED - owner approval required to edit. */
+/* ===== GHOSTPAY MODAL LOCK - DO NOT EDIT WITHOUT THE OWNER'S PERMISSION =====
+   Single source of truth for modal visuals. Import LAST. */
+.gp-panel.gp-panel .gp-label{display:block!important;margin:0 0 8px!important;font-size:14px!important;font-weight:500!important;color:var(--gp-label)!important}
+.gp-panel.gp-panel .gp-optional{margin-left:6px!important;font-weight:400!important;color:var(--gp-muted)!important}
+
+.gp-panel.gp-panel .gp-field{height:56px!important;padding:0 16px!important;border-radius:16px!important;background:var(--gp-field)!important;border:1px solid var(--gp-border-strong)!important;box-shadow:none!important}
+.gp-panel.gp-panel .gp-field:focus-within{border-color:var(--gp-accent)!important;box-shadow:0 0 0 3px rgba(59,130,246,.15)!important}
+.gp-panel.gp-panel .gp-input,
+.gp-panel.gp-panel .gp-input:focus,
+.gp-panel.gp-panel .gp-input:focus-visible{background:transparent!important;border:0!important;outline:none!important;box-shadow:none!important;font-size:18px!important;font-weight:500!important;color:var(--gp-text)!important}
+.gp-panel.gp-panel .gp-input::placeholder{color:var(--gp-muted)!important;opacity:.6}
+
+.gp-panel.gp-panel .gp-hint{margin:8px 0 0!important;font-size:13px!important;line-height:1.4!important;font-weight:400!important;color:var(--gp-muted)!important}
+
+.gp-panel.gp-panel .gp-chips{display:flex!important;flex-wrap:wrap!important;gap:12px!important;margin-top:16px!important}
+.gp-panel.gp-panel .gp-chip{height:40px!important;padding:0 16px!important;border-radius:9999px!important;background:var(--gp-chip)!important;border:1px solid var(--gp-border)!important;color:var(--gp-icon)!important;font-size:14px!important;font-weight:500!important;box-shadow:none!important}
+.gp-panel.gp-panel .gp-chip[data-selected="true"]{border-color:var(--gp-accent)!important;background:var(--gp-accent-tint)!important;color:var(--gp-accent-text)!important}
+
+.gp-panel.gp-panel .gp-btn{height:56px!important;border-radius:9999px!important;font-size:16px!important;font-weight:600!important;box-shadow:none!important;filter:none!important}
+.gp-panel.gp-panel .gp-btn-primary{background:var(--gp-primary)!important;border:1px solid transparent!important;color:#fff!important}
+.gp-panel.gp-panel .gp-btn-primary:hover{background:var(--gp-primary-hover)!important}
+.gp-panel.gp-panel .gp-btn-secondary{background:transparent!important;border:1px solid var(--gp-border-strong)!important}
