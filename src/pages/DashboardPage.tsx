@@ -247,9 +247,12 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
     for (const tx of transactions) {
       if (tx.counterpartyUserId === currentUserId) continue
       if (tx.sender_name?.startsWith('Simulated Wallet Top-Up')) continue
+      if (tx.sender_id?.startsWith('#') || tx.receiver_id?.startsWith('#') || tx.sender_alias?.startsWith('#') || tx.counterpartyLabel?.startsWith('#') || tx.counterpartyUserId?.startsWith('#')) continue
 
       const rawHandle = (tx.counterpartyLabel || tx.sender_name || tx.sender_alias || '').trim()
+      if (rawHandle.startsWith('#')) continue
       const cleanKey = rawHandle.trim().replace(/^@+/, '').toLowerCase()
+      if (cleanKey.startsWith('#')) continue
 
       if (
         cleanKey &&

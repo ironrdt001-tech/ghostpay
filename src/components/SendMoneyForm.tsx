@@ -137,7 +137,10 @@ export function SendMoneyForm({
       </div>
 
       <RecentPeople
-        people={recentPeople}
+        people={recentPeople.filter(person => {
+          const id = (person.handle || person.label || '').trim().replace(/^@+/, '')
+          return !id.startsWith('#')
+        })}
         selectedRecipient={recipient}
         onSelectPerson={handle => setRecipient(handle)}
       />

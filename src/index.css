@@ -758,6 +758,15 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-size: 11px;
 }
 
+.one-way-warning {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-left: 6px;
+  letter-spacing: 0.02em;
+}
+
 .ledger-item-right {
   display: flex;
   flex-direction: column;

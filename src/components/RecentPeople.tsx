@@ -7,7 +7,13 @@ interface RecentPeopleProps {
 }
 
 export function RecentPeople({ people, selectedRecipient, onSelectPerson }: RecentPeopleProps) {
-  if (people.length === 0) return null
+  // Strict filter: anonymous aliases starting with '#' must never appear in recent people
+  const visiblePeople = people.filter(person => {
+    const id = (person.handle || person.label || '').trim().replace(/^@+/, '')
+    return !id.startsWith('#')
+  })
+
+  if (visiblePeople.length === 0) return null
 
   return (
     <div style={{ marginBottom: 'var(--space-4)' }}>
@@ -15,7 +21,7 @@ export function RecentPeople({ people, selectedRecipient, onSelectPerson }: Rece
         Recent people · 1-tap fill
       </div>
       <div className="recent-people-strip no-scrollbar" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', overflowX: 'auto', paddingBottom: '4px' }}>
-        {people.map(person => {
+        {visiblePeople.map(person => {
           const isSelected = selectedRecipient.trim().replace(/^@+/, '').toLowerCase() === person.label.toLowerCase()
           return (
             <button

@@ -20,6 +20,36 @@ function getIstDateKey(dateString: string): string {
   }
 }
 
+function formatTransactionCounterparty(tx: Transaction): { displayName: string; isOneWay: boolean } {
+  const counterpartId = (tx.direction === 'sent'
+    ? (tx.receiver_id || tx.counterpartyUserId)
+    : (tx.sender_id || tx.counterpartyUserId)) || ''
+
+  const isOneWay = Boolean(
+    counterpartId.startsWith('#') ||
+    (tx.sender_id && tx.sender_id.startsWith('#')) ||
+    (tx.receiver_id && tx.receiver_id.startsWith('#')) ||
+    (tx.sender_alias && tx.sender_alias.startsWith('#')) ||
+    (tx.counterpartyLabel && tx.counterpartyLabel.startsWith('#')) ||
+    (tx.counterpartyUserId && tx.counterpartyUserId.startsWith('#')) ||
+    (tx.sender_name && tx.sender_name.startsWith('#'))
+  )
+
+  const rawName = (
+    tx.counterpartyLabel ||
+    tx.sender_name ||
+    tx.sender_alias ||
+    (counterpartId.startsWith('#') ? counterpartId : '') ||
+    'GhostPay User'
+  ).trim()
+
+  const displayName = isOneWay
+    ? (rawName.startsWith('#') ? rawName : `#${rawName.replace(/^@+/, '')}`)
+    : rawName
+
+  return { displayName, isOneWay }
+}
+
 interface DaySummary {
   key: string
   dayOffset: number
@@ -145,7 +175,8 @@ export function ActivityLedger({
     const query = searchQuery.trim().toLowerCase()
     if (query) {
       list = list.filter(tx => {
-        const counterparty = (tx.counterpartyLabel || tx.sender_name || tx.sender_alias || '').toLowerCase()
+        const { displayName } = formatTransactionCounterparty(tx)
+        const counterparty = displayName.toLowerCase()
         const amountStr = String(tx.amount_inr || '')
         return counterparty.includes(query) || amountStr.includes(query)
       })
@@ -544,7 +575,7 @@ export function ActivityLedger({
                               const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
                                 String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
                               const rail = isTopUp ? 'Wallet top-up' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
-                              const counterparty = tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'GhostPay User'
+                              const { displayName: counterparty, isOneWay } = formatTransactionCounterparty(tx)
 
                               return (
                                 <div
@@ -579,6 +610,7 @@ export function ActivityLedger({
                                         <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
                                         <span>·</span>
                                         <span className="rail-tag">{rail}</span>
+                                        {isOneWay && <span className="one-way-warning">🔒 One-way private route</span>}
                                       </div>
                                     </div>
                                   </div>
@@ -681,7 +713,7 @@ export function ActivityLedger({
                   const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
                     String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
                   const rail = isTopUp ? 'Wallet top-up' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
-                  const counterparty = tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'GhostPay User'
+                  const { displayName: counterparty, isOneWay } = formatTransactionCounterparty(tx)
 
                   return (
                     <div
@@ -712,6 +744,7 @@ export function ActivityLedger({
                             <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
                             <span>·</span>
                             <span className="rail-tag">{rail}</span>
+                            {isOneWay && <span className="one-way-warning">🔒 One-way private route</span>}
                           </div>
                         </div>
                       </div>
