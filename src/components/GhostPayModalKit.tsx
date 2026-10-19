@@ -67,26 +67,34 @@ export function GPModal({
 export interface GPAmountFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> {
   value: string
   onChange: (v: string) => void
+  optional?: boolean
+  placeholder?: string
+  hint?: string
+  disabled?: boolean
   label?: string
 }
 
 export function GPAmountField({
   value,
   onChange,
+  optional = false,
+  placeholder = '0',
+  hint,
   disabled = false,
   label = 'Amount (₹)',
-  placeholder = '0',
   ...rest
 }: GPAmountFieldProps) {
   return (
     <div className="gp-section">
-      <label className="gp-label">{label}</label>
+      <label className="gp-label">
+        {label}
+        {optional ? <span className="gp-optional">(optional)</span> : null}
+      </label>
       <div className="gp-field">
         <span className="gp-field-prefix">₹</span>
         <input
-          type="text"
-          inputMode="decimal"
           className="gp-input"
+          inputMode="decimal"
           placeholder={placeholder}
           value={value}
           disabled={disabled}
@@ -94,6 +102,7 @@ export function GPAmountField({
           {...rest}
         />
       </div>
+      {hint ? <p className="gp-hint">{hint}</p> : null}
     </div>
   )
 }

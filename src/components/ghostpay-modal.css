@@ -142,6 +142,25 @@
   font-variant-numeric: tabular-nums lining-nums;
 }
 
+/* kill the inner focus box; the wrapper (.gp-field) already shows the focus ring */
+.gp-panel .gp-field .gp-input,
+.gp-panel .gp-field .gp-input:hover,
+.gp-panel .gp-field .gp-input:focus,
+.gp-panel .gp-field .gp-input:focus-visible,
+.gp-panel .gp-field .gp-input:active {
+  outline: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  background: transparent !important;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+}
+.gp-input::placeholder { color: var(--gp-muted); opacity: .6; }
+
+.gp-optional { margin-left: 6px; font-weight: 400; color: var(--gp-muted); }
+.gp-hint { margin: 8px 0 0; font-size: 13px; line-height: 1.4; color: var(--gp-muted); }
+
 .gp-chips {
   display: flex;
   flex-wrap: wrap;

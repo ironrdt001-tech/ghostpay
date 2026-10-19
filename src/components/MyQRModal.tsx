@@ -218,7 +218,13 @@ export function MyQRModal({
         </div>
 
         {/* Amount Field bound to existing state */}
-        <GPAmountField value={amount} onChange={handleAmountChange} />
+        <GPAmountField
+          value={amount}
+          onChange={handleAmountChange}
+          optional
+          placeholder="Enter amount"
+          hint="Leave empty to let the payer enter any amount."
+        />
 
         {/* Quick Add Chips wired to existing chip handler */}
         <GPChips
