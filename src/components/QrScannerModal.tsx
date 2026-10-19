@@ -263,7 +263,7 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
           pointerEvents: 'none',
         }}
       >
-        {/* Center: Hint text and Viewfinder reticle */}
+        {/* Center: Viewfinder reticle */}
         <div
           style={{
             display: 'flex',
@@ -273,38 +273,18 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
             pointerEvents: 'none',
           }}
         >
-          <p
-            style={{
-              margin: '0 0 24px 0',
-              fontSize: '15px',
-              fontWeight: 600,
-              color: '#FFFFFF',
-              textAlign: 'center',
-              maxWidth: '280px',
-              lineHeight: 1.4,
-              letterSpacing: '-0.01em',
-              textShadow: '0 1px 6px rgba(0, 0, 0, 0.85)',
-            }}
-          >
-            {cameraError || 'Scan any QR code'}
-          </p>
-
-          <div
-            style={{
-              width: '260px',
-              height: '260px',
-              position: 'relative',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.45)',
-            }}
-          >
-            {/* Minimalist 32x32 Corner Brackets */}
-            <div className="scanner-reticle-corner scanner-reticle-tl" />
-            <div className="scanner-reticle-corner scanner-reticle-tr" />
-            <div className="scanner-reticle-corner scanner-reticle-bl" />
-            <div className="scanner-reticle-corner scanner-reticle-br" />
+          <div className="reticle-container">
+            <div className="reticle-corner top-left"></div>
+            <div className="reticle-corner top-right"></div>
+            <div className="reticle-corner bottom-left"></div>
+            <div className="reticle-corner bottom-right"></div>
           </div>
+        </div>
+
+        {/* UPI Interoperability Trust Strip */}
+        <div className="scanner-trust-strip">
+          <p className="trust-primary">{cameraError || 'Scan any QR code to pay'}</p>
+          <p className="trust-secondary">Google Pay • PhonePe • Paytm • UPI</p>
         </div>
 
         {/* Bottom controls container: Gallery on LEFT, Flash in CENTER, Close on RIGHT */}
