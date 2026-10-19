@@ -9,12 +9,13 @@ import { ArrowLeftIcon, ArrowRightIcon, ShieldCheckIcon, SpinnerIcon, LockIcon }
 import type { Profile } from '../lib/types'
 
 export function PaymentPage() {
-  const { handle = '' } = useParams()
-  const aliasHandle = handle.replace(/^@+/, '').toLowerCase()
+  const params = useParams()
+  const rawTarget = params.handle || params.id || ''
+  const aliasHandle = rawTarget.replace(/^@+/, '').toLowerCase()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
-  const requestedAmountParam = searchParams.get('amount')
+  const requestedAmountParam = searchParams.get('am') || searchParams.get('amount')
   const urlRequestedAmount = useMemo(() => {
     const requested = Number(requestedAmountParam)
     return Number.isFinite(requested) && requested > 0 ? requested : null
@@ -128,7 +129,15 @@ export function PaymentPage() {
       if (queryError) {
         setError(queryError.message)
       } else if (!data) {
-        setError('Payment link not found. Check the handle and try again.')
+        if (aliasHandle.startsWith('gp_brn_')) {
+          setProfile({
+            id: aliasHandle,
+            alias_handle: aliasHandle,
+            avatar_url: null,
+          })
+        } else {
+          setError('Payment link not found. Check the handle and try again.')
+        }
       } else {
         setProfile(data)
       }
@@ -154,7 +163,7 @@ export function PaymentPage() {
     setError('')
     setToast('')
 
-    const value = Number(amount)
+    const value = urlRequestedAmount !== null ? urlRequestedAmount : Number(amount)
     if (!Number.isFinite(value) || value <= 0 || Math.round(value * 100) !== value * 100) {
       showToast('Enter a valid payment amount with up to two decimal places.')
       return
@@ -354,10 +363,15 @@ export function PaymentPage() {
                   placeholder="0.00"
                   className="tabular-nums"
                   value={amount}
-                  onChange={e => setAmount(e.target.value)}
+                  onChange={e => {
+                    if (urlRequestedAmount === null) {
+                      setAmount(e.target.value)
+                    }
+                  }}
                   readOnly={urlRequestedAmount !== null}
                   disabled={busy}
                   required
+                  style={urlRequestedAmount !== null ? { cursor: 'not-allowed', opacity: 0.85 } : undefined}
                 />
               </div>
 

@@ -140,6 +140,14 @@ export function App() {
     )
   }
 
+  const path = window.location.pathname
+  const isPublicRoute = path.startsWith('/pay/') || path.startsWith('/@') || path.startsWith('/payment/')
+
+  // If no user AND it's not a public route, show login
+  if (!session && !isPublicRoute && path !== '/' && path !== '/login' && path !== '/signup') {
+    return <AuthPage />
+  }
+
   return (
     <Routes>
       <Route path="/" element={session ? <AuthenticatedRedirect session={session} /> : <AuthPage />} />
@@ -163,6 +171,9 @@ export function App() {
       />
       <Route path="/payment/return" element={<PaymentReturnPage />} />
       <Route path="/payment/success" element={<PaymentSuccessPage />} />
+      <Route path="/pay/:handle" element={<PaymentPage />} />
+      <Route path="/pay/:id" element={<PaymentPage />} />
+      <Route path="/@:handle" element={<PaymentPage />} />
       {/* Public profile route: /:handle supports /@alias */}
       <Route path="/:handle" element={<PaymentPage />} />
       <Route path="*" element={<Navigate to={session ? '/dashboard' : '/'} replace />} />

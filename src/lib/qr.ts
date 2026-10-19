@@ -14,7 +14,7 @@ export function parsePaymentQrCode(rawCode: string): ScannedPaymentData | null {
       const pathSegments = url.pathname.split('/').filter(Boolean)
       const lastSegment = pathSegments[pathSegments.length - 1] || ''
       const cleanHandle = lastSegment.replace(/^@+/, '')
-      const amountParam = url.searchParams.get('amount') || undefined
+      const amountParam = url.searchParams.get('am') || url.searchParams.get('amount') || undefined
 
       if (cleanHandle) {
         return {
@@ -34,7 +34,7 @@ export function parsePaymentQrCode(rawCode: string): ScannedPaymentData | null {
       const pathSegments = dummyUrl.pathname.split('/').filter(Boolean)
       const lastSegment = pathSegments[pathSegments.length - 1] || ''
       const cleanHandle = lastSegment.replace(/^@+/, '')
-      const amountParam = dummyUrl.searchParams.get('amount') || undefined
+      const amountParam = dummyUrl.searchParams.get('am') || dummyUrl.searchParams.get('amount') || undefined
 
       if (cleanHandle) {
         return {
