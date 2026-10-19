@@ -642,32 +642,53 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   }
 }
 
-/* Full-Screen QR Scanner Viewfinder Pulse and Laser Animations */
-@keyframes qrPulse {
-  0%, 100% {
-    opacity: 0.65;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.95;
-    transform: scale(1.02);
-  }
+/* Minimalist Tier-1 QR Scanner Reticle */
+.scanner-reticle-corner {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+  z-index: 3;
 }
 
-@keyframes gradientShift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+.scanner-reticle-tl {
+  top: 0;
+  left: 0;
+  border-top: 2px solid #FFFFFF;
+  border-left: 2px solid #FFFFFF;
+  border-right: 0;
+  border-bottom: 0;
+  border-top-left-radius: 8px;
 }
 
-.qr-viewfinder-pulse {
-  animation: qrPulse 2.4s ease-in-out infinite;
+.scanner-reticle-tr {
+  top: 0;
+  right: 0;
+  border-top: 2px solid #FFFFFF;
+  border-right: 2px solid #FFFFFF;
+  border-left: 0;
+  border-bottom: 0;
+  border-top-right-radius: 8px;
+}
+
+.scanner-reticle-bl {
+  bottom: 0;
+  left: 0;
+  border-bottom: 2px solid #FFFFFF;
+  border-left: 2px solid #FFFFFF;
+  border-top: 0;
+  border-right: 0;
+  border-bottom-left-radius: 8px;
+}
+
+.scanner-reticle-br {
+  bottom: 0;
+  right: 0;
+  border-bottom: 2px solid #FFFFFF;
+  border-right: 2px solid #FFFFFF;
+  border-top: 0;
+  border-left: 0;
+  border-bottom-right-radius: 8px;
 }
 
 /* Ledger Statement List (Flat List, 1px Hairlines, No Cards Inside Cards) */

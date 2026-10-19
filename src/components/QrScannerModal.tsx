@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import jsQR from 'jsqr'
-import { CloseIcon, GalleryIcon } from './Icons'
+import { CloseIcon, GalleryIcon, BoltIcon } from './Icons'
 import { triggerHaptic } from '../lib/haptics'
 
 interface QrScannerModalProps {
@@ -14,11 +14,28 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const videoTrackRef = useRef<MediaStreamTrack | null>(null)
   const animFrameIdRef = useRef<number | null>(null)
   const hasDetectedRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [flashOn, setFlashOn] = useState(false)
+  const [flashSupported, setFlashSupported] = useState(false)
+
+  const toggleFlash = async () => {
+    if (videoTrackRef.current) {
+      try {
+        const nextState = !flashOn
+        await videoTrackRef.current.applyConstraints({
+          advanced: [{ torch: nextState } as unknown as MediaTrackConstraintSet],
+        })
+        setFlashOn(nextState)
+      } catch (err) {
+        console.warn('Torch error', err)
+      }
+    }
+  }
 
   function stopMediaStream() {
     if (animFrameIdRef.current !== null) {
@@ -35,9 +52,12 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
       })
       streamRef.current = null
     }
+    videoTrackRef.current = null
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
+    setFlashOn(false)
+    setFlashSupported(false)
   }
 
   function handleQrDetected(codeData: string) {
@@ -59,6 +79,8 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
 
     hasDetectedRef.current = false
     setCameraError(null)
+    setFlashOn(false)
+    setFlashSupported(false)
     let isCancelled = false
 
     async function initCamera() {
@@ -82,6 +104,15 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
         }
 
         streamRef.current = stream
+
+        const track = stream.getVideoTracks()[0]
+        if (track) {
+          videoTrackRef.current = track
+          const capabilities = (track.getCapabilities ? track.getCapabilities() : {}) as { torch?: boolean }
+          if (capabilities && capabilities.torch) {
+            setFlashSupported(true)
+          }
+        }
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream
@@ -227,25 +258,139 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
-          paddingTop: 'calc(16px + env(safe-area-inset-top, 0px))',
-          paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
-          paddingLeft: '20px',
-          paddingRight: '20px',
+          alignItems: 'center',
+          justifyContent: 'center',
           pointerEvents: 'none',
         }}
       >
-        {/* Top Row: Close button on top-left, title "Scan to pay" centered in white text */}
+        {/* Center: Hint text and Viewfinder reticle */}
         <div
           style={{
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+          }}
+        >
+          <p
+            style={{
+              margin: '0 0 24px 0',
+              fontSize: '15px',
+              fontWeight: 600,
+              color: '#FFFFFF',
+              textAlign: 'center',
+              maxWidth: '280px',
+              lineHeight: 1.4,
+              letterSpacing: '-0.01em',
+              textShadow: '0 1px 6px rgba(0, 0, 0, 0.85)',
+            }}
+          >
+            {cameraError || 'Scan any QR code'}
+          </p>
+
+          <div
+            style={{
+              width: '260px',
+              height: '260px',
+              position: 'relative',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.45)',
+            }}
+          >
+            {/* Minimalist 32x32 Corner Brackets */}
+            <div className="scanner-reticle-corner scanner-reticle-tl" />
+            <div className="scanner-reticle-corner scanner-reticle-tr" />
+            <div className="scanner-reticle-corner scanner-reticle-bl" />
+            <div className="scanner-reticle-corner scanner-reticle-br" />
+          </div>
+        </div>
+
+        {/* Bottom controls container: Gallery on LEFT, Flash in CENTER, Close on RIGHT */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '40px',
+            left: 0,
+            right: 0,
             width: '100%',
-            minHeight: '44px',
+            padding: '0 32px',
+            boxSizing: 'border-box',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
             pointerEvents: 'auto',
           }}
         >
+          {/* Gallery Button on the LEFT */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(50)
+              fileInputRef.current?.click()
+            }}
+            aria-label="Upload QR code from gallery"
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <GalleryIcon size={20} strokeWidth={1.8} />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={e => {
+              const file = e.target.files?.[0]
+              if (file) {
+                triggerHaptic(50)
+                handleImageFile(file)
+              }
+            }}
+          />
+
+          {/* Flashlight Button in CENTER (only rendered if flash is supported) */}
+          {flashSupported && (
+            <button
+              type="button"
+              onClick={toggleFlash}
+              aria-label={flashOn ? 'Turn off flash' : 'Turn on flash'}
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                backgroundColor: flashOn ? '#FFFFFF' : 'rgba(255, 255, 255, 0.2)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                border: flashOn ? '1px solid #FFFFFF' : '1px solid rgba(255, 255, 255, 0.25)',
+                color: flashOn ? '#0B0F19' : '#FFFFFF',
+                boxShadow: flashOn ? '0 0 16px rgba(255, 255, 255, 0.6)' : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <BoltIcon size={20} strokeWidth={2} fill={flashOn ? '#0B0F19' : 'none'} />
+            </button>
+          )}
+
+          {/* Close ('X') Button on the RIGHT */}
           <button
             type="button"
             onClick={() => {
@@ -255,210 +400,23 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
             }}
             aria-label="Close scanner"
             style={{
-              width: '40px',
-              height: '40px',
+              width: '48px',
+              height: '48px',
               borderRadius: '50%',
-              backgroundColor: 'rgba(0, 0, 0, 0.45)',
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
               backdropFilter: 'blur(10px)',
               WebkitBackdropFilter: 'blur(10px)',
-              color: '#FFFFFF',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
+              color: '#FFFFFF',
               cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
           >
-            <CloseIcon size={18} strokeWidth={2} />
+            <CloseIcon size={20} strokeWidth={2} />
           </button>
-
-          <h1
-            style={{
-              fontSize: '17px',
-              fontWeight: 600,
-              color: '#FFFFFF',
-              margin: 0,
-              letterSpacing: '-0.01em',
-              textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-            }}
-          >
-            Scan to pay
-          </h1>
-
-          <div style={{ width: '40px' }} aria-hidden="true" />
-        </div>
-
-        {/* Middle: Viewfinder cutout square with illuminated bright white corner brackets */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flex: 1,
-            pointerEvents: 'none',
-          }}
-        >
-          <div
-            style={{
-              width: '250px',
-              height: '250px',
-              position: 'relative',
-              borderRadius: '20px',
-              overflow: 'hidden',
-              boxShadow: '0 0 0 9999px rgba(11, 15, 25, 0.5)',
-            }}
-          >
-            {/* Corner Bracket: Top-Left */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '32px',
-                height: '32px',
-                borderTop: '3.5px solid #FFFFFF',
-                borderLeft: '3.5px solid #FFFFFF',
-                borderTopLeftRadius: '16px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
-                pointerEvents: 'none',
-                zIndex: 3,
-              }}
-            />
-            {/* Corner Bracket: Top-Right */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                width: '32px',
-                height: '32px',
-                borderTop: '3.5px solid #FFFFFF',
-                borderRight: '3.5px solid #FFFFFF',
-                borderTopRightRadius: '16px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
-                pointerEvents: 'none',
-                zIndex: 3,
-              }}
-            />
-            {/* Corner Bracket: Bottom-Left */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                width: '32px',
-                height: '32px',
-                borderBottom: '3.5px solid #FFFFFF',
-                borderLeft: '3.5px solid #FFFFFF',
-                borderBottomLeftRadius: '16px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
-                pointerEvents: 'none',
-                zIndex: 3,
-              }}
-            />
-            {/* Corner Bracket: Bottom-Right */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                right: 0,
-                width: '32px',
-                height: '32px',
-                borderBottom: '3.5px solid #FFFFFF',
-                borderRight: '3.5px solid #FFFFFF',
-                borderBottomRightRadius: '16px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
-                pointerEvents: 'none',
-                zIndex: 3,
-              }}
-            />
-          </div>
-
-          <p
-            style={{
-              marginTop: '24px',
-              fontSize: '13px',
-              fontWeight: 500,
-              color: '#FFFFFF',
-              textAlign: 'center',
-              maxWidth: '260px',
-              lineHeight: 1.45,
-              letterSpacing: '-0.01em',
-              textShadow: '0 1px 8px rgba(0, 0, 0, 0.95), 0 0 16px rgba(0, 0, 0, 0.75)',
-            }}
-          >
-            {cameraError || 'Align QR code inside the frame to pay instantly'}
-          </p>
-        </div>
-
-        {/* Bottom Floating Action Button: Gallery Upload */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            pointerEvents: 'auto',
-            marginBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
-          }}
-        >
-          <label
-            role="button"
-            tabIndex={0}
-            aria-label="Upload QR code from gallery"
-            title="Upload QR code from gallery"
-            style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#FFFFFF',
-              cursor: 'pointer',
-              transition: 'transform 120ms ease, background-color 160ms ease',
-            }}
-            onClick={() => triggerHaptic(50)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                fileInputRef.current?.click()
-              }
-            }}
-          >
-            <GalleryIcon size={22} strokeWidth={1.8} />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={e => {
-                const file = e.target.files?.[0]
-                if (file) {
-                  triggerHaptic(50)
-                  handleImageFile(file)
-                }
-              }}
-            />
-          </label>
-          <span
-            style={{
-              fontSize: '11px',
-              fontWeight: 500,
-              color: 'rgba(255, 255, 255, 0.75)',
-              letterSpacing: '-0.01em',
-              textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-            }}
-          >
-            Upload image
-          </span>
         </div>
       </div>
     </div>
