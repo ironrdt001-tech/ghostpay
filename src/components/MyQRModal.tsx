@@ -225,38 +225,44 @@ export function MyQRModal({
           </div>
         </div>
 
-        {/* Premium Currency Input */}
-        <div className="qr-premium-input-wrapper">
-          <span className="qr-currency-symbol">₹</span>
-          <input 
-            type="number" 
-            placeholder="0" 
-            value={amount} 
-            onChange={(e) => {
-              setAmount(e.target.value)
-              if (setRequestAmount) setRequestAmount(e.target.value)
-            }}
-            className="qr-premium-input"
-          />
-        </div>
-
-        {/* Quick-Add Pills */}
-        <div className="flex justify-center gap-2 mb-6">
-          {[100, 500, 1000].map((val) => (
-            <button 
-              key={val}
-              type="button"
-              onClick={() => {
-                triggerHaptic(50)
-                const next = String(Number(amount || 0) + val)
-                setAmount(next)
-                if (setRequestAmount) setRequestAmount(next)
+        {/* Send Money Styled Amount Input & Quick-Add Pills */}
+        <div className="w-full mt-6 text-left" style={{ marginBottom: 'var(--space-6)' }}>
+          <label className="block text-sm text-gray-400 mb-2">Amount (₹)</label>
+          <div className="flex items-center bg-[#111827] border border-gray-800 rounded-xl px-4 py-3 focus-within:border-blue-500 transition-colors">
+            <span className="text-gray-400 text-lg mr-2 font-medium">₹</span>
+            <input 
+              type="number" 
+              placeholder="0" 
+              value={amount} 
+              onChange={(e) => {
+                setAmount(e.target.value)
+                if (setRequestAmount) setRequestAmount(e.target.value)
               }}
-              className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/80 text-sm font-medium hover:bg-white/10 transition-colors"
-            >
-              +₹{val}
-            </button>
-          ))}
+              className="w-full bg-transparent border-none text-white text-lg font-medium outline-none"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            />
+          </div>
+          <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
+            {[500, 1000, 2000, 5000].map((val) => (
+              <button 
+                key={val}
+                type="button"
+                onClick={() => {
+                  triggerHaptic(50)
+                  const next = String(Number(amount || 0) + val)
+                  setAmount(next)
+                  if (setRequestAmount) setRequestAmount(next)
+                }}
+                className={`px-4 py-1.5 rounded-full border text-sm transition-colors whitespace-nowrap ${
+                  Number(amount) === val 
+                    ? 'border-blue-500 bg-blue-500/10 text-blue-400' 
+                    : 'border-gray-700 bg-transparent text-gray-300 hover:bg-gray-800'
+                }`}
+              >
+                +₹{val.toLocaleString('en-IN')}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Action Buttons: Share & Download */}

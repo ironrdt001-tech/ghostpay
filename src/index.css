@@ -752,58 +752,50 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   border-radius: 20px;
 }
 
-/* Premium QR Amount Input */
-.qr-premium-input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
-  padding: 12px 24px;
-  margin: 16px auto 12px;
-  width: 100%;
-  max-width: 200px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.qr-currency-symbol {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-right: 8px;
-}
-
-.qr-premium-input {
-  background: transparent;
-  border: none;
-  color: #FFFFFF;
-  font-size: 1.5rem;
-  font-weight: 700;
-  width: 100%;
-  outline: none;
-  font-variant-numeric: tabular-nums;
-}
-
-.qr-premium-input::placeholder {
-  color: rgba(255, 255, 255, 0.2);
-}
-
-/* Quick-Add Pills Utilities */
+/* Send Money & QR Amount Utility Classes */
+.w-full { width: 100%; }
+.mt-6 { margin-top: 24px; }
+.mt-3 { margin-top: 12px; }
+.mb-2 { margin-bottom: 8px; }
+.mr-2 { margin-right: 8px; }
+.text-left { text-align: left; }
+.block { display: block; }
 .flex { display: flex; }
+.items-center { align-items: center; }
 .justify-center { justify-content: center; }
 .gap-2 { gap: 8px; }
-.mb-6 { margin-bottom: 24px; }
-.px-3 { padding-left: 12px; padding-right: 12px; }
+.overflow-x-auto { overflow-x: auto; }
+.whitespace-nowrap { white-space: nowrap; }
+
+.px-4 { padding-left: 16px; padding-right: 16px; }
+.py-3 { padding-top: 12px; padding-bottom: 12px; }
 .py-1\.5 { padding-top: 6px; padding-bottom: 6px; }
+
+.rounded-xl { border-radius: 12px; }
 .rounded-full { border-radius: 9999px; }
-.bg-white\/5 { background-color: rgba(255, 255, 255, 0.05); }
+
 .border { border-width: 1px; border-style: solid; }
-.border-white\/10 { border-color: rgba(255, 255, 255, 0.1); }
-.text-white\/80 { color: rgba(255, 255, 255, 0.8); }
-.text-sm { font-size: 0.875rem; }
+.border-none { border: none; }
+.border-gray-800 { border-color: #1F2937; }
+.border-gray-700 { border-color: #374151; }
+.border-blue-500 { border-color: #3B82F6; }
+
+.bg-\[\#111827\] { background-color: #111827; }
+.bg-transparent { background-color: transparent; }
+.bg-blue-500\/10 { background-color: rgba(59, 130, 246, 0.1); }
+.hover\:bg-gray-800:hover { background-color: #1F2937; }
+
+.text-white { color: #FFFFFF; }
+.text-gray-300 { color: #D1D5DB; }
+.text-gray-400 { color: #9CA3AF; }
+.text-blue-400 { color: #60A5FA; }
+
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
 .font-medium { font-weight: 500; }
-.hover\:bg-white\/10:hover { background-color: rgba(255, 255, 255, 0.1); }
+
+.outline-none { outline: none; }
+.focus-within\:border-blue-500:focus-within { border-color: #3B82F6; }
 .transition-colors { transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease; cursor: pointer; }
 
 /* Ledger Statement List (Flat List, 1px Hairlines, No Cards Inside Cards) */
