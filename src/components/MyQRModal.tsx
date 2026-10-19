@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { toBlob } from 'html-to-image'
 import { ExportCardStage } from './ExportCardStage'
 import { SpinnerIcon } from './Icons'
 import { triggerHaptic } from '../lib/haptics'
+import { supabase } from '../lib/supabase'
 import {
   GPModal,
   GPAmountField,
@@ -58,6 +59,31 @@ export function MyQRModal({
   if (hasValidAmount) {
     currentUrl += `?am=${amount.trim()}`
   }
+
+  useEffect(() => {
+    const syncBurnerToDatabase = async () => {
+      if (isBurner && burnerToken && supabase) {
+        const numericAmount = amount ? Number(amount) : null
+        const { error } = await supabase
+          .from('burner_links')
+          .upsert(
+            {
+              token: burnerToken,
+              handle: userHandle,
+              amount: numericAmount,
+              consumed: false,
+            },
+            { onConflict: 'token' }
+          )
+
+        if (error) console.error('Failed to lock burner amount in DB:', error)
+      }
+    }
+
+    // Add a small 500ms debounce so we don't spam Supabase on every keystroke
+    const timeoutId = setTimeout(syncBurnerToDatabase, 500)
+    return () => clearTimeout(timeoutId)
+  }, [isBurner, burnerToken, amount, userHandle])
 
   const handleClose = () => {
     setAmount('')
