@@ -691,6 +691,41 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   border-bottom-right-radius: 8px;
 }
 
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* My QR Aura Glows */
+.qr-aura-glow {
+  position: absolute;
+  inset: -6px;
+  background: linear-gradient(45deg, #3B82F6, #10B981, #8B5CF6, #3B82F6);
+  background-size: 400% 400%;
+  animation: gradientShift 6s ease infinite;
+  filter: blur(14px);
+  z-index: -1;
+  border-radius: 20px;
+}
+
+.burner-aura-glow {
+  position: absolute;
+  inset: -6px;
+  background: linear-gradient(45deg, #F43F5E, #F97316, #EAB308, #F43F5E);
+  background-size: 400% 400%;
+  animation: gradientShift 4s ease infinite;
+  filter: blur(14px);
+  z-index: -1;
+  border-radius: 20px;
+}
+
 /* Ledger Statement List (Flat List, 1px Hairlines, No Cards Inside Cards) */
 .ledger-group-header {
   padding: var(--space-3) var(--space-4);
