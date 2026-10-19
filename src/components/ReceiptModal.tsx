@@ -30,20 +30,7 @@ export function ReceiptModal({ tx, onClose, onToast }: ReceiptModalProps) {
   )
   const isInternal = Boolean(tx.sender_id && !isPrivateRoute)
   const rawName = (tx.counterpartyLabel || tx.sender_name || tx.sender_alias || '').trim()
-  let counterparty = rawName || 'GhostPay User'
-  if (isPrivateRoute) {
-    if (counterparty.startsWith('#')) {
-      // already prefixed
-    } else {
-      const clean = counterparty.replace(/^@+/, '').trim()
-      const lower = clean.toLowerCase()
-      if (!clean || lower === 'anonymous' || lower === 'anonymous sender' || lower === 'ghostpay user' || clean.includes(' ')) {
-        counterparty = '#HiddenSender'
-      } else {
-        counterparty = `#${clean}`
-      }
-    }
-  }
+  const counterparty = rawName || 'GhostPay User'
   const railName = isTopUp ? 'Wallet top-up' : isInternal ? 'GhostPay Internal P2P' : 'Shielded Nodal Escrow'
   const dateFormatted = formatIstDateTime(tx.created_at)
 

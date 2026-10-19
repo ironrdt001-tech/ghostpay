@@ -43,16 +43,11 @@ export function MyQRModal({
     }
   }
 
-  const numAmount = parseFloat(amount)
-  const hasValidAmount = Number.isFinite(numAmount) && numAmount > 0
-
-  let currentUrl = isBurner
-    ? `https://ghostpay-orpin.vercel.app/pay/${burnerToken || 'gp_brn_temp'}`
-    : `https://ghostpay-orpin.vercel.app/@${userHandle}`
-
-  if (!isBurner && hasValidAmount) {
-    currentUrl += `?am=${amount.trim()}`
-  }
+  // If burner mode is ON, strictly return the raw token route.
+  // If OFF, return the @handle route, appending ?am= ONLY if an amount exists.
+  const currentUrl = isBurner 
+    ? `https://ghostpay-orpin.vercel.app/pay/${burnerToken}`
+    : `https://ghostpay-orpin.vercel.app/@${userHandle}${amount ? `?am=${amount}` : ''}`
 
   useEffect(() => {
     const syncBurnerToDatabase = async () => {
