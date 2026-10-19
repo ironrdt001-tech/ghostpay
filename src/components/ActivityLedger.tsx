@@ -158,6 +158,31 @@ export function ActivityLedger({
     return groupTransactionsByDate(filteredTransactions)
   }, [filteredTransactions])
 
+  function getTabStyle(tab: ActivityFilter) {
+    const isActive = activeFilter === tab
+    if (!isActive) return undefined
+
+    if (tab === 'received') {
+      return {
+        background: 'rgba(16, 185, 129, 0.15)',
+        color: '#10B981',
+        border: '1px solid rgba(16, 185, 129, 0.25)',
+      }
+    }
+    if (tab === 'sent') {
+      return {
+        background: 'rgba(244, 63, 94, 0.15)',
+        color: '#F43F5E',
+        border: '1px solid rgba(244, 63, 94, 0.25)',
+      }
+    }
+    return {
+      background: 'rgba(37, 99, 235, 0.15)',
+      color: '#3B82F6',
+      border: '1px solid rgba(59, 130, 246, 0.4)',
+    }
+  }
+
   return (
     <div className="surface-card" style={{ overflow: 'hidden' }}>
       <div style={{ padding: 'var(--space-6) var(--space-6) var(--space-4)' }}>
@@ -179,6 +204,7 @@ export function ActivityLedger({
               role="tab"
               aria-selected={activeFilter === 'all'}
               className={`segmented-tab ${activeFilter === 'all' ? 'active' : ''}`}
+              style={getTabStyle('all')}
               onClick={() => onChangeFilter('all')}
             >
               All
@@ -188,15 +214,7 @@ export function ActivityLedger({
               role="tab"
               aria-selected={activeFilter === 'received'}
               className={`segmented-tab ${activeFilter === 'received' ? 'active' : ''}`}
-              style={
-                activeFilter === 'received'
-                  ? {
-                      backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                      color: '#10B981',
-                      border: '1px solid rgba(16, 185, 129, 0.25)',
-                    }
-                  : undefined
-              }
+              style={getTabStyle('received')}
               onClick={() => onChangeFilter('received')}
             >
               Received
@@ -206,15 +224,7 @@ export function ActivityLedger({
               role="tab"
               aria-selected={activeFilter === 'sent'}
               className={`segmented-tab ${activeFilter === 'sent' ? 'active' : ''}`}
-              style={
-                activeFilter === 'sent'
-                  ? {
-                      backgroundColor: 'rgba(244, 63, 94, 0.15)',
-                      color: '#F43F5E',
-                      border: '1px solid rgba(244, 63, 94, 0.25)',
-                    }
-                  : undefined
-              }
+              style={getTabStyle('sent')}
               onClick={() => onChangeFilter('sent')}
             >
               Sent
@@ -224,6 +234,7 @@ export function ActivityLedger({
               role="tab"
               aria-selected={activeFilter === '7d'}
               className={`segmented-tab ${activeFilter === '7d' ? 'active' : ''}`}
+              style={getTabStyle('7d')}
               onClick={() => onChangeFilter('7d')}
             >
               7 days

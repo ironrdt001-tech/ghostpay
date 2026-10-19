@@ -514,7 +514,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-weight: 500;
   color: var(--text-secondary);
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
   transition: all var(--duration-interaction) var(--ease-standard);
 }
