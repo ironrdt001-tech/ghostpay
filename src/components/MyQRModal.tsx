@@ -1,18 +1,11 @@
 import { useState, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { toBlob } from 'html-to-image'
-import { ExportCardStage } from './ExportCardStage'
-import { SpinnerIcon } from './Icons'
 import { triggerHaptic } from '../lib/haptics'
 import { supabase } from '../lib/supabase'
 import {
   GPModal,
   GPAmountField,
   GPChips,
-  GPButton,
-  ShareIcon,
-  DownloadIcon,
-  CopyIcon,
 } from './GhostPayModalKit'
 
 export interface MyQRModalProps {
@@ -33,7 +26,7 @@ export function MyQRModal({
   const [isBurner, setIsBurner] = useState(false)
   const [burnerToken, setBurnerToken] = useState('')
   const [amount, setAmount] = useState(requestAmount || '')
-  const [downloading, setDownloading] = useState(false)
+  const [isCopied, setIsCopied] = useState(false)
 
   const userHandle = handle.replace(/^@+/, '')
 
@@ -90,8 +83,22 @@ export function MyQRModal({
     setAmount('')
     setIsBurner(false)
     setBurnerToken('')
+    setIsCopied(false)
     if (setRequestAmount) setRequestAmount('')
     onClose()
+  }
+
+  const handleCopy = async () => {
+    triggerHaptic(50)
+    try {
+      await navigator.clipboard.writeText(currentUrl)
+      setIsCopied(true)
+      if (onToast) onToast('success', isBurner ? 'Burner link copied to clipboard.' : 'Payment link copied to clipboard.')
+      setTimeout(() => setIsCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy', err)
+      if (onToast) onToast('error', 'Failed to copy payment link.')
+    }
   }
 
   const handleShare = async () => {
@@ -103,65 +110,7 @@ export function MyQRModal({
         console.warn('Share cancelled', err)
       }
     } else {
-      try {
-        await navigator.clipboard.writeText(currentUrl)
-        onToast('success', 'Payment link copied to clipboard.')
-      } catch {
-        onToast('error', 'Failed to copy payment link.')
-      }
-    }
-  }
-
-  const handleCopyLink = async () => {
-    triggerHaptic(50)
-    try {
-      await navigator.clipboard.writeText(currentUrl)
-      onToast('success', 'Burner link copied to clipboard.')
-    } catch {
-      onToast('error', 'Failed to copy payment link.')
-    }
-  }
-
-  async function generateBrandedCardBlob(): Promise<Blob> {
-    const cardElement = document.getElementById('ghostpay-export-card')
-    if (!cardElement) {
-      throw new Error('Card element not found in DOM')
-    }
-
-    const blob = await toBlob(cardElement, {
-      cacheBust: true,
-      pixelRatio: 2,
-      backgroundColor: '#0B0C0E',
-    })
-
-    if (!blob) {
-      throw new Error('Could not render image blob')
-    }
-
-    return blob
-  }
-
-  function triggerBlobDownload(blob: Blob) {
-    const dataUrl = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.download = `GhostPay-${isBurner ? 'Burner' : userHandle}.png`
-    link.href = dataUrl
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(dataUrl)
-  }
-
-  async function handleDownloadQR() {
-    setDownloading(true)
-    try {
-      const blob = await generateBrandedCardBlob()
-      triggerBlobDownload(blob)
-      onToast('success', 'Branded QR card downloaded.')
-    } catch {
-      onToast('error', 'Could not render QR card image.')
-    } finally {
-      setDownloading(false)
+      handleCopy()
     }
   }
 
@@ -178,89 +127,80 @@ export function MyQRModal({
   }
 
   return (
-    <>
-      <GPModal
-        title={isBurner ? 'Burner QR' : 'My payment QR'}
-        subtitle={
-          isBurner
-            ? 'Self-destructs after a single payment'
-            : 'Scan to open your private payment portal'
-        }
-        onClose={handleClose}
-      >
-        {/* Burner Mode Toggle Pill (Above QR Code) */}
-        <div className="gp-pill-row">
-          <button
-            type="button"
-            onClick={handleToggleBurner}
-            className={`gp-burner-pill ${!isBurner ? 'is-inactive' : ''}`}
-          >
-            <span>🔥 Burner mode (1-time use)</span>
-          </button>
+    <GPModal
+      title={isBurner ? 'Burner QR' : 'My payment QR'}
+      subtitle={
+        isBurner
+          ? 'Self-destructs after a single payment'
+          : 'Scan to open your private payment portal'
+      }
+      onClose={handleClose}
+    >
+      {/* Burner Mode Toggle Pill (Above QR Code) */}
+      <div className="gp-pill-row">
+        <button
+          type="button"
+          onClick={handleToggleBurner}
+          className={`gp-burner-pill ${!isBurner ? 'is-inactive' : ''}`}
+        >
+          <span>🔥 Burner mode (1-time use)</span>
+        </button>
+      </div>
+
+      {/* White rounded QR tile with soft green/purple glow, or warm amber glow in burner mode */}
+      <div className="gp-qr-wrap">
+        <div className={`gp-qr-tile ${isBurner ? 'gp-qr-tile--burner' : ''}`}>
+          <QRCodeSVG value={currentUrl} size={210} level="M" />
         </div>
+      </div>
 
-        {/* White rounded QR tile with soft green/purple glow, or warm amber glow in burner mode */}
-        <div className="gp-qr-wrap">
-          <div className={`gp-qr-tile ${isBurner ? 'gp-qr-tile--burner' : ''}`}>
-            <QRCodeSVG value={currentUrl} size={210} level="M" />
-          </div>
-        </div>
-
-        {/* Amount Field bound to existing state */}
-        <GPAmountField
-          value={amount}
-          onChange={handleAmountChange}
-          optional
-          placeholder="Enter amount"
-          hint="Leave empty to let the payer enter any amount."
-        />
-
-        {/* Quick Add Chips wired to existing chip handler */}
-        <GPChips
-          amount={amount}
-          options={[500, 1000, 2000, 5000]}
-          onPick={handleChipPick}
-        />
-
-        {/* Footer Actions: Copy link (for burner) or Share (for normal) and Download */}
-        <div className="gp-footer">
-          {isBurner ? (
-            <GPButton
-              variant="secondary"
-              icon={<CopyIcon />}
-              onClick={handleCopyLink}
-            >
-              Copy link
-            </GPButton>
-          ) : (
-            <GPButton
-              variant="secondary"
-              icon={<ShareIcon />}
-              onClick={handleShare}
-            >
-              Share
-            </GPButton>
-          )}
-          <GPButton
-            variant="primary"
-            icon={downloading ? <SpinnerIcon size={16} /> : <DownloadIcon />}
-            disabled={downloading}
-            onClick={handleDownloadQR}
-          >
-            {downloading ? 'Downloading...' : 'Download'}
-          </GPButton>
-        </div>
-      </GPModal>
-
-      {/* Mobile GPU safe off-screen stage */}
-      <ExportCardStage
-        handle={isBurner ? (burnerToken || userHandle) : userHandle}
-        activeQrShareUrl={currentUrl}
-        requestedAmount={hasValidAmount ? numAmount : null}
+      {/* Amount Field bound to existing state */}
+      <GPAmountField
+        value={amount}
+        onChange={handleAmountChange}
+        optional
+        placeholder="Enter amount"
+        hint="Leave empty to let the payer enter any amount."
       />
-    </>
+
+      {/* Quick Add Chips wired to existing chip handler */}
+      <GPChips
+        amount={amount}
+        options={[500, 1000, 2000, 5000]}
+        onPick={handleChipPick}
+      />
+
+      {/* Actions: Copy link and Share link */}
+      <div className="flex gap-3 mt-6">
+        <button 
+          type="button"
+          onClick={handleCopy}
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-transparent border border-gray-700 text-white font-medium hover:bg-gray-800 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {isCopied ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            )}
+          </svg>
+          {isCopied ? 'Copied!' : 'Copy link'}
+        </button>
+        <button 
+          type="button"
+          onClick={handleShare}
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+          </svg>
+          Share link
+        </button>
+      </div>
+    </GPModal>
   )
 }
 
 // Export alias for seamless backward compatibility
 export { MyQRModal as ShareQrModal }
+

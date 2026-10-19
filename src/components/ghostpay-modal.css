@@ -399,3 +399,17 @@ html:not(.dark):not([data-theme="dark"]) .gp-burner-pill:not(.is-inactive) {
   border-color: rgba(225, 29, 72, .4);
 }
 
+:root[data-theme="light"] .gp-panel .border-gray-700,
+:root.light .gp-panel .border-gray-700,
+html:not(.dark):not([data-theme="dark"]) .gp-panel .border-gray-700 {
+  border-color: var(--gp-border-strong, #c3cbd8);
+  color: var(--gp-text, #0f172a);
+}
+
+:root[data-theme="light"] .gp-panel .border-gray-700:hover,
+:root.light .gp-panel .border-gray-700:hover,
+html:not(.dark):not([data-theme="dark"]) .gp-panel .border-gray-700:hover {
+  background-color: rgba(15, 23, 42, 0.04);
+}
+
+
