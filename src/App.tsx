@@ -60,6 +60,7 @@ export function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     document.documentElement.classList.toggle('dark', theme === 'dark')
+    document.documentElement.style.scrollBehavior = 'smooth'
     if (session && !logoutReset.current) {
       try {
         window.localStorage.setItem('ghostpay.theme', theme)

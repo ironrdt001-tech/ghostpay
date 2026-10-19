@@ -420,7 +420,7 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
             />
 
             {/* Send Money Surface */}
-            <div id="send-money-section">
+            <div id="send-money-section" className="send-section" style={{ scrollMarginTop: '80px' }}>
               <SendMoneyForm
                 userId={session.user.id}
                 recentPeople={recentPeople}
@@ -436,7 +436,7 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
           {/* Right Statement Column */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {/* Flat Activity Ledger (Statement List, 1px Hairlines, No Cards Inside Cards) */}
-            <div id="activity-ledger-section">
+            <div id="activity-ledger-section" className="activity-section" style={{ scrollMarginTop: '80px' }}>
               <ActivityLedger
                 transactions={allLedgerRows}
                 activeFilter={activeTxFilter}

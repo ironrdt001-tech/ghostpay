@@ -306,7 +306,7 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
               position: 'relative',
               borderRadius: '20px',
               overflow: 'hidden',
-              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.52)',
+              boxShadow: '0 0 0 9999px rgba(11, 15, 25, 0.5)',
             }}
           >
             {/* Corner Bracket: Top-Left */}
@@ -379,12 +379,13 @@ export function QrScannerModal({ isOpen, onClose, onSuccess, onToast }: QrScanne
             style={{
               marginTop: '24px',
               fontSize: '13px',
-              color: 'rgba(255, 255, 255, 0.85)',
+              fontWeight: 500,
+              color: '#FFFFFF',
               textAlign: 'center',
               maxWidth: '260px',
               lineHeight: 1.45,
               letterSpacing: '-0.01em',
-              textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+              textShadow: '0 1px 8px rgba(0, 0, 0, 0.95), 0 0 16px rgba(0, 0, 0, 0.75)',
             }}
           >
             {cameraError || 'Align QR code inside the frame to pay instantly'}
