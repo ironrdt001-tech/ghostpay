@@ -21,3 +21,16 @@
 .gp-panel.gp-panel .gp-btn-primary{background:var(--gp-primary)!important;border:1px solid transparent!important;color:#fff!important}
 .gp-panel.gp-panel .gp-btn-primary:hover{background:var(--gp-primary-hover)!important}
 .gp-panel.gp-panel .gp-btn-secondary{background:transparent!important;border:1px solid var(--gp-border-strong)!important}
+
+/* light mode: replace the colored haze with a clean neutral shadow */
+:root[data-theme="light"] .gp-qr-tile:not(.gp-qr-tile--burner),
+html:not(.dark):not([data-theme="dark"]) .gp-qr-tile:not(.gp-qr-tile--burner) {
+  box-shadow: 0 0 0 1px rgba(15,23,42,.06), 0 8px 24px rgba(15,23,42,.10) !important;
+}
+/* light mode burner: keep the orange but much softer */
+:root[data-theme="light"] .gp-qr-tile--burner,
+html:not(.dark):not([data-theme="dark"]) .gp-qr-tile--burner {
+  box-shadow: 0 0 28px rgba(251,146,60,.35), 0 0 60px rgba(245,158,11,.18) !important;
+}
+/* tighter gap between the hint and the chips */
+.gp-panel.gp-panel .gp-hint + .gp-chips { margin-top: 12px !important; }
