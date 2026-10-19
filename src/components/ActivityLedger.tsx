@@ -213,16 +213,13 @@ export function ActivityLedger({
 
         {/* 1. Locked Segmented Pill Bar directly below header and ABOVE summary card */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-          <div className="flex items-center gap-2" role="tablist" aria-label="Filter activity">
+          <div className="activity-tabs" role="tablist" aria-label="Filter activity">
             <button
               type="button"
               role="tab"
               aria-selected={activeFilter === 'all'}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
-                activeFilter === 'all'
-                  ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-400 dark:border-gray-800 dark:hover:bg-gray-800/50'
-              }`}
+              data-active={activeFilter === 'all' ? 'true' : undefined}
+              className="activity-tab"
               onClick={() => onChangeFilter('all')}
             >
               All
@@ -231,11 +228,9 @@ export function ActivityLedger({
               type="button"
               role="tab"
               aria-selected={activeFilter === 'received'}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
-                activeFilter === 'received'
-                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-400 dark:border-gray-800 dark:hover:bg-gray-800/50'
-              }`}
+              data-active={activeFilter === 'received' ? 'true' : undefined}
+              data-tone="positive"
+              className="activity-tab"
               onClick={() => onChangeFilter('received')}
             >
               Received
@@ -244,11 +239,9 @@ export function ActivityLedger({
               type="button"
               role="tab"
               aria-selected={activeFilter === 'sent'}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
-                activeFilter === 'sent'
-                  ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-400 dark:border-gray-800 dark:hover:bg-gray-800/50'
-              }`}
+              data-active={activeFilter === 'sent' ? 'true' : undefined}
+              data-tone="negative"
+              className="activity-tab"
               onClick={() => onChangeFilter('sent')}
             >
               Sent
@@ -257,11 +250,8 @@ export function ActivityLedger({
               type="button"
               role="tab"
               aria-selected={activeFilter === '7d'}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
-                activeFilter === '7d'
-                  ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-400 dark:border-gray-800 dark:hover:bg-gray-800/50'
-              }`}
+              data-active={activeFilter === '7d' ? 'true' : undefined}
+              className="activity-tab"
               onClick={() => onChangeFilter('7d')}
             >
               7 days

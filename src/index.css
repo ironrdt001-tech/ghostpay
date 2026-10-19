@@ -1538,5 +1538,122 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   box-shadow: 0 24px 80px rgba(15, 23, 42, 0.25);
 }
 
+/* ==========================================================================
+   Activity Ledger Tabs (Recent Activity Filters)
+   ========================================================================== */
+.activity-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 9999px;
+  background: var(--surface-muted, rgba(255, 255, 255, .04));
+  border: 1px solid var(--border-strong, rgba(255, 255, 255, .10));
+  overflow: visible;
+  max-width: 100%;
+}
 
+.activity-tab {
+  --tab-c: #3b82f6;
+  --tab-tint: rgba(59, 130, 246, .14);
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted, #9aa3b2);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
 
+.activity-tab:hover {
+  color: var(--text-strong, #fff);
+}
+
+.activity-tab:focus {
+  outline: none;
+}
+
+.activity-tab:focus-visible {
+  outline: 2px solid var(--tab-c);
+  outline-offset: 1px;
+}
+
+.activity-tab[data-tone="positive"] {
+  --tab-c: #10b981;
+  --tab-tint: rgba(16, 185, 129, .14);
+}
+
+.activity-tab[data-tone="negative"] {
+  --tab-c: #f43f5e;
+  --tab-tint: rgba(244, 63, 94, .14);
+}
+
+.activity-tab[aria-selected="true"],
+.activity-tab[data-active="true"] {
+  background: var(--tab-tint);
+  border-color: var(--tab-c);
+  color: var(--tab-c);
+}
+
+/* Light mode overrides */
+:root[data-theme="light"] .activity-tabs,
+:root.light .activity-tabs,
+html:not(.dark):not([data-theme="dark"]) .activity-tabs {
+  background: var(--surface-muted, #f6f8fb);
+  border: 1px solid var(--border-subtle, #dfe4ec);
+}
+
+:root[data-theme="light"] .activity-tab,
+:root.light .activity-tab,
+html:not(.dark):not([data-theme="dark"]) .activity-tab {
+  --tab-c: #2563eb;
+  --tab-tint: rgba(37, 99, 235, .09);
+  color: var(--text-muted, #5b6678);
+}
+
+:root[data-theme="light"] .activity-tab:hover,
+:root.light .activity-tab:hover,
+html:not(.dark):not([data-theme="dark"]) .activity-tab:hover {
+  color: var(--text-strong, #0f172a);
+}
+
+:root[data-theme="light"] .activity-tab[data-tone="positive"],
+:root.light .activity-tab[data-tone="positive"],
+html:not(.dark):not([data-theme="dark"]) .activity-tab[data-tone="positive"] {
+  --tab-c: #059669;
+  --tab-tint: rgba(5, 150, 105, .09);
+}
+
+:root[data-theme="light"] .activity-tab[data-tone="negative"],
+:root.light .activity-tab[data-tone="negative"],
+html:not(.dark):not([data-theme="dark"]) .activity-tab[data-tone="negative"] {
+  --tab-c: #e11d48;
+  --tab-tint: rgba(225, 29, 72, .09);
+}
+
+:root[data-theme="light"] .activity-tab[aria-selected="true"],
+:root[data-theme="light"] .activity-tab[data-active="true"],
+:root.light .activity-tab[aria-selected="true"],
+:root.light .activity-tab[data-active="true"],
+html:not(.dark):not([data-theme="dark"]) .activity-tab[aria-selected="true"],
+html:not(.dark):not([data-theme="dark"]) .activity-tab[data-active="true"] {
+  background: var(--tab-tint);
+  border-color: var(--tab-c);
+  color: var(--tab-c);
+}
+
+@media (max-width: 480px) {
+  .activity-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .activity-tabs::-webkit-scrollbar {
+    display: none;
+  }
+}
