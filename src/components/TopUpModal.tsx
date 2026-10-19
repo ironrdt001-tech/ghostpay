@@ -1,8 +1,9 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { unlockAudioEngine, playChaChingSound } from '../lib/audio'
 import { supabase } from '../lib/supabase'
 import { formatMoneyParts } from '../lib/formatters'
-import { CloseIcon, SpinnerIcon, BoltIcon, BankIcon } from './Icons'
+import { SpinnerIcon, BoltIcon, BankIcon } from './Icons'
+import { GPModal, GPAmountField, GPChips, GPButton } from './GhostPayModalKit'
 
 interface TopUpModalProps {
   onClose: () => void
@@ -23,14 +24,6 @@ export function TopUpModal({ onClose, onSuccess, onToast }: TopUpModalProps) {
     setMethod('upi')
     onClose()
   }
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !busy) handleClose()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [busy])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     // 1. Mobile-safe Web Audio unlock called synchronously on very first line before await
@@ -76,126 +69,85 @@ export function TopUpModal({ onClose, onSuccess, onToast }: TopUpModalProps) {
   }
 
   return (
-    <div className="modal-scrim" role="presentation" onClick={() => { if (!busy) handleClose() }}>
-      <section
-        className="modal-sheet no-scrollbar"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="topup-dialog-title"
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
-          <div>
-            <h2 id="topup-dialog-title" className="text-section-title">Add money to wallet</h2>
-            <p className="text-secondary" style={{ marginTop: '2px' }}>
-              Instant simulated credit to test GhostPay transfers
-            </p>
-          </div>
+    <GPModal
+      title="Add money to wallet"
+      subtitle="Instant simulated credit to test GhostPay transfers"
+      onClose={handleClose}
+      disabled={busy}
+    >
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div>
+          <GPAmountField
+            value={amount}
+            onChange={setAmount}
+            disabled={busy}
+            required
+          />
+          <GPChips
+            amount={amount}
+            options={[500, 1000, 2000, 5000]}
+            onPick={(val) => setAmount(String(val))}
+            disabled={busy}
+          />
+        </div>
+
+        {/* Payment Method selector */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', margin: '4px 0' }}>
           <button
             type="button"
-            onClick={handleClose}
             disabled={busy}
-            className="btn-icon"
-            style={{ width: '32px', height: '32px' }}
-            aria-label="Close modal"
+            onClick={() => setMethod('upi')}
+            className={`surface-inset ${method === 'upi' ? 'active' : ''}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: 'var(--space-3) var(--space-4)',
+              cursor: 'pointer',
+              borderColor: method === 'upi' ? 'var(--accent-primary)' : 'var(--border-subtle)',
+              backgroundColor: method === 'upi' ? 'var(--accent-subtle)' : 'var(--bg-inset)',
+              color: method === 'upi' ? 'var(--accent-text)' : 'var(--text-secondary)',
+            }}
           >
-            <CloseIcon size={14} />
+            <BoltIcon size={16} strokeWidth={2} />
+            <span style={{ fontSize: '13px', fontWeight: 500 }}>UPI instant</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setMethod('bank')}
+            className={`surface-inset ${method === 'bank' ? 'active' : ''}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: 'var(--space-3) var(--space-4)',
+              cursor: 'pointer',
+              borderColor: method === 'bank' ? 'var(--accent-primary)' : 'var(--border-subtle)',
+              backgroundColor: method === 'bank' ? 'var(--accent-subtle)' : 'var(--bg-inset)',
+              color: method === 'bank' ? 'var(--accent-text)' : 'var(--text-secondary)',
+            }}
+          >
+            <BankIcon size={16} strokeWidth={1.75} />
+            <span style={{ fontSize: '13px', fontWeight: 500 }}>Nodal bank</span>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="field-stack">
-          <label className="field-label">
-            <span>Amount (₹)</span>
-            <div className="input-with-prefix">
-              <span className="input-prefix" style={{ fontSize: '18px' }}>₹</span>
-              <input
-                type="number"
-                min="1"
-                max="100000"
-                step="0.01"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                disabled={busy}
-                className="tabular-nums"
-                required
-              />
-            </div>
-
-            <div className="chip-group" style={{ marginTop: '4px' }}>
-              {[500, 1000, 2000, 5000].map(val => (
-                <button
-                  key={val}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setAmount(String(val))}
-                  className={`chip-btn ${numAmount === val ? 'active' : ''}`}
-                >
-                  +₹{val.toLocaleString('en-IN')}
-                </button>
-              ))}
-            </div>
-          </label>
-
-          {/* Payment Method selector */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', margin: 'var(--space-2) 0' }}>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setMethod('upi')}
-              className={`surface-inset ${method === 'upi' ? 'active' : ''}`}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: 'var(--space-3) var(--space-4)',
-                cursor: 'pointer',
-                borderColor: method === 'upi' ? 'var(--accent-primary)' : 'var(--border-subtle)',
-                backgroundColor: method === 'upi' ? 'var(--accent-subtle)' : 'var(--bg-inset)',
-                color: method === 'upi' ? 'var(--accent-text)' : 'var(--text-secondary)',
-              }}
-            >
-              <BoltIcon size={16} strokeWidth={2} />
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>UPI instant</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setMethod('bank')}
-              className={`surface-inset ${method === 'bank' ? 'active' : ''}`}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: 'var(--space-3) var(--space-4)',
-                cursor: 'pointer',
-                borderColor: method === 'bank' ? 'var(--accent-primary)' : 'var(--border-subtle)',
-                backgroundColor: method === 'bank' ? 'var(--accent-subtle)' : 'var(--bg-inset)',
-                color: method === 'bank' ? 'var(--accent-text)' : 'var(--text-secondary)',
-              }}
-            >
-              <BankIcon size={16} strokeWidth={1.75} />
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>Nodal bank</span>
-            </button>
-          </div>
-
-          <button
-            type="submit"
-            disabled={busy || !hasValidAmount}
-            className="btn-primary btn-full"
-            style={{ marginTop: 'var(--space-2)' }}
-          >
-            {busy ? (
-              <>
-                <SpinnerIcon size={16} />
-                <span>Crediting wallet...</span>
-              </>
-            ) : (
-              <span>Add {formatMoneyParts(numAmount).full} instantly</span>
-            )}
-          </button>
-        </form>
-      </section>
-    </div>
+        <GPButton
+          type="submit"
+          variant="primary"
+          disabled={busy || !hasValidAmount}
+          icon={busy ? <SpinnerIcon size={16} /> : undefined}
+          style={{ marginTop: '8px' }}
+        >
+          {busy ? (
+            <span>Crediting wallet...</span>
+          ) : (
+            <span>Add {formatMoneyParts(numAmount).full} instantly</span>
+          )}
+        </GPButton>
+      </form>
+    </GPModal>
   )
 }

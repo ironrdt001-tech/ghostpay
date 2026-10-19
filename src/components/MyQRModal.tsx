@@ -1,9 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { toBlob } from 'html-to-image'
 import { ExportCardStage } from './ExportCardStage'
-import { CloseIcon, ShareIcon, DownloadIcon, SpinnerIcon } from './Icons'
+import { SpinnerIcon } from './Icons'
 import { triggerHaptic } from '../lib/haptics'
+import {
+  GPModal,
+  GPAmountField,
+  GPChips,
+  GPButton,
+  ShareIcon,
+  DownloadIcon,
+} from './GhostPayModalKit'
 
 export interface MyQRModalProps {
   handle: string
@@ -58,14 +66,6 @@ export function MyQRModal({
     if (setRequestAmount) setRequestAmount('')
     onClose()
   }
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') handleClose()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
 
   const handleShare = async () => {
     triggerHaptic(50)
@@ -128,41 +128,31 @@ export function MyQRModal({
     }
   }
 
-  return (
-    <div className="modal-scrim" role="presentation" onClick={handleClose}>
-      <section
-        className="modal-sheet no-scrollbar"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="qr-dialog-title"
-        onClick={e => e.stopPropagation()}
-        style={{ maxWidth: '420px' }}
-      >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
-          <div>
-            <h2 id="qr-dialog-title" className="text-section-title">
-              {isBurner ? 'Burner QR' : 'My payment QR'}
-            </h2>
-            <p className="text-secondary" style={{ marginTop: '2px', fontSize: '13px' }}>
-              {isBurner
-                ? 'Self-destructs after a single payment'
-                : 'Scan to open your private payment portal'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="btn-icon"
-            style={{ width: '32px', height: '32px' }}
-            aria-label="Close modal"
-          >
-            <CloseIcon size={14} />
-          </button>
-        </div>
+  const handleAmountChange = (val: string) => {
+    setAmount(val)
+    if (setRequestAmount) setRequestAmount(val)
+  }
 
+  const handleChipPick = (val: number) => {
+    triggerHaptic(50)
+    const next = String(Number(amount || 0) + val)
+    setAmount(next)
+    if (setRequestAmount) setRequestAmount(next)
+  }
+
+  return (
+    <>
+      <GPModal
+        title={isBurner ? 'Burner QR' : 'My payment QR'}
+        subtitle={
+          isBurner
+            ? 'Self-destructs after a single payment'
+            : 'Scan to open your private payment portal'
+        }
+        onClose={handleClose}
+      >
         {/* Burner Mode Toggle Pill (Above QR Code) */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
           <button
             type="button"
             onClick={handleToggleBurner}
@@ -178,13 +168,13 @@ export function MyQRModal({
               transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               border: isBurner
                 ? '1px solid rgba(244, 63, 94, 0.5)'
-                : '1px solid var(--border-subtle)',
+                : '1px solid var(--gp-border, var(--border-subtle))',
               backgroundColor: isBurner
                 ? 'rgba(244, 63, 94, 0.15)'
-                : 'var(--bg-inset)',
+                : 'var(--gp-field, var(--bg-inset))',
               color: isBurner
                 ? '#F43F5E'
-                : 'var(--text-secondary)',
+                : 'var(--gp-label, var(--text-secondary))',
               boxShadow: isBurner
                 ? '0 2px 12px rgba(244, 63, 94, 0.25)'
                 : 'none',
@@ -194,99 +184,42 @@ export function MyQRModal({
           </button>
         </div>
 
-        {/* QR Code Container with Animated Aura Glow */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            margin: 'var(--space-4) 0 var(--space-5)',
-          }}
-        >
-          <div
-            style={{
-              position: 'relative',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              isolation: 'isolate',
-            }}
+        {/* White rounded QR tile with soft green and purple glow */}
+        <div className="gp-qr-wrap">
+          <div className={`gp-qr-tile ${isBurner ? 'is-burner' : ''}`}>
+            <QRCodeSVG value={currentUrl} size={210} level="M" />
+          </div>
+        </div>
+
+        {/* Amount Field bound to existing state */}
+        <GPAmountField value={amount} onChange={handleAmountChange} />
+
+        {/* Quick Add Chips wired to existing chip handler */}
+        <GPChips
+          amount={amount}
+          options={[500, 1000, 2000, 5000]}
+          onPick={handleChipPick}
+        />
+
+        {/* Footer Actions: Share (secondary) and Download (primary) */}
+        <div className="gp-footer">
+          <GPButton
+            variant="secondary"
+            icon={<ShareIcon />}
+            onClick={handleShare}
           >
-            {/* Animated Aura Glow: .burner-aura-glow when isBurner, else .qr-aura-glow */}
-            <div className={isBurner ? 'burner-aura-glow' : 'qr-aura-glow'} />
-
-            {/* QR code solid white surface */}
-            <div
-              style={{
-                position: 'relative',
-                backgroundColor: '#FFFFFF',
-                borderRadius: '16px',
-                padding: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-              }}
-            >
-              <QRCodeSVG value={currentUrl} size={210} level="M" />
-            </div>
-          </div>
+            Share
+          </GPButton>
+          <GPButton
+            variant="primary"
+            icon={downloading ? <SpinnerIcon size={16} /> : <DownloadIcon />}
+            disabled={downloading}
+            onClick={handleDownloadQR}
+          >
+            {downloading ? 'Downloading...' : 'Download'}
+          </GPButton>
         </div>
-
-        {/* Cloned Add Money Input Structure */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <label className="text-sm font-medium text-gray-400">Amount (₹)</label>
-          </div>
-          <div className="relative mb-3">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg font-medium">₹</span>
-            <input
-              type="number"
-              placeholder="0"
-              value={amount}
-              onChange={(e) => {
-                setAmount(e.target.value)
-                if (setRequestAmount) setRequestAmount(e.target.value)
-              }}
-              className="w-full bg-[#1A1F2E] border border-gray-800 rounded-xl py-3.5 pl-10 pr-4 text-white text-lg font-medium outline-none focus:border-blue-500 transition-colors"
-              style={{ fontVariantNumeric: 'tabular-nums' }}
-            />
-          </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {[500, 1000, 2000, 5000].map((val) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => {
-                  triggerHaptic(50)
-                  const next = String(Number(amount || 0) + val)
-                  setAmount(next)
-                  if (setRequestAmount) setRequestAmount(next)
-                }}
-                className={`px-4 py-1.5 rounded-full border text-sm font-medium transition-colors whitespace-nowrap ${
-                  Number(amount) === val
-                    ? 'border-blue-500 bg-blue-500/10 text-blue-400'
-                    : 'border-gray-800 bg-[#1A1F2E] text-gray-400 hover:text-white'
-                }`}
-              >
-                +₹{val.toLocaleString('en-IN')}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Action Buttons: Share & Download */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-          <button type="button" onClick={handleShare} className="btn-secondary">
-            <ShareIcon size={15} />
-            <span>Share</span>
-          </button>
-          <button type="button" onClick={handleDownloadQR} disabled={downloading} className="btn-primary">
-            {downloading ? <SpinnerIcon size={15} /> : <DownloadIcon size={15} />}
-            <span>Download</span>
-          </button>
-        </div>
-      </section>
+      </GPModal>
 
       {/* Mobile GPU safe off-screen stage */}
       <ExportCardStage
@@ -294,7 +227,7 @@ export function MyQRModal({
         activeQrShareUrl={currentUrl}
         requestedAmount={hasValidAmount ? numAmount : null}
       />
-    </div>
+    </>
   )
 }
 
