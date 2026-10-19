@@ -756,6 +756,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .w-full { width: 100%; }
 .mt-6 { margin-top: 24px; }
 .mt-3 { margin-top: 12px; }
+.mb-6 { margin-bottom: 24px; }
+.mb-3 { margin-bottom: 12px; }
 .mb-2 { margin-bottom: 8px; }
 .mr-2 { margin-right: 8px; }
 .text-left { text-align: left; }
@@ -763,13 +765,23 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .flex { display: flex; }
 .items-center { align-items: center; }
 .justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
 .gap-2 { gap: 8px; }
 .overflow-x-auto { overflow-x: auto; }
 .whitespace-nowrap { white-space: nowrap; }
 
+.relative { position: relative; }
+.absolute { position: absolute; }
+.left-4 { left: 16px; }
+.top-1\/2 { top: 50%; }
+.-translate-y-1\/2 { transform: translateY(-50%); }
+
 .px-4 { padding-left: 16px; padding-right: 16px; }
 .py-3 { padding-top: 12px; padding-bottom: 12px; }
+.py-3\.5 { padding-top: 14px; padding-bottom: 14px; }
 .py-1\.5 { padding-top: 6px; padding-bottom: 6px; }
+.pl-10 { padding-left: 40px; }
+.pr-4 { padding-right: 16px; }
 
 .rounded-xl { border-radius: 12px; }
 .rounded-full { border-radius: 9999px; }
@@ -781,9 +793,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .border-blue-500 { border-color: #3B82F6; }
 
 .bg-\[\#111827\] { background-color: #111827; }
+.bg-\[\#1A1F2E\] { background-color: #1A1F2E; }
 .bg-transparent { background-color: transparent; }
 .bg-blue-500\/10 { background-color: rgba(59, 130, 246, 0.1); }
 .hover\:bg-gray-800:hover { background-color: #1F2937; }
+.hover\:text-white:hover { color: #FFFFFF; }
 
 .text-white { color: #FFFFFF; }
 .text-gray-300 { color: #D1D5DB; }
@@ -795,6 +809,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .font-medium { font-weight: 500; }
 
 .outline-none { outline: none; }
+.focus\:border-blue-500:focus { border-color: #3B82F6; }
 .focus-within\:border-blue-500:focus-within { border-color: #3B82F6; }
 .transition-colors { transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease; cursor: pointer; }
 

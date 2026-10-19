@@ -233,26 +233,28 @@ export function MyQRModal({
           </div>
         </div>
 
-        {/* Send Money Styled Amount Input & Quick-Add Pills */}
-        <div className="w-full mt-6 text-left" style={{ marginBottom: 'var(--space-6)' }}>
-          <label className="block text-sm text-gray-400 mb-2">Amount (₹)</label>
-          <div className="flex items-center bg-[#111827] border border-gray-800 rounded-xl px-4 py-3 focus-within:border-blue-500 transition-colors">
-            <span className="text-gray-400 text-lg mr-2 font-medium">₹</span>
-            <input 
-              type="number" 
-              placeholder="0" 
-              value={amount} 
+        {/* Cloned Add Money Input Structure */}
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-sm font-medium text-gray-400">Amount (₹)</label>
+          </div>
+          <div className="relative mb-3">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg font-medium">₹</span>
+            <input
+              type="number"
+              placeholder="0"
+              value={amount}
               onChange={(e) => {
                 setAmount(e.target.value)
                 if (setRequestAmount) setRequestAmount(e.target.value)
               }}
-              className="w-full bg-transparent border-none text-white text-lg font-medium outline-none"
+              className="w-full bg-[#1A1F2E] border border-gray-800 rounded-xl py-3.5 pl-10 pr-4 text-white text-lg font-medium outline-none focus:border-blue-500 transition-colors"
               style={{ fontVariantNumeric: 'tabular-nums' }}
             />
           </div>
-          <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
             {[500, 1000, 2000, 5000].map((val) => (
-              <button 
+              <button
                 key={val}
                 type="button"
                 onClick={() => {
@@ -261,10 +263,10 @@ export function MyQRModal({
                   setAmount(next)
                   if (setRequestAmount) setRequestAmount(next)
                 }}
-                className={`px-4 py-1.5 rounded-full border text-sm transition-colors whitespace-nowrap ${
-                  Number(amount) === val 
-                    ? 'border-blue-500 bg-blue-500/10 text-blue-400' 
-                    : 'border-gray-700 bg-transparent text-gray-300 hover:bg-gray-800'
+                className={`px-4 py-1.5 rounded-full border text-sm font-medium transition-colors whitespace-nowrap ${
+                  Number(amount) === val
+                    ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                    : 'border-gray-800 bg-[#1A1F2E] text-gray-400 hover:text-white'
                 }`}
               >
                 +₹{val.toLocaleString('en-IN')}
