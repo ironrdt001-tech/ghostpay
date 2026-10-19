@@ -12,6 +12,7 @@ import {
   GPButton,
   ShareIcon,
   DownloadIcon,
+  CopyIcon,
 } from './GhostPayModalKit'
 
 export interface MyQRModalProps {
@@ -111,6 +112,16 @@ export function MyQRModal({
     }
   }
 
+  const handleCopyLink = async () => {
+    triggerHaptic(50)
+    try {
+      await navigator.clipboard.writeText(currentUrl)
+      onToast('success', 'Burner link copied to clipboard.')
+    } catch {
+      onToast('error', 'Failed to copy payment link.')
+    }
+  }
+
   async function generateBrandedCardBlob(): Promise<Blob> {
     const cardElement = document.getElementById('ghostpay-export-card')
     if (!cardElement) {
@@ -178,41 +189,19 @@ export function MyQRModal({
         onClose={handleClose}
       >
         {/* Burner Mode Toggle Pill (Above QR Code) */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+        <div className="gp-pill-row">
           <button
             type="button"
             onClick={handleToggleBurner}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '9999px',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              border: isBurner
-                ? '1px solid rgba(244, 63, 94, 0.5)'
-                : '1px solid var(--gp-border, var(--border-subtle))',
-              backgroundColor: isBurner
-                ? 'rgba(244, 63, 94, 0.15)'
-                : 'var(--gp-field, var(--bg-inset))',
-              color: isBurner
-                ? '#F43F5E'
-                : 'var(--gp-label, var(--text-secondary))',
-              boxShadow: isBurner
-                ? '0 2px 12px rgba(244, 63, 94, 0.25)'
-                : 'none',
-            }}
+            className={`gp-burner-pill ${!isBurner ? 'is-inactive' : ''}`}
           >
             <span>🔥 Burner mode (1-time use)</span>
           </button>
         </div>
 
-        {/* White rounded QR tile with soft green and purple glow */}
+        {/* White rounded QR tile with soft green/purple glow, or warm amber glow in burner mode */}
         <div className="gp-qr-wrap">
-          <div className={`gp-qr-tile ${isBurner ? 'is-burner' : ''}`}>
+          <div className={`gp-qr-tile ${isBurner ? 'gp-qr-tile--burner' : ''}`}>
             <QRCodeSVG value={currentUrl} size={210} level="M" />
           </div>
         </div>
@@ -233,15 +222,25 @@ export function MyQRModal({
           onPick={handleChipPick}
         />
 
-        {/* Footer Actions: Share (secondary) and Download (primary) */}
+        {/* Footer Actions: Copy link (for burner) or Share (for normal) and Download */}
         <div className="gp-footer">
-          <GPButton
-            variant="secondary"
-            icon={<ShareIcon />}
-            onClick={handleShare}
-          >
-            Share
-          </GPButton>
+          {isBurner ? (
+            <GPButton
+              variant="secondary"
+              icon={<CopyIcon />}
+              onClick={handleCopyLink}
+            >
+              Copy link
+            </GPButton>
+          ) : (
+            <GPButton
+              variant="secondary"
+              icon={<ShareIcon />}
+              onClick={handleShare}
+            >
+              Share
+            </GPButton>
+          )}
           <GPButton
             variant="primary"
             icon={downloading ? <SpinnerIcon size={16} /> : <DownloadIcon />}

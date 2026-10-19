@@ -282,6 +282,38 @@
   margin-top: 0;
 }
 
+/* Burner QR: warm amber/orange glow (symmetric, tight and bright like the old one) */
+.gp-qr-tile--burner,
 .gp-qr-tile.is-burner {
-  box-shadow: 0 0 60px rgba(244, 63, 94, 0.35);
+  box-shadow:
+    0 0 36px rgba(251, 146, 60, .65),
+    0 0 90px rgba(245, 158, 11, .40);
+}
+
+/* optional: keep the pill red, but soften it so it doesn't fight the orange glow */
+.gp-burner-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fb7185;
+  background: rgba(244, 63, 94, .08);
+  border: 1px solid rgba(244, 63, 94, .35);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gp-burner-pill.is-inactive {
+  color: var(--gp-label);
+  background: var(--gp-field);
+  border: 1px solid var(--gp-border);
+}
+
+.gp-pill-row {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 16px;
 }
