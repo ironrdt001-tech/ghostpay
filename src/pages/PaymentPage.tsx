@@ -12,15 +12,19 @@ export function PaymentPage() {
   const params = useParams()
   const rawTarget = params.handle || params.id || ''
   const aliasHandle = rawTarget.replace(/^@+/, '').toLowerCase()
+  const isBurner = aliasHandle.startsWith('gp_brn_') || rawTarget.startsWith('gp_brn_') || window.location.pathname.includes('/pay/gp_brn_')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
   const requestedAmountParam = searchParams.get('am') || searchParams.get('amount')
   const urlRequestedAmount = useMemo(() => {
+    // If route is a burner, strictly ignore URL parameters
+    if (isBurner) return null
     const requested = Number(requestedAmountParam)
     return Number.isFinite(requested) && requested > 0 ? requested : null
-  }, [requestedAmountParam])
+  }, [requestedAmountParam, isBurner])
 
+  const [lockedAmount, setLockedAmount] = useState<number | null>(null)
   const [profile, setProfile] = useState<Pick<Profile, 'id' | 'alias_handle' | 'avatar_url'> | null>(null)
   const [visitorSession, setVisitorSession] = useState<Session | null>(null)
   const [authReady, setAuthReady] = useState(!supabase)
@@ -48,8 +52,10 @@ export function PaymentPage() {
   }, [])
 
   useEffect(() => {
-    setAmount(urlRequestedAmount === null ? '' : String(urlRequestedAmount))
-  }, [urlRequestedAmount])
+    if (!isBurner) {
+      setAmount(urlRequestedAmount === null ? '' : String(urlRequestedAmount))
+    }
+  }, [urlRequestedAmount, isBurner])
 
   const user = visitorSession?.user
   // GhostPay Wallet option is only available if user is logged in and not paying themselves
@@ -114,12 +120,72 @@ export function PaymentPage() {
     return () => { active = false }
   }, [visitorSession?.user.id])
 
-  // Fetch receiver profile by alias handle
+  // Fetch receiver profile by alias handle or burner token from Supabase
   useEffect(() => {
     let active = true
     async function loadReceiver() {
       if (!supabase) {
         setError('Payment link is not connected.')
+        return
+      }
+
+      if (isBurner) {
+        const burnerToken = rawTarget.replace(/^@+/, '')
+        const { data: burnerData, error: burnerError } = await supabase
+          .from('burner_links')
+          .select('token, handle, amount, consumed')
+          .eq('token', burnerToken)
+          .maybeSingle()
+
+        if (!active) return
+
+        if (burnerError) {
+          setError('Could not verify burner payment link.')
+          return
+        }
+
+        if (!burnerData) {
+          setError('Burner payment link not found or expired.')
+          return
+        }
+
+        if (burnerData.consumed) {
+          setError('This burner payment link has already been used and self-destructed.')
+          return
+        }
+
+        // Creator profile lookup for routing payment
+        const creatorHandle = (burnerData.handle || '').replace(/^@+/, '').toLowerCase()
+        const { data: creatorProfile } = await supabase
+          .from('profiles')
+          .select('id, alias_handle, avatar_url')
+          .eq('alias_handle', creatorHandle)
+          .maybeSingle()
+
+        if (!active) return
+
+        if (creatorProfile) {
+          setProfile({
+            id: creatorProfile.id,
+            alias_handle: creatorProfile.alias_handle,
+            avatar_url: null, // Keep shielded
+          })
+        } else {
+          setProfile({
+            id: burnerToken,
+            alias_handle: creatorHandle || burnerToken,
+            avatar_url: null,
+          })
+        }
+
+        // Rely 100% on the amount value fetched from the burner_links table in Supabase
+        if (burnerData.amount !== null && burnerData.amount !== undefined) {
+          const num = Number(burnerData.amount)
+          if (Number.isFinite(num) && num > 0) {
+            setAmount(String(num))
+            setLockedAmount(num)
+          }
+        }
         return
       }
 
@@ -129,15 +195,7 @@ export function PaymentPage() {
       if (queryError) {
         setError(queryError.message)
       } else if (!data) {
-        if (aliasHandle.startsWith('gp_brn_')) {
-          setProfile({
-            id: aliasHandle,
-            alias_handle: aliasHandle,
-            avatar_url: null,
-          })
-        } else {
-          setError('Payment link not found. Check the handle and try again.')
-        }
+        setError('Payment link not found. Check the handle and try again.')
       } else {
         setProfile(data)
       }
@@ -145,7 +203,7 @@ export function PaymentPage() {
 
     void loadReceiver()
     return () => { active = false }
-  }, [aliasHandle])
+  }, [aliasHandle, isBurner, rawTarget])
 
   const numAmount = parseFloat(amount) || 0
   const hasValidAmount = Number.isFinite(numAmount) && numAmount > 0
@@ -163,7 +221,15 @@ export function PaymentPage() {
     setError('')
     setToast('')
 
-    const value = urlRequestedAmount !== null ? urlRequestedAmount : Number(amount)
+    const isAmountLocked = Boolean(
+      (isBurner && lockedAmount !== null) ||
+      (!isBurner && urlRequestedAmount !== null)
+    )
+    const displayRequestedAmount = isBurner ? lockedAmount : urlRequestedAmount
+
+    const value = isAmountLocked && displayRequestedAmount !== null
+      ? displayRequestedAmount
+      : Number(amount)
     if (!Number.isFinite(value) || value <= 0 || Math.round(value * 100) !== value * 100) {
       showToast('Enter a valid payment amount with up to two decimal places.')
       return
@@ -230,11 +296,16 @@ export function PaymentPage() {
         setWalletBalance(updatedBalance)
       }
 
+      // Mark burner link as consumed on successful payment
+      if (isBurner) {
+        void supabase.from('burner_links').update({ consumed: true }).eq('token', rawTarget.replace(/^@+/, ''))
+      }
+
       await new Promise(resolve => setTimeout(resolve, 350))
       navigate('/payment/success', {
         state: {
           amount: value,
-          alias: profile.alias_handle,
+          alias: isBurner ? 'Shielded User' : profile.alias_handle,
           senderAlias: resolvedSenderName,
           paymentMode: useWallet ? 'wallet' : 'simulated',
           transactionId: transfer.transaction_id,
@@ -246,8 +317,16 @@ export function PaymentPage() {
     }
   }
 
+  const isAmountLocked = Boolean(
+    (isBurner && lockedAmount !== null) ||
+    (!isBurner && urlRequestedAmount !== null)
+  )
+  const displayRequestedAmount = isBurner ? lockedAmount : urlRequestedAmount
+
   const formattedWalletBalance = walletBalance === null ? '₹0.00' : `₹${walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  const receiverHandleDisplay = profile ? formatHandle(profile.alias_handle) : formatHandle(aliasHandle)
+  const receiverHandleDisplay = isBurner
+    ? 'Shielded User'
+    : (profile ? formatHandle(profile.alias_handle) : formatHandle(aliasHandle))
   const actionButtonText = hasValidAmount
     ? `Pay ${formatMoneyParts(numAmount).full} to ${receiverHandleDisplay}`
     : `Pay ${receiverHandleDisplay}`
@@ -313,6 +392,8 @@ export function PaymentPage() {
             >
               {profile?.avatar_url ? (
                 <img src={profile.avatar_url} alt="Recipient" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : isBurner ? (
+                <ShieldCheckIcon size={28} strokeWidth={2} style={{ color: 'var(--semantic-credit-text)' }} />
               ) : (
                 <span style={{ fontSize: '24px', fontWeight: 500, color: 'var(--text-primary)' }}>
                   {aliasHandle.charAt(0).toUpperCase()}
@@ -348,9 +429,9 @@ export function PaymentPage() {
 
             <label className="field-label">
               <span>Amount (₹)</span>
-              {urlRequestedAmount !== null && (
+              {displayRequestedAmount !== null && (
                 <div style={{ fontSize: '12px', color: 'var(--semantic-credit-text)', marginBottom: '2px' }}>
-                  Requested amount: ₹{urlRequestedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  Requested amount: ₹{displayRequestedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </div>
               )}
               <div className="input-with-prefix">
@@ -364,18 +445,18 @@ export function PaymentPage() {
                   className="tabular-nums"
                   value={amount}
                   onChange={e => {
-                    if (urlRequestedAmount === null) {
+                    if (!isAmountLocked) {
                       setAmount(e.target.value)
                     }
                   }}
-                  readOnly={urlRequestedAmount !== null}
-                  disabled={busy}
+                  readOnly={isAmountLocked}
+                  disabled={busy || isAmountLocked}
                   required
-                  style={urlRequestedAmount !== null ? { cursor: 'not-allowed', opacity: 0.85 } : undefined}
+                  style={isAmountLocked ? { cursor: 'not-allowed', opacity: 0.85 } : undefined}
                 />
               </div>
 
-              {urlRequestedAmount === null && (
+              {!isAmountLocked && (
                 <div className="chip-group" style={{ marginTop: '4px' }}>
                   {[100, 500, 1000].map(val => (
                     <button

@@ -74,7 +74,7 @@ export function PaymentSuccessPage() {
               {isWallet ? 'Wallet transfer completed' : 'Payment simulation completed'}
             </h1>
             <p className="text-secondary" style={{ fontSize: '13px' }}>
-              Paid to @{alias.replace(/^@+/, '')}
+              Paid to {alias === 'Shielded User' || alias.startsWith('gp_brn_') ? 'Shielded User' : `@${alias.replace(/^@+/, '')}`}
             </p>
           </div>
 
@@ -96,7 +96,9 @@ export function PaymentSuccessPage() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
               <span style={{ color: 'var(--text-muted)' }}>To</span>
-              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>@{alias.replace(/^@+/, '')}</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                {alias === 'Shielded User' || alias.startsWith('gp_brn_') ? 'Shielded User' : `@${alias.replace(/^@+/, '')}`}
+              </span>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)' }}>

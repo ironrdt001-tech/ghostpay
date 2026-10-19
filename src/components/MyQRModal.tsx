@@ -50,7 +50,7 @@ export function MyQRModal({
     ? `https://ghostpay-orpin.vercel.app/pay/${burnerToken || 'gp_brn_temp'}`
     : `https://ghostpay-orpin.vercel.app/@${userHandle}`
 
-  if (hasValidAmount) {
+  if (!isBurner && hasValidAmount) {
     currentUrl += `?am=${amount.trim()}`
   }
 
