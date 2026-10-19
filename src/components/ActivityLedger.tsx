@@ -45,34 +45,14 @@ function formatTransactionCounterparty(tx: Transaction): { displayName: string; 
   )
 
   const rawName = (
-    (counterpartId.startsWith('#') ? counterpartId : '') ||
     tx.counterpartyLabel ||
     tx.sender_name ||
     tx.sender_alias ||
+    counterpartId ||
     ''
   ).trim()
 
-  let displayName = rawName || 'GhostPay User'
-
-  if (isPrivateRoute) {
-    if (displayName.startsWith('#')) {
-      // already prefixed
-    } else {
-      const clean = displayName.replace(/^@+/, '').trim()
-      const lower = clean.toLowerCase()
-      if (
-        !clean ||
-        lower === 'anonymous' ||
-        lower === 'anonymous sender' ||
-        lower === 'ghostpay user' ||
-        clean.includes(' ')
-      ) {
-        displayName = '#HiddenSender'
-      } else {
-        displayName = `#${clean}`
-      }
-    }
-  }
+  const displayName = rawName || 'GhostPay User'
 
   return { displayName, isPrivateRoute }
 }
@@ -626,10 +606,14 @@ export function ActivityLedger({
                                   <div className="ledger-item-left">
                                     <div
                                       className={`ledger-icon-circle ${isPrivateRoute ? 'private' : isReceived ? 'credit' : 'debit'}`}
-                                      style={{ width: '32px', height: '32px' }}
+                                      style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        ...(isPrivateRoute ? { backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10B981' } : {}),
+                                      }}
                                     >
                                       {isPrivateRoute ? (
-                                        <EyeOffIcon size={14} strokeWidth={2} />
+                                        <EyeOffIcon size={14} strokeWidth={2} style={{ color: '#10B981' }} />
                                       ) : isReceived ? (
                                         <ArrowIncomingIcon size={14} strokeWidth={2} />
                                       ) : (
@@ -642,7 +626,6 @@ export function ActivityLedger({
                                         <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
                                         <span>·</span>
                                         <span className="rail-tag">{rail}</span>
-                                        {isPrivateRoute && <span className="one-way-warning">🔒 One-way private route</span>}
                                       </div>
                                     </div>
                                   </div>
@@ -763,9 +746,12 @@ export function ActivityLedger({
                       title="View verified UTR receipt"
                     >
                       <div className="ledger-item-left">
-                        <div className={`ledger-icon-circle ${isPrivateRoute ? 'private' : isReceived ? 'credit' : 'debit'}`}>
+                        <div
+                          className={`ledger-icon-circle ${isPrivateRoute ? 'private' : isReceived ? 'credit' : 'debit'}`}
+                          style={isPrivateRoute ? { backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10B981' } : undefined}
+                        >
                           {isPrivateRoute ? (
-                            <EyeOffIcon size={16} strokeWidth={2} />
+                            <EyeOffIcon size={16} strokeWidth={2} style={{ color: '#10B981' }} />
                           ) : isReceived ? (
                             <ArrowIncomingIcon size={16} strokeWidth={2} />
                           ) : (
@@ -778,7 +764,6 @@ export function ActivityLedger({
                             <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
                             <span>·</span>
                             <span className="rail-tag">{rail}</span>
-                            {isPrivateRoute && <span className="one-way-warning">🔒 One-way private route</span>}
                           </div>
                         </div>
                       </div>

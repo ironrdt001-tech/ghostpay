@@ -840,8 +840,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .ledger-icon-circle.private {
-  background-color: var(--bg-inset);
-  color: var(--text-secondary);
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10B981;
 }
 
 .ledger-item-info {
