@@ -317,3 +317,85 @@
   justify-content: center;
   margin: 0 0 16px;
 }
+
+/* ==========================================================================
+   LIGHT MODE: Shared Modal Kit Overrides
+   ========================================================================== */
+:root[data-theme="light"] .gp-panel,
+:root.light .gp-panel,
+html:not(.dark):not([data-theme="dark"]) .gp-panel {
+  --gp-bg: #ffffff;
+  --gp-field: #ffffff;
+  --gp-chip: #ffffff;
+  --gp-border: #dfe4ec;
+  --gp-border-strong: #c3cbd8;
+  --gp-text: #0f172a;
+  --gp-muted: #5b6678;
+  --gp-label: #3f4a5c;
+  --gp-icon: #3f4a5c;
+  --gp-accent: #2563eb;
+  --gp-accent-text: #2563eb;
+  --gp-accent-tint: rgba(37, 99, 235, .08);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, .25);
+}
+
+:root[data-theme="light"] .gp-close,
+html:not(.dark):not([data-theme="dark"]) .gp-close {
+  background: #ffffff;
+  border-color: var(--gp-border-strong, #c3cbd8);
+  color: var(--gp-icon, #3f4a5c);
+}
+
+:root[data-theme="light"] .gp-field,
+html:not(.dark):not([data-theme="dark"]) .gp-field {
+  border-color: var(--gp-border-strong, #c3cbd8);
+}
+
+:root[data-theme="light"] .gp-chip,
+html:not(.dark):not([data-theme="dark"]) .gp-chip {
+  border-color: var(--gp-border-strong, #c3cbd8);
+}
+
+:root[data-theme="light"] .gp-btn-secondary,
+html:not(.dark):not([data-theme="dark"]) .gp-btn-secondary {
+  color: #0f172a;
+  background: #ffffff;
+  border-color: var(--gp-border-strong, #c3cbd8);
+}
+
+:root[data-theme="light"] .gp-btn-secondary:hover,
+html:not(.dark):not([data-theme="dark"]) .gp-btn-secondary:hover {
+  background: rgba(15, 23, 42, .04);
+}
+
+:root[data-theme="light"] .gp-overlay,
+html:not(.dark):not([data-theme="dark"]) .gp-overlay {
+  background: rgba(15, 23, 42, .35);
+}
+
+:root[data-theme="light"] .gp-panel .surface-inset,
+html:not(.dark):not([data-theme="dark"]) .gp-panel .surface-inset {
+  background-color: #ffffff;
+  border-color: #c3cbd8;
+}
+
+:root[data-theme="light"] .gp-panel .surface-inset.active,
+html:not(.dark):not([data-theme="dark"]) .gp-panel .surface-inset.active {
+  border-color: var(--accent, #2563eb) !important;
+  background-color: var(--accent-tint, rgba(37, 99, 235, 0.08)) !important;
+  color: var(--accent, #2563eb) !important;
+}
+
+:root[data-theme="light"] .gp-burner-pill.is-inactive,
+html:not(.dark):not([data-theme="dark"]) .gp-burner-pill.is-inactive {
+  border-color: var(--gp-border-strong, #c3cbd8);
+  background-color: #ffffff;
+}
+
+:root[data-theme="light"] .gp-burner-pill:not(.is-inactive),
+html:not(.dark):not([data-theme="dark"]) .gp-burner-pill:not(.is-inactive) {
+  color: #e11d48;
+  background: rgba(225, 29, 72, .08);
+  border-color: rgba(225, 29, 72, .4);
+}
+

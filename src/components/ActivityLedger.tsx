@@ -282,6 +282,7 @@ export function ActivityLedger({
 
         {/* 2. Unified Cashflow Summary Card */}
         <div
+          className="cashflow-summary-card"
           style={{
             backgroundColor: 'var(--bg-inset)',
             border: '1px solid var(--border-subtle)',

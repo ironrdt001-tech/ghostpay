@@ -57,30 +57,40 @@
   --focus-ring: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--accent-primary);
 }
 
-[data-theme="light"] {
-  --bg-canvas: #F7F8FC;
-  --bg-surface: #FFFFFF;
-  --bg-elevated: #FFFFFF;
-  --bg-inset: #F1F5F9;
-  --border-subtle: #E5E7EB;
-  --border-strong: #CBD5E1;
-  --text-primary: #111827;
-  --text-secondary: #4B5563;
-  --text-muted: #6B7280;
-
-  --accent-primary: #2563EB;
-  --accent-hover: #1D4ED8;
+/* ===== LIGHT MODE: visible borders + surface separation ===== */
+:root[data-theme="light"],
+:root.light,
+html:not(.dark):not([data-theme="dark"]) {
+  --page-bg: #f3f5f9;          /* NOT pure white, so cards separate from the page */
+  --bg-canvas: #f3f5f9;
+  --surface: #ffffff;          /* cards */
+  --bg-surface: #ffffff;
+  --surface-field: #ffffff;    /* inputs, search, chips */
+  --bg-inset: #ffffff;
+  --surface-muted: #f6f8fb;    /* summary box, list header rows */
+  --bg-elevated: #ffffff;
+  --border-subtle: #dfe4ec;    /* cards, dividers */
+  --border-strong: #c3cbd8;    /* pills, chips, inputs, secondary buttons */
+  --text-strong: #0f172a;
+  --text-primary: #0f172a;
+  --text-secondary: #3f4a5c;
+  --text-muted: #5b6678;
+  --accent: #2563eb;
+  --accent-primary: #2563eb;
+  --accent-hover: #1d4ed8;
   --accent-subtle: rgba(37, 99, 235, 0.08);
-  --accent-text: #2563EB;
+  --accent-tint: rgba(37, 99, 235, 0.08);
+  --accent-text: #2563eb;
+  --card-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.04);
 
   --semantic-credit: #059669;
   --semantic-credit-text: #059669;
   --semantic-credit-tint: rgba(5, 150, 105, 0.10);
-  --semantic-debit: #E11D48;
-  --semantic-debit-text: #E11D48;
+  --semantic-debit: #e11d48;
+  --semantic-debit-text: #e11d48;
   --semantic-debit-tint: rgba(225, 29, 72, 0.08);
 
-  --focus-ring: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--accent-primary);
+  --focus-ring: 0 0 0 2px #f3f5f9, 0 0 0 4px #2563eb;
 }
 
 /* Base Reset & Core Styles */
@@ -1224,4 +1234,177 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .activity-section {
   scroll-margin-top: 80px;
 }
+
+/* ==========================================================================
+   LIGHT MODE: Visible borders & surface separation
+   ========================================================================== */
+:root[data-theme="light"] body {
+  background-color: var(--page-bg, #f3f5f9);
+  color: var(--text-primary, #0f172a);
+}
+
+/* 1. Cards: Available balance card, Shielded payment link card, Send money card, Recent activity card */
+:root[data-theme="light"] .surface-card,
+:root[data-theme="light"] .card,
+:root[data-theme="light"] [class*="card"] {
+  background-color: var(--surface, #ffffff);
+  border: 1px solid var(--border-subtle, #dfe4ec);
+  box-shadow: var(--card-shadow);
+}
+
+/* 2. Secondary buttons & icon buttons: "+ Add money", "Copy link", eye button, theme button */
+:root[data-theme="light"] .btn-secondary {
+  background-color: var(--surface-field, #ffffff) !important;
+  border: 1px solid var(--border-strong, #c3cbd8) !important;
+  color: var(--text-primary, #0f172a);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+:root[data-theme="light"] .btn-secondary:hover:not(:disabled) {
+  background-color: var(--surface-muted, #f6f8fb) !important;
+  border-color: var(--border-strong, #c3cbd8) !important;
+}
+
+:root[data-theme="light"] .btn-icon {
+  background-color: var(--surface-field, #ffffff);
+  border: 1px solid var(--border-strong, #c3cbd8);
+  color: var(--text-secondary, #3f4a5c);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+:root[data-theme="light"] .btn-icon:hover {
+  background-color: var(--surface-muted, #f6f8fb);
+  color: var(--text-primary, #0f172a);
+  border-color: var(--text-muted, #5b6678);
+}
+
+/* 3. Inputs: Recipient, Amount, Filter by @handle */
+:root[data-theme="light"] .input-with-prefix {
+  background-color: var(--surface-field, #ffffff);
+  border: 1px solid var(--border-strong, #c3cbd8);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+:root[data-theme="light"] .input-with-prefix:focus-within {
+  border-color: var(--accent, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+:root[data-theme="light"] .input-with-prefix input {
+  background: transparent;
+  color: var(--text-strong, #0f172a);
+}
+:root[data-theme="light"] .input-with-prefix input::placeholder {
+  color: var(--text-muted, #5b6678);
+  opacity: 0.75;
+}
+
+/* 4. Quick chips (+100, +500, +1,000) */
+:root[data-theme="light"] .chip-btn,
+:root[data-theme="light"] .chip {
+  background-color: var(--surface-field, #ffffff);
+  border: 1px solid var(--border-strong, #c3cbd8);
+  color: var(--text-strong, #0f172a);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+:root[data-theme="light"] .chip-btn:hover:not(:disabled),
+:root[data-theme="light"] .chip:hover:not(:disabled) {
+  border-color: var(--border-strong, #c3cbd8);
+  background-color: var(--surface-muted, #f6f8fb);
+  color: var(--text-strong, #0f172a);
+}
+:root[data-theme="light"] .chip-btn.active,
+:root[data-theme="light"] .chip-btn[data-selected="true"],
+:root[data-theme="light"] .chip[data-selected="true"] {
+  border-color: var(--accent, #2563eb) !important;
+  background-color: var(--accent-tint, rgba(37, 99, 235, 0.08)) !important;
+  color: var(--accent, #2563eb) !important;
+}
+
+/* 5. Segmented pill and tabs (All / Received / Sent / 7 days) */
+:root[data-theme="light"] .segmented-pill {
+  background-color: var(--surface-muted, #f6f8fb);
+  border: 1px solid var(--border-subtle, #dfe4ec);
+  gap: 4px;
+}
+:root[data-theme="light"] .segmented-tab {
+  background: var(--surface-field, #ffffff);
+  border: 1px solid var(--border-strong, #c3cbd8);
+  color: var(--text-strong, #0f172a);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+:root[data-theme="light"] .segmented-tab:hover {
+  background-color: var(--surface-muted, #f6f8fb);
+  color: var(--text-primary, #0f172a);
+}
+:root[data-theme="light"] .segmented-tab.active,
+:root[data-theme="light"] .segmented-tab[aria-selected="true"] {
+  border-color: var(--accent, #2563eb) !important;
+  background: var(--accent-tint, rgba(37, 99, 235, 0.08)) !important;
+  color: var(--accent, #2563eb) !important;
+  box-shadow: none;
+}
+
+/* 6. Cashflow / Daily summary box */
+:root[data-theme="light"] .cashflow-summary-card {
+  background-color: var(--surface-muted, #f6f8fb) !important;
+  border: 1px solid var(--border-subtle, #dfe4ec) !important;
+}
+
+/* 7. Activity rows & Day headers */
+:root[data-theme="light"] .ledger-group-header {
+  background-color: var(--surface-muted, #f6f8fb);
+  border-top: 1px solid var(--border-subtle, #dfe4ec);
+  border-bottom: 1px solid var(--border-subtle, #dfe4ec);
+  color: var(--text-muted, #5b6678);
+}
+:root[data-theme="light"] .ledger-item {
+  background-color: var(--surface, #ffffff);
+  border-bottom: 1px solid var(--border-subtle, #dfe4ec);
+}
+:root[data-theme="light"] .ledger-item:hover {
+  background-color: var(--surface-muted, #f6f8fb);
+}
+
+/* 8. Tags like "Shielded link", "Internal P2P", "Wallet top-up" */
+:root[data-theme="light"] .rail-tag,
+:root[data-theme="light"] .tag {
+  background-color: var(--surface-field, #ffffff);
+  border: 1px solid var(--border-strong, #c3cbd8);
+  color: var(--text-secondary, #3f4a5c);
+}
+
+/* 9. Round icon avatars/status icons in rows */
+:root[data-theme="light"] .ledger-icon-circle {
+  border: 1px solid var(--border-subtle, #dfe4ec);
+}
+:root[data-theme="light"] .ledger-icon-circle.credit {
+  border: 1px solid rgba(5, 150, 105, 0.25);
+  background-color: var(--semantic-credit-tint, rgba(5, 150, 105, 0.10));
+  color: var(--semantic-credit-text, #059669);
+}
+:root[data-theme="light"] .ledger-icon-circle.debit {
+  border: 1px solid rgba(225, 29, 72, 0.25);
+  background-color: var(--semantic-debit-tint, rgba(225, 29, 72, 0.08));
+  color: var(--semantic-debit-text, #e11d48);
+}
+:root[data-theme="light"] .ledger-icon-circle.private {
+  border: 1px solid rgba(5, 150, 105, 0.25);
+  background-color: rgba(5, 150, 105, 0.10);
+  color: #059669;
+}
+
+/* 10. Recent People circle avatars */
+:root[data-theme="light"] .recent-people-strip button > div {
+  background-color: var(--surface-field, #ffffff) !important;
+  border-color: var(--border-strong, #c3cbd8) !important;
+}
+
+/* 11. Modal sheet & Scrim (Receipt Modal, Edit Profile Modal) */
+:root[data-theme="light"] .modal-scrim {
+  background-color: rgba(15, 23, 42, 0.35);
+}
+:root[data-theme="light"] .modal-sheet {
+  background-color: var(--surface, #ffffff);
+  border: 1px solid var(--border-strong, #c3cbd8);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.25);
+}
+
+
 

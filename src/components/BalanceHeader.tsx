@@ -29,7 +29,7 @@ export function BalanceHeader({
           type="button"
           onClick={onOpenTopUp}
           className="btn-secondary"
-          style={{ minHeight: '38px', padding: '0 16px', fontSize: '13px', borderRadius: 'var(--radius-pill)', color: 'var(--semantic-credit-text)', borderColor: 'var(--border-subtle)' }}
+          style={{ minHeight: '38px', padding: '0 16px', fontSize: '13px', borderRadius: 'var(--radius-pill)', color: 'var(--semantic-credit-text)' }}
         >
           + Add money
         </button>
