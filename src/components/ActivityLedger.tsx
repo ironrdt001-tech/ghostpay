@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { formatMoneyParts, formatCompactRupee, formatIstTime, groupTransactionsByDate } from '../lib/formatters'
-import { ArrowIncomingIcon, ArrowOutgoingIcon, SearchIcon, ChevronDownIcon } from './Icons'
+import { ArrowIncomingIcon, ArrowOutgoingIcon, SearchIcon, ChevronDownIcon, EyeOffIcon } from './Icons'
 import type { Transaction, ActivityFilter } from '../lib/types'
 
 interface ActivityLedgerProps {
@@ -20,13 +20,22 @@ function getIstDateKey(dateString: string): string {
   }
 }
 
-function formatTransactionCounterparty(tx: Transaction): { displayName: string; isOneWay: boolean } {
+function formatTransactionCounterparty(tx: Transaction): { displayName: string; isPrivateRoute: boolean } {
   const counterpartId = (tx.direction === 'sent'
     ? (tx.receiver_id || tx.counterpartyUserId)
     : (tx.sender_id || tx.counterpartyUserId)) || ''
 
-  const isOneWay = Boolean(
+  const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
+    String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
+
+  const isShieldedRail = !isTopUp && !tx.sender_id
+
+  const isPrivateRoute = Boolean(
     counterpartId.startsWith('#') ||
+    tx.type === 'shielded_link' ||
+    tx.type === 'shielded' ||
+    Boolean(tx.isNodal) ||
+    isShieldedRail ||
     (tx.sender_id && tx.sender_id.startsWith('#')) ||
     (tx.receiver_id && tx.receiver_id.startsWith('#')) ||
     (tx.sender_alias && tx.sender_alias.startsWith('#')) ||
@@ -36,18 +45,36 @@ function formatTransactionCounterparty(tx: Transaction): { displayName: string; 
   )
 
   const rawName = (
+    (counterpartId.startsWith('#') ? counterpartId : '') ||
     tx.counterpartyLabel ||
     tx.sender_name ||
     tx.sender_alias ||
-    (counterpartId.startsWith('#') ? counterpartId : '') ||
-    'GhostPay User'
+    ''
   ).trim()
 
-  const displayName = isOneWay
-    ? (rawName.startsWith('#') ? rawName : `#${rawName.replace(/^@+/, '')}`)
-    : rawName
+  let displayName = rawName || 'GhostPay User'
 
-  return { displayName, isOneWay }
+  if (isPrivateRoute) {
+    if (displayName.startsWith('#')) {
+      // already prefixed
+    } else {
+      const clean = displayName.replace(/^@+/, '').trim()
+      const lower = clean.toLowerCase()
+      if (
+        !clean ||
+        lower === 'anonymous' ||
+        lower === 'anonymous sender' ||
+        lower === 'ghostpay user' ||
+        clean.includes(' ')
+      ) {
+        displayName = '#HiddenSender'
+      } else {
+        displayName = `#${clean}`
+      }
+    }
+  }
+
+  return { displayName, isPrivateRoute }
 }
 
 interface DaySummary {
@@ -574,8 +601,8 @@ export function ActivityLedger({
                               const parts = formatMoneyParts(tx.amount_inr)
                               const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
                                 String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
-                              const rail = isTopUp ? 'Wallet top-up' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
-                              const { displayName: counterparty, isOneWay } = formatTransactionCounterparty(tx)
+                              const { displayName: counterparty, isPrivateRoute } = formatTransactionCounterparty(tx)
+                              const rail = isTopUp ? 'Wallet top-up' : isPrivateRoute ? 'Shielded link' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
 
                               return (
                                 <div
@@ -597,8 +624,13 @@ export function ActivityLedger({
                                   }}
                                 >
                                   <div className="ledger-item-left">
-                                    <div className={`ledger-icon-circle ${isReceived ? 'credit' : 'debit'}`} style={{ width: '32px', height: '32px' }}>
-                                      {isReceived ? (
+                                    <div
+                                      className={`ledger-icon-circle ${isPrivateRoute ? 'private' : isReceived ? 'credit' : 'debit'}`}
+                                      style={{ width: '32px', height: '32px' }}
+                                    >
+                                      {isPrivateRoute ? (
+                                        <EyeOffIcon size={14} strokeWidth={2} />
+                                      ) : isReceived ? (
                                         <ArrowIncomingIcon size={14} strokeWidth={2} />
                                       ) : (
                                         <ArrowOutgoingIcon size={14} strokeWidth={2} />
@@ -610,7 +642,7 @@ export function ActivityLedger({
                                         <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
                                         <span>·</span>
                                         <span className="rail-tag">{rail}</span>
-                                        {isOneWay && <span className="one-way-warning">🔒 One-way private route</span>}
+                                        {isPrivateRoute && <span className="one-way-warning">🔒 One-way private route</span>}
                                       </div>
                                     </div>
                                   </div>
@@ -712,8 +744,8 @@ export function ActivityLedger({
                   const parts = formatMoneyParts(tx.amount_inr)
                   const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
                     String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
-                  const rail = isTopUp ? 'Wallet top-up' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
-                  const { displayName: counterparty, isOneWay } = formatTransactionCounterparty(tx)
+                  const { displayName: counterparty, isPrivateRoute } = formatTransactionCounterparty(tx)
+                  const rail = isTopUp ? 'Wallet top-up' : isPrivateRoute ? 'Shielded link' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
 
                   return (
                     <div
@@ -731,8 +763,10 @@ export function ActivityLedger({
                       title="View verified UTR receipt"
                     >
                       <div className="ledger-item-left">
-                        <div className={`ledger-icon-circle ${isReceived ? 'credit' : 'debit'}`}>
-                          {isReceived ? (
+                        <div className={`ledger-icon-circle ${isPrivateRoute ? 'private' : isReceived ? 'credit' : 'debit'}`}>
+                          {isPrivateRoute ? (
+                            <EyeOffIcon size={16} strokeWidth={2} />
+                          ) : isReceived ? (
                             <ArrowIncomingIcon size={16} strokeWidth={2} />
                           ) : (
                             <ArrowOutgoingIcon size={16} strokeWidth={2} />
@@ -744,7 +778,7 @@ export function ActivityLedger({
                             <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
                             <span>·</span>
                             <span className="rail-tag">{rail}</span>
-                            {isOneWay && <span className="one-way-warning">🔒 One-way private route</span>}
+                            {isPrivateRoute && <span className="one-way-warning">🔒 One-way private route</span>}
                           </div>
                         </div>
                       </div>

@@ -782,6 +782,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   color: var(--semantic-debit-text);
 }
 
+.ledger-icon-circle.private {
+  background-color: var(--bg-inset);
+  color: var(--text-secondary);
+}
+
 .ledger-item-info {
   display: flex;
   flex-direction: column;

@@ -138,8 +138,16 @@ export function SendMoneyForm({
 
       <RecentPeople
         people={recentPeople.filter(person => {
-          const id = (person.handle || person.label || '').trim().replace(/^@+/, '')
-          return !id.startsWith('#')
+          const raw = (person.handle || person.label || '').trim()
+          const id = raw.replace(/^@+/, '').trim()
+          if (!id || id.startsWith('#') || id.includes(' ') || /\s/.test(id)) return false
+          const lower = id.toLowerCase()
+          return (
+            lower !== 'anonymous sender' &&
+            lower !== 'anonymous' &&
+            lower !== 'ghostpay user' &&
+            lower !== 'ghostpay wallet'
+          )
         })}
         selectedRecipient={recipient}
         onSelectPerson={handle => setRecipient(handle)}

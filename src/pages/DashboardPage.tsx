@@ -233,6 +233,8 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
         ...tx,
         direction: 'received' as const,
         counterpartyLabel: tx.sender_alias || 'Anonymous Sender',
+        type: 'shielded_link',
+        isNodal: true,
       })),
     ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   }, [transactions, demoTransactions])
@@ -246,29 +248,61 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
 
     for (const tx of transactions) {
       if (tx.counterpartyUserId === currentUserId) continue
-      if (tx.sender_name?.startsWith('Simulated Wallet Top-Up')) continue
-      if (tx.sender_id?.startsWith('#') || tx.receiver_id?.startsWith('#') || tx.sender_alias?.startsWith('#') || tx.counterpartyLabel?.startsWith('#') || tx.counterpartyUserId?.startsWith('#')) continue
+
+      // Exclude top-ups
+      const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
+        String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
+      if (isTopUp) continue
+
+      // Exclude anonymous, nodal, or shielded link payments
+      const isShielded = !tx.sender_id ||
+        tx.type === 'shielded' ||
+        tx.type === 'shielded_link' ||
+        Boolean(tx.isNodal) ||
+        String(tx.type || '').toLowerCase().includes('shielded') ||
+        String(tx.type || '').toLowerCase().includes('nodal')
+      if (isShielded) continue
+
+      // Exclude if any ID or label starts with '#'
+      if (
+        tx.sender_id?.startsWith('#') ||
+        tx.receiver_id?.startsWith('#') ||
+        tx.sender_alias?.startsWith('#') ||
+        tx.counterpartyLabel?.startsWith('#') ||
+        tx.counterpartyUserId?.startsWith('#') ||
+        tx.sender_name?.startsWith('#')
+      ) {
+        continue
+      }
 
       const rawHandle = (tx.counterpartyLabel || tx.sender_name || tx.sender_alias || '').trim()
-      if (rawHandle.startsWith('#')) continue
-      const cleanKey = rawHandle.trim().replace(/^@+/, '').toLowerCase()
-      if (cleanKey.startsWith('#')) continue
+      if (!rawHandle || rawHandle.startsWith('#')) continue
 
+      // Clean handle (strip leading @)
+      const cleanKey = rawHandle.replace(/^@+/, '').trim().toLowerCase()
+      if (!cleanKey || cleanKey.startsWith('#')) continue
+
+      // Strictly ensure no ID with spaces (like "@hoja ache se pls") is ever allowed
+      if (cleanKey.includes(' ') || /\s/.test(cleanKey)) continue
+
+      // Exclude known generic labels
       if (
-        cleanKey &&
-        cleanKey !== 'anonymous sender' &&
-        cleanKey !== 'ghostpay user' &&
-        cleanKey !== 'ghostpay wallet' &&
-        cleanKey !== ownHandleClean &&
-        !seen.has(cleanKey)
+        cleanKey === 'anonymous sender' ||
+        cleanKey === 'anonymous' ||
+        cleanKey === 'ghostpay user' ||
+        cleanKey === 'ghostpay wallet' ||
+        cleanKey === ownHandleClean ||
+        seen.has(cleanKey)
       ) {
-        seen.add(cleanKey)
-        list.push({
-          handle: `@${cleanKey}`,
-          label: cleanKey,
-          avatarUrl: tx.counterpartyAvatarUrl,
-        })
+        continue
       }
+
+      seen.add(cleanKey)
+      list.push({
+        handle: `@${cleanKey}`,
+        label: cleanKey,
+        avatarUrl: tx.counterpartyAvatarUrl,
+      })
       if (list.length >= 5) break
     }
     return list

@@ -13,12 +13,37 @@ export function ReceiptModal({ tx, onClose, onToast }: ReceiptModalProps) {
   const isReceived = tx.direction === 'received'
   const parts = formatMoneyParts(tx.amount_inr)
   const utr = `GP${generateUtrNumber(tx)}`
-  const counterparty = tx.counterpartyLabel || tx.sender_name || tx.sender_alias || 'GhostPay User'
-  const isInternal = Boolean(tx.sender_id)
   const isTopUp = Boolean(
     (tx.sender_name && /top-?up/i.test(tx.sender_name)) ||
     (tx.counterpartyLabel && /top-?up/i.test(tx.counterpartyLabel))
   )
+  const isPrivateRoute = Boolean(
+    tx.sender_id?.startsWith('#') ||
+    tx.receiver_id?.startsWith('#') ||
+    tx.sender_alias?.startsWith('#') ||
+    tx.counterpartyLabel?.startsWith('#') ||
+    tx.counterpartyUserId?.startsWith('#') ||
+    tx.type === 'shielded' ||
+    tx.type === 'shielded_link' ||
+    Boolean(tx.isNodal) ||
+    (!isTopUp && !tx.sender_id)
+  )
+  const isInternal = Boolean(tx.sender_id && !isPrivateRoute)
+  const rawName = (tx.counterpartyLabel || tx.sender_name || tx.sender_alias || '').trim()
+  let counterparty = rawName || 'GhostPay User'
+  if (isPrivateRoute) {
+    if (counterparty.startsWith('#')) {
+      // already prefixed
+    } else {
+      const clean = counterparty.replace(/^@+/, '').trim()
+      const lower = clean.toLowerCase()
+      if (!clean || lower === 'anonymous' || lower === 'anonymous sender' || lower === 'ghostpay user' || clean.includes(' ')) {
+        counterparty = '#HiddenSender'
+      } else {
+        counterparty = `#${clean}`
+      }
+    }
+  }
   const railName = isTopUp ? 'Wallet top-up' : isInternal ? 'GhostPay Internal P2P' : 'Shielded Nodal Escrow'
   const dateFormatted = formatIstDateTime(tx.created_at)
 

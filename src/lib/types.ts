@@ -23,6 +23,8 @@ export interface Transaction {
   counterpartyLabel?: string
   counterpartyAvatarUrl?: string | null
   counterpartyUserId?: string | null
+  type?: string
+  isNodal?: boolean
 }
 
 export type DemoTransaction = Transaction & {

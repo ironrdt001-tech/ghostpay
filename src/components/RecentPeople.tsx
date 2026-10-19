@@ -7,10 +7,23 @@ interface RecentPeopleProps {
 }
 
 export function RecentPeople({ people, selectedRecipient, onSelectPerson }: RecentPeopleProps) {
-  // Strict filter: anonymous aliases starting with '#' must never appear in recent people
+  // Bulletproof filter: exclude #, spaces, and anonymous/nodal/shielded labels
   const visiblePeople = people.filter(person => {
-    const id = (person.handle || person.label || '').trim().replace(/^@+/, '')
-    return !id.startsWith('#')
+    const raw = (person.handle || person.label || '').trim()
+    const id = raw.replace(/^@+/, '').trim()
+    if (!id || id.startsWith('#')) return false
+    // Ensure no ID with spaces (like "@hoja ache se pls") is ever allowed
+    if (id.includes(' ') || /\s/.test(id)) return false
+    const lower = id.toLowerCase()
+    if (
+      lower === 'anonymous sender' ||
+      lower === 'anonymous' ||
+      lower === 'ghostpay user' ||
+      lower === 'ghostpay wallet'
+    ) {
+      return false
+    }
+    return true
   })
 
   if (visiblePeople.length === 0) return null

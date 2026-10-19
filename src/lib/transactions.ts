@@ -33,6 +33,11 @@ export async function fetchLedgerTransactions(userId: string): Promise<Transacti
     const receiver = tx.receiver_id ? usersById.get(tx.receiver_id) : undefined
     const senderHandle = sender?.alias_handle
     const receiverHandle = receiver?.alias_handle
+    const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up')
+    const isShielded = !isTopUp && !tx.sender_id
+    const isNodal = isShielded || Boolean(tx.sender_id?.startsWith('#') || tx.receiver_id?.startsWith('#'))
+    const type = isShielded ? 'shielded_link' : isTopUp ? 'top_up' : 'p2p'
+
     const counterpartyLabel = direction === 'sent'
       ? receiverHandle ? formatHandle(receiverHandle) : tx.recipient_upi || tx.sender_name || 'GhostPay User'
       : tx.sender_name || (senderHandle ? formatHandle(senderHandle) : 'Anonymous Sender')
@@ -42,6 +47,8 @@ export async function fetchLedgerTransactions(userId: string): Promise<Transacti
       counterpartyLabel,
       counterpartyAvatarUrl: direction === 'sent' ? receiver?.avatar_url ?? null : sender?.avatar_url ?? null,
       counterpartyUserId: direction === 'sent' ? tx.receiver_id ?? null : tx.sender_id ?? null,
+      type,
+      isNodal,
     }
   })
 }
