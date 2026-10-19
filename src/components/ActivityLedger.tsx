@@ -574,11 +574,50 @@ export function ActivityLedger({
                                       )}
                                     </div>
                                     <div className="ledger-item-info">
-                                      <span className="ledger-item-title" style={{ fontSize: '13px' }}>{counterparty}</span>
-                                      <div className="ledger-item-subtitle" style={{ fontSize: '11px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                                        <span className="ledger-item-title" style={{ fontSize: '13px' }}>{counterparty}</span>
+                                        {rail === 'Shielded link' && (
+                                          <span
+                                            className="rail-tag"
+                                            style={{
+                                              fontSize: '10px',
+                                              padding: '1px 5px',
+                                              lineHeight: 1.2,
+                                              flexShrink: 0,
+                                            }}
+                                          >
+                                            Alias
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div
+                                        className="ledger-item-subtitle"
+                                        style={{
+                                          fontSize: '11px',
+                                          display: 'flex',
+                                          flexWrap: 'wrap',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                        }}
+                                      >
                                         <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
                                         <span>·</span>
                                         <span className="rail-tag">{rail}</span>
+                                        {rail === 'Shielded link' && (
+                                          <span
+                                            style={{
+                                              color: '#f59e0b',
+                                              border: '1px solid rgba(245, 158, 11, 0.25)',
+                                              background: 'rgba(245, 158, 11, 0.08)',
+                                              fontSize: '11px',
+                                              padding: '1px 6px',
+                                              borderRadius: '4px',
+                                              whiteSpace: 'nowrap',
+                                            }}
+                                          >
+                                            One-way • Cannot reply
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -712,11 +751,49 @@ export function ActivityLedger({
                           )}
                         </div>
                         <div className="ledger-item-info">
-                          <span className="ledger-item-title">{counterparty}</span>
-                          <div className="ledger-item-subtitle">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                            <span className="ledger-item-title">{counterparty}</span>
+                            {rail === 'Shielded link' && (
+                              <span
+                                className="rail-tag"
+                                style={{
+                                  fontSize: '10px',
+                                  padding: '1px 5px',
+                                  lineHeight: 1.2,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                Alias
+                              </span>
+                            )}
+                          </div>
+                          <div
+                            className="ledger-item-subtitle"
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
                             <span className="tabular-nums">{formatIstTime(tx.created_at)}</span>
                             <span>·</span>
                             <span className="rail-tag">{rail}</span>
+                            {rail === 'Shielded link' && (
+                              <span
+                                style={{
+                                  color: '#f59e0b',
+                                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                                  background: 'rgba(245, 158, 11, 0.08)',
+                                  fontSize: '11px',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                One-way • Cannot reply
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
