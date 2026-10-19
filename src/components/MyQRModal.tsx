@@ -4,7 +4,6 @@ import { triggerHaptic } from '../lib/haptics'
 import { supabase } from '../lib/supabase'
 import {
   GPModal,
-  GPAmountField,
   GPChips,
 } from './GhostPayModalKit'
 
@@ -109,16 +108,14 @@ export function MyQRModal({
     }
   }
 
-  const handleAmountChange = (val: string) => {
-    setAmount(val)
-    if (setRequestAmount) setRequestAmount(val)
-  }
+  useEffect(() => {
+    if (setRequestAmount) setRequestAmount(amount)
+  }, [amount, setRequestAmount])
 
   const handleChipPick = (val: number) => {
     triggerHaptic(50)
     const next = String(Number(amount || 0) + val)
     setAmount(next)
-    if (setRequestAmount) setRequestAmount(next)
   }
 
   return (
@@ -149,14 +146,37 @@ export function MyQRModal({
         </div>
       </div>
 
-      {/* Amount Field bound to existing state */}
-      <GPAmountField
-        value={amount}
-        onChange={handleAmountChange}
-        optional
-        placeholder="Enter amount"
-        hint="Leave empty to let the payer enter any amount."
-      />
+      {/* Amount (₹) Section */}
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <label className="text-sm font-medium text-gray-400">
+            Amount (₹) <span className="text-xs text-gray-500 font-normal">(optional)</span>
+          </label>
+        </div>
+        <div className="relative mb-3">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg font-medium">₹</span>
+          <input
+            type="number"
+            placeholder="0"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="w-full bg-[#1A1F2E] border border-gray-800 rounded-xl py-3.5 pl-10 pr-12 text-white text-lg font-medium outline-none focus:border-blue-500 transition-colors"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          />
+          {amount && (
+            <button
+              onClick={() => setAmount('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-1 bg-gray-800 hover:bg-gray-700 rounded-full text-gray-400 hover:text-white transition-colors"
+              aria-label="Clear amount"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 mb-3">Leave empty to let the payer enter any amount.</p>
+      </div>
 
       {/* Quick Add Chips wired to existing chip handler */}
       <GPChips
