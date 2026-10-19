@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { toBlob } from 'html-to-image'
 import { ExportCardStage } from './ExportCardStage'
-import { CloseIcon, CopyIcon, CheckIcon, DownloadIcon, SpinnerIcon } from './Icons'
+import { CloseIcon, ShareIcon, DownloadIcon, SpinnerIcon } from './Icons'
 import { triggerHaptic } from '../lib/haptics'
 
 export interface MyQRModalProps {
@@ -23,7 +23,6 @@ export function MyQRModal({
   const [isBurner, setIsBurner] = useState(false)
   const [burnerToken, setBurnerToken] = useState('')
   const [amount, setAmount] = useState(requestAmount || '')
-  const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
 
   const userHandle = handle.replace(/^@+/, '')
@@ -60,15 +59,21 @@ export function MyQRModal({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  async function handleCopyLink() {
-    try {
-      await navigator.clipboard.writeText(currentUrl)
-      triggerHaptic(50)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-      onToast('success', 'Payment link copied to clipboard.')
-    } catch {
-      onToast('error', 'Failed to copy payment link.')
+  const handleShare = async () => {
+    triggerHaptic(50)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Pay me on GhostPay', url: currentUrl })
+      } catch (err) {
+        console.warn('Share cancelled', err)
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(currentUrl)
+        onToast('success', 'Payment link copied to clipboard.')
+      } catch {
+        onToast('error', 'Failed to copy payment link.')
+      }
     }
   }
 
@@ -220,25 +225,45 @@ export function MyQRModal({
           </div>
         </div>
 
-        {/* Persistent Amount Input */}
-        <div className="qr-amount-wrapper" style={{ marginBottom: 'var(--space-6)' }}>
+        {/* Premium Currency Input */}
+        <div className="qr-premium-input-wrapper">
+          <span className="qr-currency-symbol">₹</span>
           <input 
             type="number" 
-            placeholder="₹ Enter amount (Optional)" 
+            placeholder="0" 
             value={amount} 
             onChange={(e) => {
               setAmount(e.target.value)
               if (setRequestAmount) setRequestAmount(e.target.value)
             }}
-            className="qr-persistent-input"
+            className="qr-premium-input"
           />
         </div>
 
-        {/* Action Buttons: Copy link & Download */}
+        {/* Quick-Add Pills */}
+        <div className="flex justify-center gap-2 mb-6">
+          {[100, 500, 1000].map((val) => (
+            <button 
+              key={val}
+              type="button"
+              onClick={() => {
+                triggerHaptic(50)
+                const next = String(Number(amount || 0) + val)
+                setAmount(next)
+                if (setRequestAmount) setRequestAmount(next)
+              }}
+              className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/80 text-sm font-medium hover:bg-white/10 transition-colors"
+            >
+              +₹{val}
+            </button>
+          ))}
+        </div>
+
+        {/* Action Buttons: Share & Download */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-          <button type="button" onClick={handleCopyLink} className="btn-secondary">
-            {copied ? <CheckIcon size={15} /> : <CopyIcon size={15} />}
-            <span>{copied ? 'Copied' : 'Copy link'}</span>
+          <button type="button" onClick={handleShare} className="btn-secondary">
+            <ShareIcon size={15} />
+            <span>Share</span>
           </button>
           <button type="button" onClick={handleDownloadQR} disabled={downloading} className="btn-primary">
             {downloading ? <SpinnerIcon size={15} /> : <DownloadIcon size={15} />}
