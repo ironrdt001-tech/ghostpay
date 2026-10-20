@@ -103,6 +103,16 @@ export function GPAmountField({
           onChange={(e) => onChange(e.target.value.replace(/[^\d.]/g, ''))}
           {...rest}
         />
+        {Boolean(value && String(value).trim().length > 0) && (
+          <button
+            type="button"
+            className="gp-clear-btn"
+            onClick={() => onChange('')}
+            aria-label="Clear amount"
+          >
+            Clear
+          </button>
+        )}
       </div>
       {hint ? <p className="gp-hint">{hint}</p> : null}
     </div>

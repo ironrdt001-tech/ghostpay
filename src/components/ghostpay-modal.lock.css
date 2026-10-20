@@ -34,3 +34,35 @@ html:not(.dark):not([data-theme="dark"]) .gp-qr-tile--burner {
 }
 /* tighter gap between the hint and the chips */
 .gp-panel.gp-panel .gp-hint + .gp-chips { margin-top: 12px !important; }
+
+/* inline clear button inside the amount field */
+.gp-panel.gp-panel .gp-clear-btn {
+  margin-left: auto !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  color: rgba(148, 163, 184, 0.85) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  flex-shrink: 0 !important;
+}
+.gp-panel.gp-panel .gp-clear-btn:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+:root[data-theme="light"] .gp-panel.gp-panel .gp-clear-btn,
+html:not(.dark):not([data-theme="dark"]) .gp-panel.gp-panel .gp-clear-btn {
+  color: #475569 !important;
+  background: rgba(15, 23, 42, 0.05) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+:root[data-theme="light"] .gp-panel.gp-panel .gp-clear-btn:hover,
+html:not(.dark):not([data-theme="dark"]) .gp-panel.gp-panel .gp-clear-btn:hover {
+  color: #0f172a !important;
+  background: rgba(15, 23, 42, 0.10) !important;
+}
+
