@@ -226,11 +226,11 @@ async function generateBrandedQrBlob({
   ctx.restore()
 
   // Badge text
-  const textStartX = dotCenterX + dotRadius + dotGap
+  const badgeTextX = dotCenterX + dotRadius + dotGap
   ctx.fillStyle = isBurner ? '#fb923c' : '#60a5fa'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
-  ctx.fillText(badgeText, textStartX, badgeY + badgeH / 2)
+  ctx.fillText(badgeText, badgeTextX, badgeY + badgeH / 2)
 
   // 4. Double-Bezel QR Housing + Center GhostPay Monogram
   const qrBoxSize = 380
@@ -335,8 +335,8 @@ async function generateBrandedQrBlob({
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.09)'
   ctx.stroke()
 
-  const textStartX = pillX + pillPaddingX
-  const textCenterY = pillY + pillH / 2
+  const pillTextX = pillX + pillPaddingX
+  const pillTextY = pillY + pillH / 2
 
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
@@ -344,12 +344,12 @@ async function generateBrandedQrBlob({
   ctx.font = isBurner
     ? '600 21px Inter, system-ui, -apple-system, sans-serif'
     : '600 21px "JetBrains Mono", "SF Mono", ui-monospace, monospace'
-  ctx.fillText(handleLabel, textStartX, textCenterY)
+  ctx.fillText(handleLabel, pillTextX, pillTextY)
 
   if (hasAmount) {
     ctx.fillStyle = isBurner ? '#fb923c' : '#60a5fa'
     ctx.font = '600 21px Inter, system-ui, -apple-system, sans-serif'
-    ctx.fillText(amountLabel, textStartX + handleWidth, textCenterY)
+    ctx.fillText(amountLabel, pillTextX + handleWidth, pillTextY)
   }
 
   // Hairline horizontal laser divider (60% of card width)
