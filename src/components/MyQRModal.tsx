@@ -109,8 +109,8 @@ async function generateBrandedQrBlob({
 
   const canvas = document.createElement('canvas')
   const scale = 2
-  const width = 600
-  const height = 680
+  const width = 680
+  const height = 800
 
   canvas.width = width * scale
   canvas.height = height * scale
@@ -119,62 +119,63 @@ async function generateBrandedQrBlob({
 
   ctx.scale(scale, scale)
 
-  // 1. Background rounded card
-  ctx.save()
-  drawRoundedRect(ctx, 0, 0, width, height, 28)
-  ctx.clip()
-  ctx.fillStyle = '#0b0f17'
+  // 1. Solid outer frame to eliminate WhatsApp/OS white bleeding corners
+  ctx.fillStyle = '#07090e'
   ctx.fillRect(0, 0, width, height)
 
-  // Soft ambient radial glow
-  const ambientGlow = ctx.createRadialGradient(300, 275, 40, 300, 275, 360)
-  ambientGlow.addColorStop(0, isBurner ? 'rgba(251, 146, 60, 0.1)' : 'rgba(37, 99, 235, 0.14)')
-  ambientGlow.addColorStop(1, 'rgba(11, 15, 23, 0)')
-  ctx.fillStyle = ambientGlow
-  ctx.fillRect(0, 0, width, height)
+  // Inset main card (20px margin, 36px radius, matte #0b0e14 fill, 1.5px subtle border)
+  const cardInset = 20
+  const cardX = cardInset
+  const cardY = cardInset
+  const cardW = width - cardInset * 2
+  const cardH = height - cardInset * 2
+  const cardRadius = 36
 
-  // Subtle border
-  ctx.lineWidth = 2
-  ctx.strokeStyle = isBurner ? 'rgba(251, 146, 60, 0.28)' : 'rgba(255, 255, 255, 0.08)'
-  drawRoundedRect(ctx, 1, 1, width - 2, height - 2, 28)
-  ctx.stroke()
-  ctx.restore()
-
-  // 2. Top-left brand mark
-  const logoX = 36
-  const logoY = 36
-  const logoSize = 36
-  drawRoundedRect(ctx, logoX, logoY, logoSize, logoSize, 10)
-  ctx.fillStyle = '#1d4ed8'
+  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, cardRadius)
+  ctx.fillStyle = '#0b0e14'
   ctx.fill()
+  ctx.lineWidth = 1.5
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
+  ctx.stroke()
 
-  ctx.fillStyle = '#ffffff'
-  ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  // 2. Top-Left Stealth Frosted Brand Mark
+  const logoX = cardX + 36
+  const logoY = cardY + 36
+  const logoSize = 44
+  drawRoundedRect(ctx, logoX, logoY, logoSize, logoSize, 12)
+  ctx.fillStyle = 'rgba(30, 58, 138, 0.22)'
+  ctx.fill()
+  ctx.lineWidth = 1
+  ctx.strokeStyle = 'rgba(96, 165, 250, 0.28)'
+  ctx.stroke()
+
+  ctx.fillStyle = '#60a5fa'
+  ctx.font = '600 22px Inter, system-ui, -apple-system, sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText('G', logoX + logoSize / 2, logoY + logoSize / 2 + 1)
 
-  ctx.fillStyle = '#ffffff'
-  ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  ctx.fillStyle = '#f8fafc'
+  ctx.font = '500 28px Inter, system-ui, -apple-system, sans-serif'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
-  ctx.fillText('ghostpay', logoX + logoSize + 12, logoY + logoSize / 2)
+  ctx.fillText('ghostpay', logoX + logoSize + 14, logoY + logoSize / 2)
 
-  // 3. Top-right badge pill
-  const badgeText = isBurner ? '🔥 Burner Escrow' : '🛡️ Shielded Escrow'
-  ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  // 3. Top-Right Pill Badge (STRICTLY NO EMOJIS)
+  const badgeText = isBurner ? 'Burner Escrow' : 'Shielded Escrow'
+  ctx.font = '500 16px Inter, system-ui, -apple-system, sans-serif'
   const badgeTextWidth = ctx.measureText(badgeText).width
-  const badgePadX = 14
+  const badgePadX = 16
   const badgeW = badgeTextWidth + badgePadX * 2
-  const badgeH = 30
-  const badgeX = width - 36 - badgeW
-  const badgeY = 39
+  const badgeH = 36
+  const badgeX = cardX + cardW - 36 - badgeW
+  const badgeY = logoY + (logoSize - badgeH) / 2
 
-  drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 15)
-  ctx.fillStyle = isBurner ? 'rgba(251, 146, 60, 0.14)' : 'rgba(37, 99, 235, 0.14)'
+  drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 18)
+  ctx.fillStyle = isBurner ? 'rgba(124, 45, 18, 0.22)' : 'rgba(30, 58, 138, 0.20)'
   ctx.fill()
-  ctx.strokeStyle = isBurner ? 'rgba(251, 146, 60, 0.35)' : 'rgba(37, 99, 235, 0.35)'
   ctx.lineWidth = 1
+  ctx.strokeStyle = isBurner ? 'rgba(251, 146, 60, 0.25)' : 'rgba(96, 165, 250, 0.22)'
   ctx.stroke()
 
   ctx.fillStyle = isBurner ? '#fb923c' : '#60a5fa'
@@ -182,66 +183,54 @@ async function generateBrandedQrBlob({
   ctx.textBaseline = 'middle'
   ctx.fillText(badgeText, badgeX + badgeW / 2, badgeY + badgeH / 2)
 
-  // 4. Center white container for QR code
-  const qrBoxW = 340
-  const qrBoxH = 340
-  const qrBoxX = (width - qrBoxW) / 2
-  const qrBoxY = 105
-
-  ctx.save()
-  ctx.shadowColor = isBurner ? 'rgba(251, 146, 60, 0.22)' : 'rgba(37, 99, 235, 0.22)'
-  ctx.shadowBlur = 28
-  ctx.shadowOffsetY = 6
-  drawRoundedRect(ctx, qrBoxX, qrBoxY, qrBoxW, qrBoxH, 22)
+  // 4. Center White QR Container (380x380px, 28px radius, quiet-zone 28px)
+  const qrBoxSize = 380
+  const qrBoxX = (width - qrBoxSize) / 2
+  const qrBoxY = 136
+  drawRoundedRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 28)
   ctx.fillStyle = '#ffffff'
   ctx.fill()
-  ctx.restore()
 
   if (qrImg) {
-    const qrSize = 280
-    const qrX = qrBoxX + (qrBoxW - qrSize) / 2
-    const qrY = qrBoxY + (qrBoxH - qrSize) / 2
+    const quietZone = 28
+    const qrSize = qrBoxSize - quietZone * 2
+    const qrX = qrBoxX + quietZone
+    const qrY = qrBoxY + quietZone
     ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
   }
 
-  // 5. Handle / Title
+  // 5. Bottom Typography (Clean & Minimal — No AI Filler)
   const cleanHandle = handle.replace(/^@+/, '')
-  const numericAmount = amount ? parseFloat(amount) : null
-  const formattedAmount =
-    numericAmount && !isNaN(numericAmount) && numericAmount > 0
-      ? ` • ₹${numericAmount.toLocaleString('en-IN')}`
-      : ''
+  const numericAmount = amount ? Number(amount) : null
+  const hasAmount = numericAmount !== null && !isNaN(numericAmount) && numericAmount > 0
 
-  const handleText = isBurner
-    ? `One-time Burner Link${formattedAmount}`
-    : `@${cleanHandle}${formattedAmount}`
-
+  const handleY = 570
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillStyle = '#f8fafc'
-  ctx.font = 'bold 23px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-  ctx.fillText(handleText, width / 2, 490)
 
-  // Subtitle
-  const subtitle = isBurner
-    ? 'Single-use burn address · Self-destructs after payment'
-    : 'Direct peer-to-peer settlement · Powered by GhostPay'
-  ctx.fillStyle = '#94a3b8'
-  ctx.font = '500 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-  ctx.fillText(subtitle, width / 2, 524)
+  if (isBurner) {
+    ctx.fillStyle = '#f8fafc'
+    ctx.font = '600 24px Inter, system-ui, -apple-system, sans-serif'
+    ctx.fillText('One-time Burner QR', width / 2, handleY)
+  } else {
+    ctx.fillStyle = '#f8fafc'
+    ctx.font = '500 26px "JetBrains Mono", "SF Mono", ui-monospace, monospace'
+    ctx.fillText(`@${cleanHandle}`, width / 2, handleY)
+  }
 
-  // Divider line
-  ctx.beginPath()
-  ctx.moveTo(48, 565)
-  ctx.lineTo(width - 48, 565)
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
-  ctx.lineWidth = 1
-  ctx.stroke()
+  if (hasAmount) {
+    ctx.fillStyle = '#94a3b8'
+    ctx.font = '500 20px Inter, system-ui, -apple-system, sans-serif'
+    ctx.fillText(`₹${numericAmount.toLocaleString('en-IN')}`, width / 2, handleY + 34)
+  }
 
-  // Footer text
-  ctx.fillStyle = 'rgba(148, 163, 184, 0.85)'
-  ctx.font = '500 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-  ctx.fillText('Scan to pay privately  ·  Zero bank details exposed', width / 2, 615)
+  // Signature footer line (48px above bottom card edge)
+  const footerY = cardY + cardH - 48
+  ctx.fillStyle = '#64748b'
+  ctx.font = '400 17px Inter, system-ui, -apple-system, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('Scan to pay privately · Zero bank details exposed', width / 2, footerY)
 
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), 'image/png')
