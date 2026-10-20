@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { triggerHaptic } from '../lib/haptics'
 import { unlockAudioEngine, playChaChingSound } from '../lib/audio'
 import { supabase } from '../lib/supabase'
 import { formatMoneyParts } from '../lib/formatters'
@@ -13,6 +14,7 @@ interface TopUpModalProps {
 
 export function TopUpModal({ onClose, onSuccess, onToast }: TopUpModalProps) {
   const [amount, setAmount] = useState('500')
+  const [lastSelectedChip, setLastSelectedChip] = useState<number | null>(500)
   const [method, setMethod] = useState<'upi' | 'bank'>('upi')
   const [busy, setBusy] = useState(false)
 
@@ -21,8 +23,16 @@ export function TopUpModal({ onClose, onSuccess, onToast }: TopUpModalProps) {
 
   const handleClose = () => {
     setAmount('500')
+    setLastSelectedChip(500)
     setMethod('upi')
     onClose()
+  }
+
+  const handleChipPick = (val: number) => {
+    triggerHaptic(50)
+    setLastSelectedChip(val)
+    const next = String((parseFloat(amount) || 0) + val)
+    setAmount(next)
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -79,14 +89,17 @@ export function TopUpModal({ onClose, onSuccess, onToast }: TopUpModalProps) {
         <div>
           <GPAmountField
             value={amount}
-            onChange={setAmount}
+            onChange={(val) => {
+              setLastSelectedChip(null)
+              setAmount(val)
+            }}
             disabled={busy}
             required
           />
           <GPChips
-            amount={amount}
+            amount={lastSelectedChip ?? amount}
             options={[500, 1000, 2000, 5000]}
-            onPick={(val) => setAmount(String(val))}
+            onPick={handleChipPick}
             disabled={busy}
           />
         </div>
