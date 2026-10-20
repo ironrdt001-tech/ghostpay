@@ -119,11 +119,11 @@ async function generateBrandedQrBlob({
 
   ctx.scale(scale, scale)
 
-  // 1. Solid outer frame to eliminate WhatsApp/OS white bleeding corners
-  ctx.fillStyle = '#07090e'
+  // 1. Solid obsidian outer frame to eliminate WhatsApp/OS white bleeding corners
+  ctx.fillStyle = '#05070b'
   ctx.fillRect(0, 0, width, height)
 
-  // Inset main card (20px margin, 36px radius, matte #0b0e14 fill, 1.5px subtle border)
+  // Inset main card with vertical titanium gradient
   const cardInset = 20
   const cardX = cardInset
   const cardY = cardInset
@@ -131,42 +131,77 @@ async function generateBrandedQrBlob({
   const cardH = height - cardInset * 2
   const cardRadius = 36
 
+  ctx.save()
   drawRoundedRect(ctx, cardX, cardY, cardW, cardH, cardRadius)
-  ctx.fillStyle = '#0b0e14'
-  ctx.fill()
+  ctx.clip()
+
+  const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH)
+  cardGrad.addColorStop(0, '#111726')
+  cardGrad.addColorStop(0.45, '#090d16')
+  cardGrad.addColorStop(1, '#06080d')
+  ctx.fillStyle = cardGrad
+  ctx.fillRect(cardX, cardY, cardW, cardH)
+
+  // Top-center ambient light bloom
+  const bloomColor = isBurner ? 'rgba(249, 115, 22, 0.10)' : 'rgba(59, 130, 246, 0.10)'
+  const bloom = ctx.createRadialGradient(width / 2, cardY, 10, width / 2, cardY, 320)
+  bloom.addColorStop(0, bloomColor)
+  bloom.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  ctx.fillStyle = bloom
+  ctx.fillRect(cardX, cardY, cardW, cardH)
+  ctx.restore()
+
+  // Top-lit specular border (Linear/Apple top-edge highlight)
+  const strokeGrad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH)
+  strokeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.22)')
+  strokeGrad.addColorStop(0.25, 'rgba(255, 255, 255, 0.10)')
+  strokeGrad.addColorStop(1, 'rgba(255, 255, 255, 0.04)')
+
+  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, cardRadius)
   ctx.lineWidth = 1.5
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
+  ctx.strokeStyle = strokeGrad
   ctx.stroke()
 
-  // 2. Top-Left Stealth Frosted Brand Mark
+  // 2. Color-Synced Top-Left Brand Mark
   const logoX = cardX + 36
   const logoY = cardY + 36
   const logoSize = 44
   drawRoundedRect(ctx, logoX, logoY, logoSize, logoSize, 12)
-  ctx.fillStyle = 'rgba(30, 58, 138, 0.22)'
+  ctx.fillStyle = isBurner ? 'rgba(234, 88, 12, 0.18)' : 'rgba(37, 99, 235, 0.18)'
   ctx.fill()
   ctx.lineWidth = 1
-  ctx.strokeStyle = 'rgba(96, 165, 250, 0.28)'
+  ctx.strokeStyle = isBurner ? 'rgba(251, 146, 60, 0.35)' : 'rgba(96, 165, 250, 0.35)'
   ctx.stroke()
 
-  ctx.fillStyle = '#60a5fa'
+  ctx.fillStyle = isBurner ? '#fb923c' : '#60a5fa'
   ctx.font = '600 22px Inter, system-ui, -apple-system, sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText('G', logoX + logoSize / 2, logoY + logoSize / 2 + 1)
 
   ctx.fillStyle = '#f8fafc'
-  ctx.font = '500 28px Inter, system-ui, -apple-system, sans-serif'
+  ctx.font = '600 27px Inter, system-ui, -apple-system, sans-serif'
+  if ('letterSpacing' in ctx) {
+    // @ts-ignore
+    ctx.letterSpacing = '-0.02em'
+  }
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
   ctx.fillText('ghostpay', logoX + logoSize + 14, logoY + logoSize / 2)
+  if ('letterSpacing' in ctx) {
+    // @ts-ignore
+    ctx.letterSpacing = 'normal'
+  }
 
-  // 3. Top-Right Pill Badge (STRICTLY NO EMOJIS)
+  // 3. Top-Right Pill Badge with Live Indicator Dot
   const badgeText = isBurner ? 'Burner Escrow' : 'Shielded Escrow'
-  ctx.font = '500 16px Inter, system-ui, -apple-system, sans-serif'
-  const badgeTextWidth = ctx.measureText(badgeText).width
-  const badgePadX = 16
-  const badgeW = badgeTextWidth + badgePadX * 2
+  ctx.font = '500 15.5px Inter, system-ui, -apple-system, sans-serif'
+  const textWidth = ctx.measureText(badgeText).width
+  const dotRadius = 3
+  const dotGap = 9
+  const badgePadLeft = 14
+  const badgePadRight = 14
+  const badgeW = badgePadLeft + dotRadius * 2 + dotGap + textWidth + badgePadRight
   const badgeH = 36
   const badgeX = cardX + cardW - 36 - badgeW
   const badgeY = logoY + (logoSize - badgeH) / 2
@@ -178,16 +213,44 @@ async function generateBrandedQrBlob({
   ctx.strokeStyle = isBurner ? 'rgba(251, 146, 60, 0.25)' : 'rgba(96, 165, 250, 0.22)'
   ctx.stroke()
 
-  ctx.fillStyle = isBurner ? '#fb923c' : '#60a5fa'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(badgeText, badgeX + badgeW / 2, badgeY + badgeH / 2)
+  // Glowing status dot
+  const dotCenterX = badgeX + badgePadLeft + dotRadius
+  const dotCenterY = badgeY + badgeH / 2
+  ctx.save()
+  ctx.shadowColor = isBurner ? '#f97316' : '#3b82f6'
+  ctx.shadowBlur = 8
+  ctx.beginPath()
+  ctx.arc(dotCenterX, dotCenterY, dotRadius, 0, Math.PI * 2)
+  ctx.fillStyle = isBurner ? '#f97316' : '#3b82f6'
+  ctx.fill()
+  ctx.restore()
 
-  // 4. Center White QR Container (380x380px, 28px radius, quiet-zone 28px)
+  // Badge text
+  const textStartX = dotCenterX + dotRadius + dotGap
+  ctx.fillStyle = isBurner ? '#fb923c' : '#60a5fa'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(badgeText, textStartX, badgeY + badgeH / 2)
+
+  // 4. Double-Bezel QR Housing + Center GhostPay Monogram
   const qrBoxSize = 380
-  const qrBoxX = (width - qrBoxSize) / 2
-  const qrBoxY = 136
-  drawRoundedRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 28)
+  const bezelPadding = 8
+  const bezelSize = qrBoxSize + bezelPadding * 2
+  const bezelX = (width - bezelSize) / 2
+  const bezelY = 132
+
+  // Outer machined bezel
+  drawRoundedRect(ctx, bezelX, bezelY, bezelSize, bezelSize, 34)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.03)'
+  ctx.fill()
+  ctx.lineWidth = 1.5
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
+  ctx.stroke()
+
+  // Inner white QR tile
+  const qrBoxX = bezelX + bezelPadding
+  const qrBoxY = bezelY + bezelPadding
+  drawRoundedRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 26)
   ctx.fillStyle = '#ffffff'
   ctx.fill()
 
@@ -197,40 +260,129 @@ async function generateBrandedQrBlob({
     const qrX = qrBoxX + quietZone
     const qrY = qrBoxY + quietZone
     ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
+
+    // Center GhostPay Monogram Badge (46x46 with 4px white quiet border)
+    const centerX = qrX + qrSize / 2
+    const centerY = qrY + qrSize / 2
+    const monoSize = 46
+    const quietBorder = 4
+    const totalCenterSize = monoSize + quietBorder * 2
+
+    // White quiet border
+    drawRoundedRect(
+      ctx,
+      centerX - totalCenterSize / 2,
+      centerY - totalCenterSize / 2,
+      totalCenterSize,
+      totalCenterSize,
+      14
+    )
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+
+    // Dark monogram badge
+    drawRoundedRect(
+      ctx,
+      centerX - monoSize / 2,
+      centerY - monoSize / 2,
+      monoSize,
+      monoSize,
+      11
+    )
+    ctx.fillStyle = '#090d16'
+    ctx.fill()
+    ctx.lineWidth = 1.5
+    ctx.strokeStyle = isBurner ? 'rgba(251, 146, 60, 0.45)' : 'rgba(96, 165, 250, 0.45)'
+    ctx.stroke()
+
+    // Crisp "G" monogram
+    ctx.fillStyle = isBurner ? '#fb923c' : '#60a5fa'
+    ctx.font = 'bold 24px Inter, system-ui, -apple-system, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('G', centerX, centerY + 1)
   }
 
-  // 5. Bottom Typography (Clean & Minimal — No AI Filler)
+  // 5. Anchored Handle Pill & Machined Footer
   const cleanHandle = handle.replace(/^@+/, '')
   const numericAmount = amount ? Number(amount) : null
   const hasAmount = numericAmount !== null && !isNaN(numericAmount) && numericAmount > 0
 
-  const handleY = 570
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
+  const handleLabel = isBurner ? 'One-time Burner QR' : `@${cleanHandle}`
+  const amountLabel = hasAmount ? ` · ₹${numericAmount.toLocaleString('en-IN')}` : ''
 
-  if (isBurner) {
-    ctx.fillStyle = '#f8fafc'
-    ctx.font = '600 24px Inter, system-ui, -apple-system, sans-serif'
-    ctx.fillText('One-time Burner QR', width / 2, handleY)
-  } else {
-    ctx.fillStyle = '#f8fafc'
-    ctx.font = '500 26px "JetBrains Mono", "SF Mono", ui-monospace, monospace'
-    ctx.fillText(`@${cleanHandle}`, width / 2, handleY)
+  ctx.font = isBurner
+    ? '600 21px Inter, system-ui, -apple-system, sans-serif'
+    : '600 21px "JetBrains Mono", "SF Mono", ui-monospace, monospace'
+  const handleWidth = ctx.measureText(handleLabel).width
+
+  let amountWidth = 0
+  if (hasAmount) {
+    ctx.font = '600 21px Inter, system-ui, -apple-system, sans-serif'
+    amountWidth = ctx.measureText(amountLabel).width
   }
+
+  const pillPaddingX = 24
+  const pillW = handleWidth + amountWidth + pillPaddingX * 2
+  const pillH = 44
+  const pillX = (width - pillW) / 2
+  const pillY = 560
+
+  drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 999)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.04)'
+  ctx.fill()
+  ctx.lineWidth = 1
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.09)'
+  ctx.stroke()
+
+  const textStartX = pillX + pillPaddingX
+  const textCenterY = pillY + pillH / 2
+
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = '#f8fafc'
+  ctx.font = isBurner
+    ? '600 21px Inter, system-ui, -apple-system, sans-serif'
+    : '600 21px "JetBrains Mono", "SF Mono", ui-monospace, monospace'
+  ctx.fillText(handleLabel, textStartX, textCenterY)
 
   if (hasAmount) {
-    ctx.fillStyle = '#94a3b8'
-    ctx.font = '500 20px Inter, system-ui, -apple-system, sans-serif'
-    ctx.fillText(`₹${numericAmount.toLocaleString('en-IN')}`, width / 2, handleY + 34)
+    ctx.fillStyle = isBurner ? '#fb923c' : '#60a5fa'
+    ctx.font = '600 21px Inter, system-ui, -apple-system, sans-serif'
+    ctx.fillText(amountLabel, textStartX + handleWidth, textCenterY)
   }
 
-  // Signature footer line (48px above bottom card edge)
-  const footerY = cardY + cardH - 48
+  // Hairline horizontal laser divider (60% of card width)
+  const dividerW = cardW * 0.6
+  const dividerX = (width - dividerW) / 2
+  const dividerY = 662
+  const lineGrad = ctx.createLinearGradient(dividerX, dividerY, dividerX + dividerW, dividerY)
+  lineGrad.addColorStop(0, 'rgba(255, 255, 255, 0)')
+  lineGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.09)')
+  lineGrad.addColorStop(1, 'rgba(255, 255, 255, 0)')
+
+  ctx.beginPath()
+  ctx.moveTo(dividerX, dividerY)
+  ctx.lineTo(dividerX + dividerW, dividerY)
+  ctx.lineWidth = 1
+  ctx.strokeStyle = lineGrad
+  ctx.stroke()
+
+  // Signature footer text
+  const footerY = 708
   ctx.fillStyle = '#64748b'
-  ctx.font = '400 17px Inter, system-ui, -apple-system, sans-serif'
+  ctx.font = '600 12.5px Inter, system-ui, -apple-system, sans-serif'
+  if ('letterSpacing' in ctx) {
+    // @ts-ignore
+    ctx.letterSpacing = '1.2px'
+  }
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText('Scan to pay privately · Zero bank details exposed', width / 2, footerY)
+  ctx.fillText('SCAN TO PAY PRIVATELY · ZERO BANK DETAILS EXPOSED', width / 2, footerY)
+  if ('letterSpacing' in ctx) {
+    // @ts-ignore
+    ctx.letterSpacing = 'normal'
+  }
 
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), 'image/png')
@@ -416,7 +568,7 @@ export function MyQRModal({
       {/* White rounded QR tile with soft green/purple glow, or warm amber glow in burner mode */}
       <div className="gp-qr-wrap">
         <div className={`gp-qr-tile ${isBurner ? 'gp-qr-tile--burner' : ''}`}>
-          <QRCodeSVG value={currentUrl} size={210} level="M" />
+          <QRCodeSVG value={currentUrl} size={210} level="H" />
         </div>
       </div>
 
