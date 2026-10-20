@@ -35,6 +35,12 @@ export function OnboardingPage({ session }: OnboardingPageProps) {
       return
     }
 
+    const cleanUpi = upi.replace(/[\u2013\u2014\u2212]/g, '-').trim()
+    if (!/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9]{2,64}$/.test(cleanUpi)) {
+      setError('Enter a valid UPI ID (e.g. name@okaxis or 8815041849-a46c@ibl).')
+      return
+    }
+
     setBusy(true)
     try {
       const { error: claimError } = await supabase.from('profiles').upsert(
@@ -51,7 +57,7 @@ export function OnboardingPage({ session }: OnboardingPageProps) {
         id: session.user.id,
         alias_handle: cleanAlias,
         real_legal_name: legalName.trim(),
-        real_upi_id: upi.trim(),
+        real_upi_id: cleanUpi,
       })
       if (insertError) {
         setError(insertError.code === '23505' ? 'That alias is already taken. Please try another one.' : insertError.message)
@@ -119,7 +125,10 @@ export function OnboardingPage({ session }: OnboardingPageProps) {
               <span className="input-prefix">@</span>
               <input
                 type="text"
+                inputMode="text"
                 autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="yourname"
                 value={alias}
                 onChange={e => setAlias(e.target.value)}
@@ -163,11 +172,15 @@ export function OnboardingPage({ session }: OnboardingPageProps) {
               <span>Real UPI ID</span>
               <input
                 type="text"
+                inputMode="email"
                 autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 className="field-input"
                 placeholder="name@okaxis"
+                pattern="^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9]{2,64}$"
                 value={upi}
-                onChange={e => setUpi(e.target.value)}
+                onChange={e => setUpi(e.target.value.replace(/[\u2013\u2014\u2212]/g, '-'))}
                 required
               />
             </label>
