@@ -208,7 +208,7 @@ async function generateBrandedQrBlob({
   }
 
   // Right status pill (right-aligned to x: 652)
-  const badgeText = isBurner ? 'Burner Escrow' : 'Shielded Escrow'
+  const badgeText = isBurner ? '1-Time Use' : 'Shielded Escrow'
   ctx.font = '500 15px Inter, system-ui, -apple-system, sans-serif'
   const textWidth = ctx.measureText(badgeText).width
   const dotRadius = 3
@@ -268,27 +268,13 @@ async function generateBrandedQrBlob({
     ctx.drawImage(qrImg, 192, 192, 336, 336)
   }
 
-  // 5. Hero Identity Typography (Spacious, No Cramped Pill)
-  const microLabel = isBurner ? 'SINGLE-USE BURNER LINK' : 'VERIFIED GHOST ALIAS'
-  ctx.fillStyle = isBurner ? '#fb923c' : '#60a5fa'
-  ctx.font = '600 12px Inter, system-ui, -apple-system, sans-serif'
-  if ('letterSpacing' in ctx) {
-    // @ts-ignore
-    ctx.letterSpacing = '2.5px'
-  }
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(microLabel, 360, 618)
-  if ('letterSpacing' in ctx) {
-    // @ts-ignore
-    ctx.letterSpacing = 'normal'
-  }
-
+  // 5. Clean Center Identity Typography Below QR
   const cleanHandle = handle.replace(/^@+/, '')
   const numericAmount = amount ? Number(amount) : null
   const hasAmount = numericAmount !== null && !isNaN(numericAmount) && numericAmount > 0
   const amountStr = hasAmount ? ` · ₹${numericAmount.toLocaleString('en-IN')}` : ''
-  const primaryText = isBurner ? 'One-time Burner QR' : `@${cleanHandle}`
+  const primaryText = isBurner ? 'Burner QR' : `@${cleanHandle}`
+  const titleY = isBurner ? 632 : 645
 
   ctx.textBaseline = 'middle'
 
@@ -296,12 +282,12 @@ async function generateBrandedQrBlob({
     ctx.textAlign = 'center'
     ctx.fillStyle = '#ffffff'
     ctx.font = isBurner
-      ? '600 32px Inter, system-ui, -apple-system, sans-serif'
+      ? '700 32px Inter, system-ui, -apple-system, sans-serif'
       : '700 34px Inter, system-ui, -apple-system, sans-serif'
-    ctx.fillText(primaryText, 360, 664)
+    ctx.fillText(primaryText, 360, titleY)
   } else {
     ctx.font = isBurner
-      ? '600 32px Inter, system-ui, -apple-system, sans-serif'
+      ? '700 32px Inter, system-ui, -apple-system, sans-serif'
       : '700 34px Inter, system-ui, -apple-system, sans-serif'
     const primaryW = ctx.measureText(primaryText).width
 
@@ -314,13 +300,20 @@ async function generateBrandedQrBlob({
     ctx.textAlign = 'left'
     ctx.fillStyle = '#ffffff'
     ctx.font = isBurner
-      ? '600 32px Inter, system-ui, -apple-system, sans-serif'
+      ? '700 32px Inter, system-ui, -apple-system, sans-serif'
       : '700 34px Inter, system-ui, -apple-system, sans-serif'
-    ctx.fillText(primaryText, startX, 664)
+    ctx.fillText(primaryText, startX, titleY)
 
     ctx.fillStyle = isBurner ? '#fdba74' : '#93c5fd'
     ctx.font = '600 30px Inter, system-ui, -apple-system, sans-serif'
-    ctx.fillText(amountStr, startX + primaryW, 664)
+    ctx.fillText(amountStr, startX + primaryW, titleY)
+  }
+
+  if (isBurner) {
+    ctx.textAlign = 'center'
+    ctx.fillStyle = '#94a3b8'
+    ctx.font = '500 16px Inter, system-ui, sans-serif'
+    ctx.fillText('Self-destructs after single payment', 360, 670)
   }
 
   // 6. Grounded Bottom Settlement Strip (Centered at y: 786)
