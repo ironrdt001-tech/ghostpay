@@ -66,3 +66,32 @@ html:not(.dark):not([data-theme="dark"]) .gp-panel.gp-panel .gp-clear-btn:hover 
   background: rgba(15, 23, 42, 0.10) !important;
 }
 
+/* Bank selection pills inside withdrawal modal */
+.gp-panel.gp-panel .gp-bank-pills {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 8px !important;
+}
+.gp-panel.gp-panel .gp-bank-pill {
+  padding: 6px 14px !important;
+  border-radius: 9999px !important;
+  background: var(--gp-chip) !important;
+  border: 1px solid var(--gp-border) !important;
+  color: var(--gp-text) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  line-height: 1.2 !important;
+}
+.gp-panel.gp-panel .gp-bank-pill:hover {
+  border-color: var(--gp-border-strong) !important;
+}
+.gp-panel.gp-panel .gp-bank-pill[data-selected="true"] {
+  border-color: var(--gp-accent) !important;
+  background: var(--gp-accent-tint) !important;
+  color: var(--gp-accent-text) !important;
+}
+
+

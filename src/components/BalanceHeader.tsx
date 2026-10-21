@@ -6,6 +6,7 @@ interface BalanceHeaderProps {
   hideBalance: boolean
   onToggleHideBalance: () => void
   onOpenTopUp: () => void
+  onOpenWithdraw?: () => void
   busy?: boolean
 }
 
@@ -14,25 +15,38 @@ export function BalanceHeader({
   hideBalance,
   onToggleHideBalance,
   onOpenTopUp,
+  onOpenWithdraw,
   busy = false,
 }: BalanceHeaderProps) {
   const parts = formatMoneyParts(balance)
 
   return (
     <div className="surface-card" style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
           <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--semantic-credit-text)' }} />
           <span>Available balance</span>
         </div>
-        <button
-          type="button"
-          onClick={onOpenTopUp}
-          className="btn-secondary"
-          style={{ minHeight: '38px', padding: '0 16px', fontSize: '13px', borderRadius: 'var(--radius-pill)', color: 'var(--semantic-credit-text)' }}
-        >
-          + Add money
-        </button>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          {onOpenWithdraw && (
+            <button
+              type="button"
+              onClick={onOpenWithdraw}
+              className="btn-secondary"
+              style={{ minHeight: '38px', padding: '0 16px', fontSize: '13px', borderRadius: 'var(--radius-pill)', color: 'var(--text-primary)' }}
+            >
+              Withdraw
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onOpenTopUp}
+            className="btn-secondary"
+            style={{ minHeight: '38px', padding: '0 16px', fontSize: '13px', borderRadius: 'var(--radius-pill)', color: 'var(--semantic-credit-text)' }}
+          >
+            + Add money
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>

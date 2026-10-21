@@ -12,6 +12,7 @@ import { ActivityLedger } from '../components/ActivityLedger'
 import { ReceiptModal } from '../components/ReceiptModal'
 import { MyQRModal as ShareQrModal } from '../components/MyQRModal'
 import { TopUpModal } from '../components/TopUpModal'
+import { WithdrawModal } from '../components/WithdrawModal'
 import { EditProfileModal } from '../components/EditProfileModal'
 import { QrScannerModal } from '../components/QrScannerModal'
 import { MobileBottomNav } from '../components/MobileBottomNav'
@@ -53,6 +54,7 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [qrRequestAmount, setQrRequestAmount] = useState('')
   const [topUpOpen, setTopUpOpen] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [editProfileOpen, setEditProfileOpen] = useState(false)
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null)
 
@@ -447,6 +449,7 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
               hideBalance={hideBalance}
               onToggleHideBalance={toggleHideBalance}
               onOpenTopUp={() => setTopUpOpen(true)}
+              onOpenWithdraw={() => setWithdrawOpen(true)}
               busy={busy}
             />
 
@@ -533,6 +536,21 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
         <TopUpModal
           onClose={() => setTopUpOpen(false)}
           onSuccess={async (newBalance: number) => {
+            setProfile(p => p ? { ...p, wallet_balance: newBalance } : p)
+            await refreshWalletAndTransactions(newBalance)
+          }}
+          onToast={showToast}
+        />
+      )}
+
+      {withdrawOpen && (
+        <WithdrawModal
+          walletBalance={profile?.wallet_balance ?? 0}
+          realUpiId={profile?.real_upi_id || profile?.upi_id || ''}
+          realLegalName={profile?.real_legal_name || profile?.full_name || ''}
+          userId={session.user.id}
+          onClose={() => setWithdrawOpen(false)}
+          onSuccess={async (_withdrawnAmount: number, newBalance: number) => {
             setProfile(p => p ? { ...p, wallet_balance: newBalance } : p)
             await refreshWalletAndTransactions(newBalance)
           }}
