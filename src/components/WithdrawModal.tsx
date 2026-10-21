@@ -3,7 +3,7 @@ import { triggerHaptic } from '../lib/haptics'
 import { unlockAudioEngine, playChaChingSound } from '../lib/audio'
 import { supabase } from '../lib/supabase'
 import { formatMoneyParts } from '../lib/formatters'
-import { SpinnerIcon, BoltIcon, BankIcon } from './Icons'
+import { SpinnerIcon, BankIcon } from './Icons'
 import { GPModal, GPButton } from './GhostPayModalKit'
 
 interface WithdrawModalProps {
@@ -22,8 +22,10 @@ const POPULAR_BANKS = [
   { name: 'ICICI Bank', ifsc: 'ICIC0' },
   { name: 'Axis Bank', ifsc: 'UTIB0' },
   { name: 'Kotak', ifsc: 'KKBK0' },
-  { name: 'Other Bank', ifsc: '' },
+  { name: 'Other', ifsc: '' },
 ]
+
+const DEFAULT_BANK_PREFIXES = ['HDFC0', 'SBIN0', 'ICIC0', 'UTIB0', 'KKBK0']
 
 export function WithdrawModal({
   walletBalance,
@@ -68,6 +70,11 @@ export function WithdrawModal({
     onClose()
   }
 
+  const handleClear = () => {
+    setAmount('')
+    setLastSelectedChip(null)
+  }
+
   const handleChipPick = (val: number) => {
     triggerHaptic(50)
     setLastSelectedChip(val)
@@ -80,6 +87,14 @@ export function WithdrawModal({
     triggerHaptic(50)
     setLastSelectedChip('max')
     setAmount(String(walletBalance))
+  }
+
+  const handleBankSelect = (bankName: string, prefix: string) => {
+    triggerHaptic(40)
+    setSelectedBank(bankName)
+    if (!ifscCode || DEFAULT_BANK_PREFIXES.some((p) => ifscCode.startsWith(p))) {
+      setIfscCode(prefix)
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -97,12 +112,15 @@ export function WithdrawModal({
     }
 
     if (isAmountOverBalance) {
-      onToast('error', `Exceeds available balance (₹${walletBalance.toLocaleString('en-IN')}).`)
+      onToast(
+        'error',
+        `Amount exceeds available wallet balance (₹${walletBalance.toLocaleString('en-IN')}).`
+      )
       return
     }
 
     if (method === 'upi' && !isUpiValid) {
-      onToast('error', 'Enter a valid destination UPI ID (e.g. name@okaxis).')
+      onToast('error', 'Enter a valid destination UPI ID (e.g. username@okaxis).')
       return
     }
 
@@ -139,7 +157,7 @@ export function WithdrawModal({
           updatedBalance = Number(res.wallet_balance)
         }
       } else {
-        // Fallback for environments where RPC is deploying: update table directly
+        // Fallback: update wallet balance directly in table
         await supabase
           .from('users')
           .update({ wallet_balance: updatedBalance })
@@ -150,11 +168,11 @@ export function WithdrawModal({
             sender_id: userId,
             receiver_id: userId,
             amount_inr: numAmount,
-            sender_name: `Nodal Payout · ${destinationLabel}`,
+            sender_name: `Nodal payout · ${destinationLabel}`,
             status: 'completed',
           })
         } catch {
-          // Gracefully continue even if transaction table constraint varies
+          // Gracefully continue even if transaction insert has varying constraint
         }
       }
 
@@ -185,96 +203,150 @@ export function WithdrawModal({
       disabled={busy}
     >
       {receipt ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '8px 2px' }}>
+        <div style={{ position: 'relative', width: '100%' }}>
+          {/* Subtle Ambient Radial Backlighting */}
           <div
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '9999px',
-              backgroundColor: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              color: '#10B981',
-              fontSize: '13px',
-              fontWeight: 600,
-              marginBottom: '16px',
+              position: 'absolute',
+              top: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '280px',
+              height: '180px',
+              borderRadius: '50%',
+              background:
+                'radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, rgba(59, 130, 246, 0.10) 50%, transparent 70%)',
+              filter: 'blur(32px)',
+              pointerEvents: 'none',
+              zIndex: 0,
             }}
-          >
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10B981' }} />
-            <span>Nodal Settlement Complete</span>
-          </div>
+          />
 
           <div
-            className="text-hero"
-            style={{ fontSize: '36px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}
-          >
-            ₹{receipt.amount.toLocaleString('en-IN')}
-          </div>
-          <p style={{ fontSize: '14px', color: 'var(--text-muted, #94a3b8)', margin: '0 0 20px' }}>
-            Transferred to <strong style={{ color: 'var(--text-primary)' }}>{receipt.destination}</strong>
-          </p>
-
-          <div
-            className="surface-inset"
             style={{
-              width: '100%',
-              padding: '14px 16px',
-              borderRadius: '16px',
+              position: 'relative',
+              zIndex: 1,
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px',
-              textAlign: 'left',
-              marginBottom: '20px',
+              alignItems: 'center',
+              textAlign: 'center',
+              padding: '8px 2px',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>IMPS Reference</span>
-              <span className="font-mono" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                UTR #{receipt.utr}
-              </span>
+            {/* Verified Status Pill (No Emojis) */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '9999px',
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                color: '#10B981',
+                fontSize: '13px',
+                fontWeight: 600,
+                marginBottom: '16px',
+              }}
+            >
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: '#10B981',
+                  boxShadow: '0 0 6px #10B981',
+                }}
+              />
+              <span>Nodal Settlement Complete</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Settlement rail</span>
-              <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>GhostPay Nodal IMPS</span>
+
+            {/* Large Tabular Amount */}
+            <div
+              className="text-hero tabular-nums"
+              style={{
+                fontSize: '36px',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                marginBottom: '4px',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              ₹{receipt.amount.toLocaleString('en-IN')}.00
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Status</span>
-              <span style={{ fontWeight: 600, color: '#10B981' }}>Settled</span>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted, #94a3b8)', margin: '0 0 20px' }}>
+              Transferred to <strong style={{ color: 'var(--text-primary)' }}>{receipt.destination}</strong>
+            </p>
+
+            {/* 3-Row Metadata Summary Card */}
+            <div
+              className="surface-inset"
+              style={{
+                width: '100%',
+                padding: '14px 16px',
+                borderRadius: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                textAlign: 'left',
+                marginBottom: '20px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Destination</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{receipt.destination}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Settlement rail</span>
+                <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>IMPS Nodal Clearing</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>UTR Reference</span>
+                <span
+                  className="font-mono tabular-nums"
+                  style={{ fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
+                >
+                  #{receipt.utr}
+                </span>
+              </div>
             </div>
+
+            {/* Privacy Guarantee Line (Zero Em-Dashes) */}
+            <p style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)', margin: '0 0 20px', lineHeight: 1.4 }}>
+              Routed via GhostPay Nodal Escrow · Your @handle was never exposed to the receiving bank.
+            </p>
+
+            <GPButton variant="primary" onClick={handleClose} style={{ width: '100%' }}>
+              Done
+            </GPButton>
           </div>
-
-          <p style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)', margin: '0 0 20px', lineHeight: 1.4 }}>
-            Routed via GhostPay Nodal Escrow — your @handle was never exposed to the receiving bank.
-          </p>
-
-          <GPButton
-            variant="primary"
-            onClick={handleClose}
-            style={{ width: '100%' }}
-          >
-            Done
-          </GPButton>
         </div>
       ) : (
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
+            {/* Header row above Amount */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <label className="gp-label" style={{ margin: 0 }}>
                 Amount (₹)
               </label>
-              <span style={{ fontSize: '13px', fontWeight: 500, color: '#94a3b8' }}>
+              <span
+                className="tabular-nums"
+                style={{ fontSize: '13px', fontWeight: 500, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}
+              >
                 Available: ₹{walletBalance.toLocaleString('en-IN')}
               </span>
             </div>
+
+            {/* Input with inline Clear button */}
             <div className="gp-field">
               <span className="gp-field-prefix">₹</span>
               <input
-                className="gp-input"
+                className="gp-input tabular-nums"
                 inputMode="decimal"
                 placeholder="0"
                 value={amount}
                 disabled={busy}
+                style={{ fontVariantNumeric: 'tabular-nums' }}
                 onChange={(e) => {
                   setLastSelectedChip(null)
                   setAmount(e.target.value.replace(/[^\d.]/g, ''))
@@ -284,10 +356,7 @@ export function WithdrawModal({
                 <button
                   type="button"
                   className="gp-clear-btn"
-                  onClick={() => {
-                    setAmount('')
-                    setLastSelectedChip(null)
-                  }}
+                  onClick={handleClear}
                   aria-label="Clear amount"
                 >
                   Clear
@@ -295,15 +364,17 @@ export function WithdrawModal({
               )}
             </div>
 
+            {/* Quick Chips: Additive + Max */}
             <div className="gp-chips">
               {[500, 1000, 2000].map((val) => (
                 <button
                   key={val}
                   type="button"
                   disabled={busy}
-                  className="gp-chip"
+                  className="gp-chip tabular-nums"
                   data-selected={lastSelectedChip === val}
                   onClick={() => handleChipPick(val)}
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
                 >
                   +₹{val.toLocaleString('en-IN')}
                 </button>
@@ -322,12 +393,12 @@ export function WithdrawModal({
 
             {isAmountOverBalance && (
               <p className="gp-hint" style={{ color: '#f87171', marginTop: '8px' }}>
-                Exceeds available wallet balance (₹{walletBalance.toLocaleString('en-IN')})
+                Amount exceeds available wallet balance (₹{walletBalance.toLocaleString('en-IN')})
               </p>
             )}
           </div>
 
-          {/* 2-Column Payout Destination Selector */}
+          {/* 2-Column Payout Rail Selector (Zero Emojis, Crisp 6px Glowing Dot) */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', margin: '4px 0' }}>
             <button
               type="button"
@@ -348,8 +419,17 @@ export function WithdrawModal({
                 color: method === 'upi' ? 'var(--accent-text)' : 'var(--text-secondary)',
               }}
             >
-              <BoltIcon size={16} strokeWidth={2} />
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>⚡ UPI ID</span>
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: method === 'upi' ? '#60a5fa' : '#64748b',
+                  boxShadow: method === 'upi' ? '0 0 6px rgba(96, 165, 250, 0.7)' : 'none',
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ fontSize: '13px', fontWeight: 500 }}>Instant UPI</span>
             </button>
 
             <button
@@ -371,8 +451,8 @@ export function WithdrawModal({
                 color: method === 'bank' ? 'var(--accent-text)' : 'var(--text-secondary)',
               }}
             >
-              <BankIcon size={16} strokeWidth={1.75} />
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>🏦 Bank account</span>
+              <BankIcon size={15} strokeWidth={1.75} />
+              <span style={{ fontSize: '13px', fontWeight: 500 }}>Bank account</span>
             </button>
           </div>
 
@@ -390,7 +470,7 @@ export function WithdrawModal({
                   autoCapitalize="none"
                   autoCorrect="off"
                   onChange={(e) => {
-                    const normalized = e.target.value.replace(/[\u2013\u2014]/g, '-')
+                    const normalized = e.target.value.replace(/[\u2013\u2014\u2212]/g, '-')
                     setUpiId(normalized)
                   }}
                 />
@@ -399,6 +479,7 @@ export function WithdrawModal({
             </div>
           ) : (
             <>
+              {/* Selectable Bank Pills Row */}
               <div className="gp-section">
                 <label className="gp-label">Choose your bank</label>
                 <div className="gp-bank-pills">
@@ -409,11 +490,7 @@ export function WithdrawModal({
                       disabled={busy}
                       className="gp-bank-pill"
                       data-selected={selectedBank === b.name}
-                      onClick={() => {
-                        triggerHaptic(40)
-                        setSelectedBank(b.name)
-                        if (b.ifsc) setIfscCode(b.ifsc)
-                      }}
+                      onClick={() => handleBankSelect(b.name, b.ifsc)}
                     >
                       {b.name}
                     </button>
@@ -421,44 +498,50 @@ export function WithdrawModal({
                 </div>
               </div>
 
+              {/* Account Number Field */}
               <div className="gp-section">
                 <label className="gp-label">Account number</label>
                 <div className="gp-field">
                   <input
-                    className="gp-input"
+                    className="gp-input tabular-nums"
                     placeholder="Enter bank account number"
                     inputMode="numeric"
                     maxLength={18}
                     value={accountNumber}
                     disabled={busy}
+                    style={{ fontVariantNumeric: 'tabular-nums' }}
                     onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
                   />
                 </div>
               </div>
 
+              {/* IFSC Code Field */}
               <div className="gp-section">
-                <label className="gp-label">IFSC Code</label>
+                <label className="gp-label">IFSC code</label>
                 <div className="gp-field">
                   <input
-                    className="gp-input"
-                    placeholder="IFSC Code (e.g. HDFC0001234)"
+                    className="gp-input font-mono"
+                    placeholder="IFSC code (e.g. HDFC0001234)"
                     maxLength={11}
                     value={ifscCode}
                     disabled={busy}
                     spellCheck={false}
                     autoCapitalize="characters"
+                    style={{ letterSpacing: '0.04em' }}
                     onChange={(e) =>
                       setIfscCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
                     }
                   />
                 </div>
-                <p className="gp-hint" style={{ fontSize: '12px', color: 'var(--text-muted, #94a3b8)' }}>
+                {/* Beneficiary Trust Line (Zero Em-Dashes) */}
+                <p className="gp-hint" style={{ fontSize: '12px', color: '#64748b' }}>
                   Beneficiary: {realLegalName || 'Verified Account Holder'} · Settled via GhostPay Nodal Escrow
                 </p>
               </div>
             </>
           )}
 
+          {/* Primary Bottom Blue CTA Button */}
           <GPButton
             type="submit"
             variant="primary"
