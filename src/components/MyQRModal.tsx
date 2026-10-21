@@ -269,7 +269,7 @@ async function generateBrandedQrBlob({
   }
 
   // 5. Hero Identity Typography (Spacious, No Cramped Pill)
-  const microLabel = isBurner ? 'SINGLE-USE EPHEMERAL LINK' : 'VERIFIED GHOST ALIAS'
+  const microLabel = isBurner ? 'SINGLE-USE BURNER LINK' : 'VERIFIED GHOST ALIAS'
   ctx.fillStyle = isBurner ? '#fb923c' : '#60a5fa'
   ctx.font = '600 12px Inter, system-ui, -apple-system, sans-serif'
   if ('letterSpacing' in ctx) {
@@ -297,12 +297,12 @@ async function generateBrandedQrBlob({
     ctx.fillStyle = '#ffffff'
     ctx.font = isBurner
       ? '600 32px Inter, system-ui, -apple-system, sans-serif'
-      : '600 34px "JetBrains Mono", "SF Mono", ui-monospace, monospace'
+      : '700 34px Inter, system-ui, -apple-system, sans-serif'
     ctx.fillText(primaryText, 360, 664)
   } else {
     ctx.font = isBurner
       ? '600 32px Inter, system-ui, -apple-system, sans-serif'
-      : '600 34px "JetBrains Mono", "SF Mono", ui-monospace, monospace'
+      : '700 34px Inter, system-ui, -apple-system, sans-serif'
     const primaryW = ctx.measureText(primaryText).width
 
     ctx.font = '600 30px Inter, system-ui, -apple-system, sans-serif'
@@ -315,7 +315,7 @@ async function generateBrandedQrBlob({
     ctx.fillStyle = '#ffffff'
     ctx.font = isBurner
       ? '600 32px Inter, system-ui, -apple-system, sans-serif'
-      : '600 34px "JetBrains Mono", "SF Mono", ui-monospace, monospace'
+      : '700 34px Inter, system-ui, -apple-system, sans-serif'
     ctx.fillText(primaryText, startX, 664)
 
     ctx.fillStyle = isBurner ? '#fdba74' : '#93c5fd'
