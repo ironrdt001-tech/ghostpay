@@ -32,6 +32,7 @@ export async function processWithdrawal(
 
   let resolvedUid = userId
   let updatedBalance: number | null = null
+  let fallbackBalance: number | null = null
   let insertedTxId: string | null = null
   let insertedCreatedAt: string | null = null
 
@@ -101,7 +102,6 @@ export async function processWithdrawal(
     }
 
     // 3. Fallback: Direct table update for balance and transactions
-    let fallbackBalance: number | null = null
     if (updatedBalance === null && resolvedUid) {
       try {
         const { data: userProfile } = await supabase
