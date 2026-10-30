@@ -1,4 +1,6 @@
 -- Fix process_withdrawal RPC to use the correct schema column `wallet_balance` instead of `balance`
+drop function if exists public.process_withdrawal(uuid, numeric, text);
+
 create or replace function public.process_withdrawal(
   p_user_id uuid,
   p_amount numeric,
