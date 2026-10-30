@@ -147,7 +147,7 @@ export function WithdrawModal({
     try {
       // Await processWithdrawal when user confirms the withdrawal transaction
       const withdrawalResult = await processWithdrawal(userId, numAmount, destinationLabel)
-      const updatedBalance = typeof withdrawalResult.newBalance === 'number'
+      const updatedBalance = typeof withdrawalResult.newBalance === 'number' && Number.isFinite(withdrawalResult.newBalance) && withdrawalResult.newBalance <= walletBalance - numAmount
         ? withdrawalResult.newBalance
         : Math.max(0, walletBalance - numAmount)
       const newTx = withdrawalResult.transaction || withdrawalResult

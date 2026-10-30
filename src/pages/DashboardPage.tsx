@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 
@@ -149,45 +149,41 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
     }
   }, [profileMenuOpen])
 
-  // Initial data loading
-  useEffect(() => {
-    let active = true
-
-    async function loadData() {
-      if (!supabase) {
-        setBusy(false)
-        return
-      }
-
-      try {
-        const [profileRes, txRes, demoRes] = await Promise.all([
-          supabase.from('users').select('id, alias_handle, real_legal_name, real_upi_id, avatar_url, wallet_balance').eq('id', session.user.id).maybeSingle(),
-          fetchLedgerTransactions(session.user.id),
-          supabase.from('demo_transactions').select('id, amount_inr, sender_alias, status, created_at').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).limit(500),
-        ])
-
-        if (!active) return
-
-        if (profileRes.data) {
-          setProfile(profileRes.data as Profile)
-        }
-        if (txRes) {
-          setTransactions(txRes)
-        }
-        if (demoRes.data) {
-          setDemoTransactions(demoRes.data as DemoTransaction[])
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Could not load data.'
-        showToast('error', msg)
-      } finally {
-        if (active) setBusy(false)
-      }
+  // Centralized fetch function to populate dashboard data and guarantee sync with Supabase
+  const loadDashboardData = useCallback(async () => {
+    if (!supabase) {
+      setBusy(false)
+      return
     }
 
-    void loadData()
-    return () => { active = false }
+    try {
+      const [profileRes, txRes, demoRes] = await Promise.all([
+        supabase.from('users').select('id, alias_handle, real_legal_name, real_upi_id, avatar_url, wallet_balance').eq('id', session.user.id).maybeSingle(),
+        fetchLedgerTransactions(session.user.id),
+        supabase.from('demo_transactions').select('id, amount_inr, sender_alias, status, created_at').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).limit(500),
+      ])
+
+      if (profileRes.data) {
+        setProfile(profileRes.data as Profile)
+      }
+      if (txRes) {
+        setTransactions(txRes)
+      }
+      if (demoRes.data) {
+        setDemoTransactions(demoRes.data as DemoTransaction[])
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not load data.'
+      showToast('error', msg)
+    } finally {
+      setBusy(false)
+    }
   }, [session.user.id])
+
+  // Initial data loading
+  useEffect(() => {
+    void loadDashboardData()
+  }, [loadDashboardData])
 
   // Real-time postgres changes subscription
   useEffect(() => {
@@ -555,13 +551,29 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
           realLegalName={profile?.real_legal_name || profile?.full_name || ''}
           userId={session.user.id}
           onClose={() => setWithdrawOpen(false)}
-          onSuccess={async (_withdrawnAmount: number, newBalance: number, newTx?: Transaction) => {
-            // Immediately update local React state for both balance and transaction history array
-            setProfile(p => p ? { ...p, wallet_balance: newBalance } : p)
+          onSuccess={async (withdrawnAmount: number, newBalance: number, newTx?: Transaction) => {
+            const withdrawAmount = Number(withdrawnAmount) || 0
+
+            // Instantly decrement the local React balance state by the withdrawn amount
+            setProfile(prev => {
+              if (!prev) return prev
+              const currentBalance = typeof prev.wallet_balance === 'number' ? prev.wallet_balance : 0
+              const decrementedBalance = typeof newBalance === 'number' && Number.isFinite(newBalance) && newBalance <= currentBalance - withdrawAmount
+                ? newBalance
+                : Math.max(0, currentBalance - withdrawAmount)
+              return {
+                ...prev,
+                wallet_balance: decrementedBalance,
+              }
+            })
+
+            // Immediately update the local transaction history array
             if (newTx) {
               setTransactions(prev => [newTx, ...prev.filter(t => t.id !== newTx.id)])
             }
-            await refreshWalletAndTransactions(newBalance)
+
+            // Guarantee sync with Supabase by calling the centralized fetch function
+            await loadDashboardData()
           }}
           onToast={showToast}
         />

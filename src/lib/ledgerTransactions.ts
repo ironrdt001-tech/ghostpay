@@ -47,48 +47,53 @@ export async function processWithdrawal(
       }
     }
 
-    // 1. Attempt database RPC: process_withdrawal
+    // 1. Primary RPC: simulate_wallet_withdrawal (matching Supabase migration schema)
     try {
-      const { data, error } = await supabase.rpc('process_withdrawal', {
-        p_user_id: resolvedUid,
-        p_amount: withdrawAmount,
+      const roundedAmount = Math.round(withdrawAmount * 100) / 100
+      const method = destLabel.includes('@') ? 'upi' : 'bank'
+      const { data, error } = await supabase.rpc('simulate_wallet_withdrawal', {
+        p_amount: roundedAmount,
         p_destination: destLabel,
+        p_method: method,
       })
 
       if (!error && data !== null && data !== undefined) {
-        if (typeof data === 'number') {
-          updatedBalance = data
-        } else if (typeof data === 'object') {
-          const res = data as Record<string, unknown>
-          if (res.new_balance !== undefined) updatedBalance = Number(res.new_balance)
-          else if (res.wallet_balance !== undefined) updatedBalance = Number(res.wallet_balance)
-          else if (res.balance !== undefined) updatedBalance = Number(res.balance)
-
-          if (res.transaction_id) insertedTxId = String(res.transaction_id)
-          else if (res.id) insertedTxId = String(res.id)
-          if (res.created_at) insertedCreatedAt = String(res.created_at)
+        const res = (typeof data === 'string' ? JSON.parse(data) : data) as Record<string, unknown>
+        if (res.wallet_balance !== undefined && res.wallet_balance !== null) {
+          updatedBalance = Number(res.wallet_balance)
+        } else if (res.balance !== undefined && res.balance !== null) {
+          updatedBalance = Number(res.balance)
         }
+
+        if (res.transaction_id) insertedTxId = String(res.transaction_id)
+        if (res.created_at) insertedCreatedAt = String(res.created_at)
       }
     } catch {
       // Continue to next resolution strategy
     }
 
-    // 2. Attempt database RPC: simulate_wallet_withdrawal
+    // 2. Alternative database RPC: process_withdrawal
     if (updatedBalance === null) {
       try {
-        const { data, error } = await supabase.rpc('simulate_wallet_withdrawal', {
+        const { data, error } = await supabase.rpc('process_withdrawal', {
+          p_user_id: resolvedUid,
           p_amount: withdrawAmount,
           p_destination: destLabel,
-          p_method: destLabel.includes('@') ? 'upi' : 'bank',
         })
 
         if (!error && data !== null && data !== undefined) {
-          const res = data as Record<string, unknown>
-          if (res.wallet_balance !== undefined) updatedBalance = Number(res.wallet_balance)
-          else if (res.balance !== undefined) updatedBalance = Number(res.balance)
+          if (typeof data === 'number') {
+            updatedBalance = data
+          } else if (typeof data === 'object') {
+            const res = data as Record<string, unknown>
+            if (res.new_balance !== undefined && res.new_balance !== null) updatedBalance = Number(res.new_balance)
+            else if (res.wallet_balance !== undefined && res.wallet_balance !== null) updatedBalance = Number(res.wallet_balance)
+            else if (res.balance !== undefined && res.balance !== null) updatedBalance = Number(res.balance)
 
-          if (res.transaction_id) insertedTxId = String(res.transaction_id)
-          if (res.created_at) insertedCreatedAt = String(res.created_at)
+            if (res.transaction_id) insertedTxId = String(res.transaction_id)
+            else if (res.id) insertedTxId = String(res.id)
+            if (res.created_at) insertedCreatedAt = String(res.created_at)
+          }
         }
       } catch {
         // Continue to direct table queries
@@ -96,6 +101,7 @@ export async function processWithdrawal(
     }
 
     // 3. Fallback: Direct table update for balance and transactions
+    let fallbackBalance: number | null = null
     if (updatedBalance === null && resolvedUid) {
       try {
         const { data: userProfile } = await supabase
@@ -109,12 +115,15 @@ export async function processWithdrawal(
           throw new Error(`Insufficient funds for withdrawal. Available: ₹${currentBalance}`)
         }
 
-        updatedBalance = Math.max(0, currentBalance - withdrawAmount)
+        const calculated = Math.max(0, currentBalance - withdrawAmount)
+        fallbackBalance = calculated
 
         await supabase
           .from('users')
-          .update({ wallet_balance: updatedBalance })
+          .update({ wallet_balance: calculated })
           .eq('id', resolvedUid)
+
+        updatedBalance = calculated
       } catch (err) {
         if (err instanceof Error && err.message.includes('Insufficient')) {
           throw err
@@ -167,7 +176,9 @@ export async function processWithdrawal(
     }
   }
 
-  const finalBalance = updatedBalance !== null ? updatedBalance : 0
+  const finalBalance = updatedBalance !== null
+    ? updatedBalance
+    : (fallbackBalance !== null ? fallbackBalance : 0)
   const txId = insertedTxId || `wdr_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
   const createdAt = insertedCreatedAt || new Date().toISOString()
 
