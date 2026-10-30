@@ -424,9 +424,17 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   color: var(--text-muted);
 }
 
-.field-input:focus {
+.field-input:focus,
+.field-input:focus-within {
   border-color: var(--accent-primary);
   outline: none;
+}
+
+.field-input:focus-within input:focus,
+.field-input:focus-within input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 .field-input-hero {

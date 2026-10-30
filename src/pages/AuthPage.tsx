@@ -245,8 +245,16 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
             {isCreating && (
               <label className="field-label">
                 <span>Claim your @handle</span>
-                <div className="flex items-center bg-white/5 border border-white/10 rounded-md overflow-hidden transition-all focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500" style={{ minHeight: '48px' }}>
-                  <span className="px-3 text-white/50 bg-transparent border-r border-white/10 self-stretch flex items-center select-none">@</span>
+                <div
+                  className="field-input flex items-center rounded-xl overflow-hidden transition-all"
+                  style={{ padding: 0 }}
+                >
+                  <span
+                    className="px-3 text-white/50 bg-transparent self-stretch flex items-center select-none"
+                    style={{ borderRight: '1px solid var(--border-subtle)' }}
+                  >
+                    @
+                  </span>
                   <input
                     type="text"
                     name="handle"
@@ -258,7 +266,7 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
                     value={handle}
                     onChange={e => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))}
                     className="bg-transparent border-none outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 w-full px-3 py-2 text-white"
-                    style={{ outline: 'none', boxShadow: 'none' }}
+                    style={{ outline: 'none', boxShadow: 'none', background: 'transparent' }}
                     required
                   />
                 </div>
