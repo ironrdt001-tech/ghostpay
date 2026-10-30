@@ -164,10 +164,16 @@ export function WithdrawModal({
       // Immediately propagate updated balance and transaction to parent React state
       await onSuccess(numAmount, updatedBalance, newTx)
       onToast('success', `Settled ₹${numAmount.toLocaleString('en-IN')} to ${destinationLabel}.`)
-    } catch (err) {
-      console.error(err)
-      const msg = err instanceof Error ? err.message : 'Withdrawal failed. Please try again.'
-      onToast('error', msg)
+    } catch (error: unknown) {
+      console.error('Supabase RPC Error:', error)
+      const errObj = error as { message?: string; details?: string; hint?: string } | null
+      const dynamicError =
+        errObj?.message ||
+        errObj?.details ||
+        (error instanceof Error ? error.message : null) ||
+        (typeof error === 'string' ? error : JSON.stringify(error)) ||
+        'Withdrawal failed. Please try again.'
+      onToast('error', dynamicError)
     } finally {
       setBusy(false)
     }

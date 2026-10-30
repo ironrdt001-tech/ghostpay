@@ -58,7 +58,7 @@ export async function executeWithdrawal(
   })
 
   if (error) {
-    console.error('[executeWithdrawal] supabase.rpc process_withdrawal failed:', error)
+    console.error('Supabase RPC Error:', error)
     throw error
   }
 
