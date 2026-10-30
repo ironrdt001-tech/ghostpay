@@ -167,13 +167,19 @@ export function WithdrawModal({
     } catch (error: unknown) {
       console.error('Supabase RPC Error:', error)
       const errObj = error as { message?: string; details?: string; hint?: string } | null
-      const dynamicError =
+      const rawMessage =
         errObj?.message ||
         errObj?.details ||
         (error instanceof Error ? error.message : null) ||
-        (typeof error === 'string' ? error : JSON.stringify(error)) ||
-        'Withdrawal failed. Please try again.'
-      onToast('error', `RPC Error: ${dynamicError}`)
+        (typeof error === 'string' ? error : '')
+
+      let userMessage = rawMessage
+      if (rawMessage.toUpperCase().includes('INSUFFICIENT_WALLET_BALANCE') || rawMessage.toLowerCase().includes('insufficient')) {
+        userMessage = 'Insufficient wallet balance for this withdrawal.'
+      } else if (!userMessage) {
+        userMessage = 'Withdrawal failed. Please try again.'
+      }
+      onToast('error', userMessage)
     } finally {
       setBusy(false)
     }
