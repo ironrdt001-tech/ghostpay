@@ -167,7 +167,11 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
         setProfile(profileRes.data as Profile)
       }
       if (txRes) {
-        setTransactions(txRes)
+        setTransactions(prev => {
+          const serverIds = new Set(txRes.map(r => r.id))
+          const localOptimistic = prev.filter(t => !serverIds.has(t.id))
+          return [...localOptimistic, ...txRes]
+        })
       }
       if (demoRes.data) {
         setDemoTransactions(demoRes.data as DemoTransaction[])

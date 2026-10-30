@@ -6,7 +6,7 @@ import { GPButton, GPModal } from './GhostPayModalKit'
 import { playChaChingSound, unlockAudioEngine } from '../lib/audio'
 import { formatMoneyParts } from '../lib/formatters'
 import { triggerHaptic } from '../lib/haptics'
-import { processWithdrawal } from '../lib/ledgerTransactions'
+import { executeWithdrawal } from '../lib/ledgerTransactions'
 import { supabase } from '../lib/supabase'
 import type { Transaction } from '../lib/types'
 
@@ -145,8 +145,8 @@ export function WithdrawModal({
 
     setBusy(true)
     try {
-      // Await processWithdrawal when user confirms the withdrawal transaction
-      const withdrawalResult = await processWithdrawal(userId, numAmount, destinationLabel)
+      // Await executeWithdrawal when user confirms the withdrawal transaction
+      const withdrawalResult = await executeWithdrawal(userId, numAmount, destinationLabel)
       const updatedBalance = typeof withdrawalResult.newBalance === 'number' && Number.isFinite(withdrawalResult.newBalance) && withdrawalResult.newBalance <= walletBalance - numAmount
         ? withdrawalResult.newBalance
         : Math.max(0, walletBalance - numAmount)
@@ -165,6 +165,7 @@ export function WithdrawModal({
       await onSuccess(numAmount, updatedBalance, newTx)
       onToast('success', `Settled ₹${numAmount.toLocaleString('en-IN')} to ${destinationLabel}.`)
     } catch (err) {
+      console.error(err)
       const msg = err instanceof Error ? err.message : 'Withdrawal failed. Please try again.'
       onToast('error', msg)
     } finally {
