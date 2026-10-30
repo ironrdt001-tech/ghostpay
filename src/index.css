@@ -798,16 +798,21 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .px-4 { padding-left: 16px; padding-right: 16px; }
 .py-3 { padding-top: 12px; padding-bottom: 12px; }
 .py-3\.5 { padding-top: 14px; padding-bottom: 14px; }
+.py-2 { padding-top: 8px; padding-bottom: 8px; }
 .py-1\.5 { padding-top: 6px; padding-bottom: 6px; }
 .pl-10 { padding-left: 40px; }
 .pr-4 { padding-right: 16px; }
 .pr-16 { padding-right: 64px; }
+.self-stretch { align-self: stretch; }
+.select-none { user-select: none; }
 
 .rounded-md { border-radius: 6px; }
 .rounded-xl { border-radius: 12px; }
 .rounded-full { border-radius: 9999px; }
 
 .text-xs { font-size: 12px; line-height: 1rem; }
+.text-white\/50 { color: rgba(255, 255, 255, 0.50); }
+.text-white\/70 { color: rgba(255, 255, 255, 0.70); }
 .bg-white\/5 {
   background-color: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -816,7 +821,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   background-color: rgba(255, 255, 255, 0.10);
   color: #FFFFFF;
 }
-.text-white\/70 { color: rgba(255, 255, 255, 0.70); }
+.border-white\/10 {
+  border-color: rgba(255, 255, 255, 0.10);
+}
+.border-r {
+  border-right-width: 1px;
+  border-right-style: solid;
+}
 .transition-all {
   transition-property: all;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
@@ -827,19 +838,52 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .focus-visible\:outline-none:focus-visible { outline: none !important; }
 .focus-visible\:ring-0:focus-visible { box-shadow: none !important; }
 
+.focus-within\:border-blue-500:focus-within {
+  border-color: #3b82f6 !important;
+}
+.focus-within\:ring-1:focus-within {
+  box-shadow: 0 0 0 1px #3b82f6 !important;
+}
+.focus-within\:ring-blue-500:focus-within {
+  --tw-ring-color: #3b82f6;
+}
+
+.focus-within\:border-blue-500 input:focus,
+.focus-within\:border-blue-500 input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
 :root[data-theme="light"] .bg-white\/5,
 html:not(.dark):not([data-theme="dark"]) .bg-white\/5 {
   background-color: rgba(15, 23, 42, 0.05);
   border: 1px solid rgba(15, 23, 42, 0.08);
+}
+:root[data-theme="light"] .border-white\/10,
+html:not(.dark):not([data-theme="dark"]) .border-white\/10 {
+  border-color: rgba(15, 23, 42, 0.12);
 }
 :root[data-theme="light"] .hover\:bg-white\/10:hover,
 html:not(.dark):not([data-theme="dark"]) .hover\:bg-white\/10:hover {
   background-color: rgba(15, 23, 42, 0.10);
   color: #0f172a;
 }
+:root[data-theme="light"] .text-white\/50,
+html:not(.dark):not([data-theme="dark"]) .text-white\/50 {
+  color: #64748b;
+}
 :root[data-theme="light"] .text-white\/70,
 html:not(.dark):not([data-theme="dark"]) .text-white\/70 {
   color: #475569;
+}
+:root[data-theme="light"] .bg-white\/5 input,
+html:not(.dark):not([data-theme="dark"]) .bg-white\/5 input {
+  color: #0f172a !important;
+}
+:root[data-theme="light"] .bg-white\/5 input::placeholder,
+html:not(.dark):not([data-theme="dark"]) .bg-white\/5 input::placeholder {
+  color: #64748b !important;
 }
 
 .border { border-width: 1px; border-style: solid; }

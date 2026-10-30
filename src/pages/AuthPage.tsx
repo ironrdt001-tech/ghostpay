@@ -245,8 +245,8 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
             {isCreating && (
               <label className="field-label">
                 <span>Claim your @handle</span>
-                <div className="input-with-prefix">
-                  <span className="input-prefix">@</span>
+                <div className="flex items-center bg-white/5 border border-white/10 rounded-md overflow-hidden transition-all focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500" style={{ minHeight: '48px' }}>
+                  <span className="px-3 text-white/50 bg-transparent border-r border-white/10 self-stretch flex items-center select-none">@</span>
                   <input
                     type="text"
                     autoComplete="username"
@@ -254,6 +254,8 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
                     placeholder="yourhandle"
                     value={handle}
                     onChange={e => setHandle(e.target.value.replace(/^@+/, ''))}
+                    className="bg-transparent border-none outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 w-full px-3 py-2 text-white"
+                    style={{ outline: 'none', boxShadow: 'none' }}
                     required
                   />
                 </div>
