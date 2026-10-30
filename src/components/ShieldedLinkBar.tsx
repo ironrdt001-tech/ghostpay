@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ShieldIcon, CopyIcon, CheckIcon, QrScanIcon } from './Icons'
+
+import { CheckIcon, CopyIcon, QrScanIcon, ShieldIcon } from './Icons'
 
 interface ShieldedLinkBarProps {
   handle: string

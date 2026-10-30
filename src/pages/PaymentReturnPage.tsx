@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
+
 import { Brand } from '../components/Brand'
-import { ShieldCheckIcon, ArrowRightIcon } from '../components/Icons'
+import { ArrowRightIcon, ShieldCheckIcon } from '../components/Icons'
 
 export function PaymentReturnPage() {
   return (

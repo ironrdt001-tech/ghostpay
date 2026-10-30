@@ -1,4 +1,4 @@
-import { ShieldIcon, ArrowOutgoingIcon, QrScanIcon, ActivityIcon, UserIcon } from './Icons'
+import { ActivityIcon, ArrowOutgoingIcon, QrScanIcon, ShieldIcon, UserIcon } from './Icons'
 import { triggerHaptic } from '../lib/haptics'
 
 interface MobileBottomNavProps {

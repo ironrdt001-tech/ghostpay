@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect, type FormEvent } from 'react'
-import { supabase } from '../lib/supabase'
+import { useEffect, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
+
+import { CameraIcon, CheckIcon, CloseIcon, GalleryIcon, SpinnerIcon, TrashIcon } from './Icons'
 import { processAvatarFileToDataUrl } from '../lib/avatar'
-import { CloseIcon, CameraIcon, GalleryIcon, TrashIcon, SpinnerIcon, CheckIcon } from './Icons'
+import { supabase } from '../lib/supabase'
 import type { Profile } from '../lib/types'
 
 interface EditProfileModalProps {

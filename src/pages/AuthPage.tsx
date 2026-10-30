@@ -1,8 +1,10 @@
-import { useState, useRef, useEffect, type FormEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+
 import { Brand } from '../components/Brand'
 import { ArrowRightIcon, LockIcon, ShieldCheckIcon, SpinnerIcon } from '../components/Icons'
+import { supabase } from '../lib/supabase'
 
 interface AuthPageProps {
   initialMode?: 'sign-in' | 'create-account'

@@ -1,10 +1,12 @@
-import { useState, useEffect, type FormEvent } from 'react'
-import { unlockAudioEngine, playChaChingSound } from '../lib/audio'
-import { supabase } from '../lib/supabase'
-import { formatHandle, formatMoneyParts } from '../lib/formatters'
-import { RecentPeople } from './RecentPeople'
+import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
+
 import { ArrowRightIcon, ShieldCheckIcon, SpinnerIcon } from './Icons'
+import { RecentPeople } from './RecentPeople'
+import { playChaChingSound, unlockAudioEngine } from '../lib/audio'
+import { formatHandle, formatMoneyParts } from '../lib/formatters'
 import { triggerHaptic } from '../lib/haptics'
+import { supabase } from '../lib/supabase'
 import type { RecentPerson } from '../lib/types'
 
 interface SendMoneyFormProps {

@@ -1,15 +1,16 @@
-import { useState, useEffect, useRef } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from './lib/supabase'
+
 import { Brand } from './components/Brand'
 import { SpinnerIcon } from './components/Icons'
+import { supabase } from './lib/supabase'
 import { AuthPage } from './pages/AuthPage'
-import { OnboardingPage } from './pages/OnboardingPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { OnboardingPage } from './pages/OnboardingPage'
 import { PaymentPage } from './pages/PaymentPage'
-import { PaymentSuccessPage } from './pages/PaymentSuccessPage'
 import { PaymentReturnPage } from './pages/PaymentReturnPage'
+import { PaymentSuccessPage } from './pages/PaymentSuccessPage'
 
 function AuthenticatedRedirect({ session }: { session: Session }) {
   const navigate = useNavigate()

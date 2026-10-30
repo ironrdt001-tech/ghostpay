@@ -1,11 +1,13 @@
-import { useState, type FormEvent } from 'react'
-import { triggerHaptic } from '../lib/haptics'
-import { unlockAudioEngine, playChaChingSound } from '../lib/audio'
-import { supabase } from '../lib/supabase'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
+
+import { BankIcon, SpinnerIcon } from './Icons'
+import { GPButton, GPModal } from './GhostPayModalKit'
+import { playChaChingSound, unlockAudioEngine } from '../lib/audio'
 import { formatMoneyParts } from '../lib/formatters'
-import { SpinnerIcon, BankIcon } from './Icons'
-import { GPModal, GPButton } from './GhostPayModalKit'
+import { triggerHaptic } from '../lib/haptics'
 import { processWithdrawal } from '../lib/ledgerTransactions'
+import { supabase } from '../lib/supabase'
 import type { Transaction } from '../lib/types'
 
 interface WithdrawModalProps {

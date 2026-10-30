@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import jsQR from 'jsqr'
-import { CloseIcon, GalleryIcon, BoltIcon } from './Icons'
+
+import { BoltIcon, CloseIcon, GalleryIcon } from './Icons'
 import { triggerHaptic } from '../lib/haptics'
 
 interface QrScannerModalProps {

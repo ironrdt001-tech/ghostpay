@@ -1,11 +1,13 @@
-import { useState, useEffect, useMemo, useRef, type FormEvent } from 'react'
-import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
-import { unlockAudioEngine, playChaChingSound } from '../lib/audio'
-import { formatHandle, formatMoneyParts } from '../lib/formatters'
+
 import { Brand } from '../components/Brand'
-import { ArrowLeftIcon, ArrowRightIcon, ShieldCheckIcon, SpinnerIcon, LockIcon } from '../components/Icons'
+import { ArrowLeftIcon, ArrowRightIcon, LockIcon, ShieldCheckIcon, SpinnerIcon } from '../components/Icons'
+import { playChaChingSound, unlockAudioEngine } from '../lib/audio'
+import { formatHandle, formatMoneyParts } from '../lib/formatters'
+import { supabase } from '../lib/supabase'
 import type { Profile } from '../lib/types'
 
 export function PaymentPage() {

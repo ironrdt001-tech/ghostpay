@@ -1,10 +1,12 @@
-import { useState, type FormEvent } from 'react'
-import { triggerHaptic } from '../lib/haptics'
-import { unlockAudioEngine, playChaChingSound } from '../lib/audio'
-import { supabase } from '../lib/supabase'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
+
+import { BankIcon, BoltIcon, SpinnerIcon } from './Icons'
+import { GPAmountField, GPButton, GPChips, GPModal } from './GhostPayModalKit'
+import { playChaChingSound, unlockAudioEngine } from '../lib/audio'
 import { formatMoneyParts } from '../lib/formatters'
-import { SpinnerIcon, BoltIcon, BankIcon } from './Icons'
-import { GPModal, GPAmountField, GPChips, GPButton } from './GhostPayModalKit'
+import { triggerHaptic } from '../lib/haptics'
+import { supabase } from '../lib/supabase'
 
 interface TopUpModalProps {
   onClose: () => void

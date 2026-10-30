@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
-import { formatMoneyParts, generateUtrNumber, formatIstDateTime } from '../lib/formatters'
-import { CloseIcon, CopyIcon, ArrowIncomingIcon, ArrowOutgoingIcon } from './Icons'
+
+import { ArrowIncomingIcon, ArrowOutgoingIcon, CloseIcon, CopyIcon } from './Icons'
+import { formatIstDateTime, formatMoneyParts, generateUtrNumber } from '../lib/formatters'
 import type { Transaction } from '../lib/types'
 
 interface ReceiptModalProps {

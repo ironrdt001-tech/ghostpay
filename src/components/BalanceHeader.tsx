@@ -1,5 +1,5 @@
-import { formatMoneyParts } from '../lib/formatters'
 import { EyeIcon, EyeOffIcon } from './Icons'
+import { formatMoneyParts } from '../lib/formatters'
 
 interface BalanceHeaderProps {
   balance: number

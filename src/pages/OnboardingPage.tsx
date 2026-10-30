@@ -1,9 +1,11 @@
-import { useState, type FormEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+
 import { Brand } from '../components/Brand'
 import { ArrowRightIcon, LockIcon, ShieldCheckIcon, SpinnerIcon } from '../components/Icons'
+import { supabase } from '../lib/supabase'
 
 interface OnboardingPageProps {
   session: Session
