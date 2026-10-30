@@ -18,7 +18,6 @@ import { QrScannerModal } from '../components/QrScannerModal'
 import { MobileBottomNav } from '../components/MobileBottomNav'
 import { SunIcon, MoonIcon, CheckIcon } from '../components/Icons'
 import { parsePaymentQrCode } from '../lib/qr'
-import { processWithdrawal } from '../lib/ledgerTransactions'
 import type { Profile, Transaction, DemoTransaction, RecentPerson, ActivityFilter } from '../lib/types'
 
 interface DashboardPageProps {
