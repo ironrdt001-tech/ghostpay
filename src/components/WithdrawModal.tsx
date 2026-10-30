@@ -331,7 +331,7 @@ export function WithdrawModal({
             <div className="gp-field">
               <span className="gp-field-prefix">₹</span>
               <input
-                className="gp-input tabular-nums"
+                className="gp-input tabular-nums focus:outline-none focus:ring-0"
                 inputMode="decimal"
                 placeholder="0"
                 value={amount}
@@ -345,7 +345,7 @@ export function WithdrawModal({
               {Boolean(amount && String(amount).trim().length > 0) && (
                 <button
                   type="button"
-                  className="gp-clear-btn"
+                  className="gp-clear-btn bg-white/5 hover:bg-white/10 text-white/70 text-xs px-3 py-1.5 rounded-md transition-all"
                   onClick={handleClear}
                   aria-label="Clear amount"
                 >
@@ -452,7 +452,7 @@ export function WithdrawModal({
               <label className="gp-label">Destination UPI ID</label>
               <div className="gp-field">
                 <input
-                  className="gp-input"
+                  className="gp-input focus:outline-none focus:ring-0"
                   placeholder="username@okaxis"
                   value={upiId}
                   disabled={busy}
@@ -464,6 +464,17 @@ export function WithdrawModal({
                     setUpiId(normalized)
                   }}
                 />
+                {Boolean(upiId && upiId.length > 0) && (
+                  <button
+                    type="button"
+                    className="gp-clear-btn bg-white/5 hover:bg-white/10 text-white/70 text-xs px-3 py-1.5 rounded-md transition-all"
+                    onClick={() => setUpiId('')}
+                    disabled={busy}
+                    aria-label="Clear UPI ID"
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
               <p className="gp-hint">Instant settlement to any verified Indian UPI address</p>
             </div>

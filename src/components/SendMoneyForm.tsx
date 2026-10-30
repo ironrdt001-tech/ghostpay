@@ -158,7 +158,7 @@ export function SendMoneyForm({
       <form onSubmit={handleSubmit} className="field-stack">
         <label className="field-label">
           <span>Recipient @handle or UPI ID</span>
-          <div className="input-with-prefix">
+          <div className="input-with-prefix relative">
             <input
               type="text"
               autoCapitalize="none"
@@ -168,8 +168,21 @@ export function SendMoneyForm({
               value={recipient}
               onChange={e => setRecipient(e.target.value)}
               disabled={busy || disabled}
+              className="px-4 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 pr-16"
+              style={{ outline: 'none', boxShadow: 'none' }}
               required
             />
+            {recipient.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setRecipient('')}
+                disabled={busy || disabled}
+                className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/5 hover:bg-white/10 text-white/70 text-xs px-3 py-1.5 rounded-md transition-all cursor-pointer"
+                aria-label="Clear recipient"
+              >
+                Clear
+              </button>
+            )}
           </div>
           {cleanRecipient && (
             <div className={`verification-caption ${isHandle ? 'verified' : ''}`}>
@@ -185,7 +198,7 @@ export function SendMoneyForm({
 
         <label className="field-label">
           <span>Amount (₹)</span>
-          <div className="input-with-prefix">
+          <div className="input-with-prefix relative">
             <span className="input-prefix" style={{ fontSize: '18px' }}>₹</span>
             <input
               type="number"
@@ -197,9 +210,21 @@ export function SendMoneyForm({
               value={amount}
               onChange={e => setAmount(e.target.value)}
               disabled={busy || disabled}
-              className="tabular-nums"
+              className="tabular-nums focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 pr-16"
+              style={{ outline: 'none', boxShadow: 'none' }}
               required
             />
+            {amount.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setAmount('')}
+                disabled={busy || disabled}
+                className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/5 hover:bg-white/10 text-white/70 text-xs px-3 py-1.5 rounded-md transition-all cursor-pointer"
+                aria-label="Clear amount"
+              >
+                Clear
+              </button>
+            )}
           </div>
           <div className="chip-group" style={{ marginTop: '4px' }}>
             {[100, 500, 1000].map(val => (

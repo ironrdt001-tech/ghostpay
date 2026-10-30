@@ -95,7 +95,7 @@ export function GPAmountField({
       <div className="gp-field">
         <span className="gp-field-prefix">₹</span>
         <input
-          className="gp-input"
+          className="gp-input focus:outline-none focus:ring-0"
           inputMode="decimal"
           placeholder={placeholder}
           value={value}
@@ -106,7 +106,7 @@ export function GPAmountField({
         {Boolean(value && String(value).trim().length > 0) && (
           <button
             type="button"
-            className="gp-clear-btn"
+            className="gp-clear-btn bg-white/5 hover:bg-white/10 text-white/70 text-xs px-3 py-1.5 rounded-md transition-all"
             onClick={() => onChange('')}
             aria-label="Clear amount"
           >
