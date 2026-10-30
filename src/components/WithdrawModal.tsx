@@ -173,7 +173,7 @@ export function WithdrawModal({
         (error instanceof Error ? error.message : null) ||
         (typeof error === 'string' ? error : JSON.stringify(error)) ||
         'Withdrawal failed. Please try again.'
-      onToast('error', dynamicError)
+      onToast('error', `RPC Error: ${dynamicError}`)
     } finally {
       setBusy(false)
     }
