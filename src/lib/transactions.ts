@@ -34,11 +34,16 @@ export async function fetchLedgerTransactions(userId: string): Promise<Transacti
     const senderHandle = sender?.alias_handle
     const receiverHandle = receiver?.alias_handle
     const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up')
-    const isShielded = !isTopUp && !tx.sender_id
-    const isNodal = isShielded || Boolean(tx.sender_id?.startsWith('#') || tx.receiver_id?.startsWith('#'))
-    const type = isShielded ? 'shielded_link' : isTopUp ? 'top_up' : 'p2p'
+    const isWithdrawal = tx.type === 'Withdrawal' || tx.type === 'Settlement' ||
+      String(tx.sender_name || '').toLowerCase().includes('withdrawal') ||
+      String(tx.sender_name || '').toLowerCase().includes('nodal payout')
+    const isShielded = !isTopUp && !isWithdrawal && !tx.sender_id
+    const isNodal = isShielded || isWithdrawal || Boolean(tx.sender_id?.startsWith('#') || tx.receiver_id?.startsWith('#'))
+    const type = isWithdrawal ? 'Withdrawal' : isShielded ? 'shielded_link' : isTopUp ? 'top_up' : 'p2p'
 
-    const counterpartyLabel = direction === 'sent'
+    const counterpartyLabel = isWithdrawal
+      ? tx.sender_name || 'Bank Withdrawal'
+      : direction === 'sent'
       ? receiverHandle ? formatHandle(receiverHandle) : tx.recipient_upi || tx.sender_name || 'GhostPay User'
       : tx.sender_name || (senderHandle ? formatHandle(senderHandle) : 'Anonymous Sender')
     return {
@@ -52,3 +57,6 @@ export async function fetchLedgerTransactions(userId: string): Promise<Transacti
     }
   })
 }
+
+export { processWithdrawal } from './ledgerTransactions'
+

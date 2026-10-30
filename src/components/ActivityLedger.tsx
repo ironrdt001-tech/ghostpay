@@ -21,6 +21,19 @@ function getIstDateKey(dateString: string): string {
 }
 
 function formatTransactionCounterparty(tx: Transaction): { displayName: string; isPrivateRoute: boolean } {
+  const isWithdrawal = tx.type === 'Withdrawal' || tx.type === 'Settlement' ||
+    String(tx.sender_name || '').toLowerCase().includes('withdrawal') ||
+    String(tx.sender_name || '').toLowerCase().includes('nodal payout') ||
+    String(tx.counterpartyLabel || '').toLowerCase().includes('withdrawal') ||
+    String(tx.counterpartyLabel || '').toLowerCase().includes('nodal payout')
+
+  if (isWithdrawal) {
+    return {
+      displayName: tx.counterpartyLabel || tx.sender_name || 'Bank Withdrawal',
+      isPrivateRoute: true,
+    }
+  }
+
   const counterpartId = (tx.direction === 'sent'
     ? (tx.receiver_id || tx.counterpartyUserId)
     : (tx.sender_id || tx.counterpartyUserId)) || ''
@@ -108,8 +121,8 @@ export function ActivityLedger({
       }
 
       const dayTxs = completedTransactions.filter(tx => getIstDateKey(tx.created_at) === istKey)
-      const rec = dayTxs.filter(tx => tx.direction === 'received').reduce((sum, tx) => sum + Number(tx.amount_inr || 0), 0)
-      const sent = dayTxs.filter(tx => tx.direction === 'sent').reduce((sum, tx) => sum + Number(tx.amount_inr || 0), 0)
+      const rec = dayTxs.filter(tx => tx.direction === 'received').reduce((sum, tx) => sum + Math.abs(Number(tx.amount_inr || 0)), 0)
+      const sent = dayTxs.filter(tx => tx.direction === 'sent').reduce((sum, tx) => sum + Math.abs(Number(tx.amount_inr || 0)), 0)
 
       return {
         key: istKey,
@@ -719,8 +732,13 @@ export function ActivityLedger({
                   const parts = formatMoneyParts(tx.amount_inr)
                   const isTopUp = String(tx.sender_name || '').toLowerCase().includes('top-up') ||
                     String(tx.counterpartyLabel || '').toLowerCase().includes('top-up')
+                  const isWithdrawal = tx.type === 'Withdrawal' || tx.type === 'Settlement' ||
+                    String(tx.sender_name || '').toLowerCase().includes('withdrawal') ||
+                    String(tx.sender_name || '').toLowerCase().includes('nodal payout') ||
+                    String(tx.counterpartyLabel || '').toLowerCase().includes('withdrawal') ||
+                    String(tx.counterpartyLabel || '').toLowerCase().includes('nodal payout')
                   const { displayName: counterparty, isPrivateRoute } = formatTransactionCounterparty(tx)
-                  const rail = isTopUp ? 'Wallet top-up' : isPrivateRoute ? 'Shielded link' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
+                  const rail = isTopUp ? 'Wallet top-up' : isWithdrawal ? 'Bank withdrawal' : isPrivateRoute ? 'Shielded link' : tx.sender_id ? 'Internal P2P' : 'Shielded link'
 
                   return (
                     <div

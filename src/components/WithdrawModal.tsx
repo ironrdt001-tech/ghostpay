@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 import { formatMoneyParts } from '../lib/formatters'
 import { SpinnerIcon, BankIcon } from './Icons'
 import { GPModal, GPButton } from './GhostPayModalKit'
+import { processWithdrawal } from '../lib/ledgerTransactions'
+import type { Transaction } from '../lib/types'
 
 interface WithdrawModalProps {
   walletBalance: number
@@ -12,7 +14,7 @@ interface WithdrawModalProps {
   realLegalName?: string
   userId: string
   onClose: () => void
-  onSuccess: (withdrawnAmount: number, newBalance: number) => Promise<void>
+  onSuccess: (withdrawnAmount: number, newBalance: number, newTx?: Transaction) => Promise<void> | void
   onToast: (kind: 'success' | 'error', message: string) => void
 }
 
@@ -141,40 +143,12 @@ export function WithdrawModal({
 
     setBusy(true)
     try {
-      let updatedBalance = Math.max(0, walletBalance - numAmount)
-
-      // 1. Try atomic database RPC
-      const { data, error } = await supabase.rpc('simulate_wallet_withdrawal', {
-        p_amount: numAmount,
-        p_destination: destinationLabel,
-        p_method: method,
-        p_utr: simUtr,
-      })
-
-      if (!error && data) {
-        const res = data as { wallet_balance?: number | string }
-        if (res.wallet_balance !== undefined) {
-          updatedBalance = Number(res.wallet_balance)
-        }
-      } else {
-        // Fallback: update wallet balance directly in table
-        await supabase
-          .from('users')
-          .update({ wallet_balance: updatedBalance })
-          .eq('id', userId)
-
-        try {
-          await supabase.from('transactions').insert({
-            sender_id: userId,
-            receiver_id: userId,
-            amount_inr: numAmount,
-            sender_name: `Nodal payout · ${destinationLabel}`,
-            status: 'completed',
-          })
-        } catch {
-          // Gracefully continue even if transaction insert has varying constraint
-        }
-      }
+      // Await processWithdrawal when user confirms the withdrawal transaction
+      const withdrawalResult = await processWithdrawal(userId, numAmount, destinationLabel)
+      const updatedBalance = typeof withdrawalResult.newBalance === 'number'
+        ? withdrawalResult.newBalance
+        : Math.max(0, walletBalance - numAmount)
+      const newTx = withdrawalResult.transaction || withdrawalResult
 
       playChaChingSound()
       triggerHaptic(80)
@@ -185,7 +159,8 @@ export function WithdrawModal({
         utr: simUtr,
       })
 
-      await onSuccess(numAmount, updatedBalance)
+      // Immediately propagate updated balance and transaction to parent React state
+      await onSuccess(numAmount, updatedBalance, newTx)
       onToast('success', `Settled ₹${numAmount.toLocaleString('en-IN')} to ${destinationLabel}.`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Withdrawal failed. Please try again.'

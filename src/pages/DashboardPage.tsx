@@ -18,6 +18,7 @@ import { QrScannerModal } from '../components/QrScannerModal'
 import { MobileBottomNav } from '../components/MobileBottomNav'
 import { SunIcon, MoonIcon, CheckIcon } from '../components/Icons'
 import { parsePaymentQrCode } from '../lib/qr'
+import { processWithdrawal } from '../lib/ledgerTransactions'
 import type { Profile, Transaction, DemoTransaction, RecentPerson, ActivityFilter } from '../lib/types'
 
 interface DashboardPageProps {
@@ -221,7 +222,11 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
       }
       setProfile(p => p ? { ...p, wallet_balance: Number(wallet.wallet_balance) } : p)
       const freshRows = await fetchLedgerTransactions(session.user.id)
-      setTransactions(freshRows)
+      setTransactions(prev => {
+        const serverIds = new Set(freshRows.map(r => r.id))
+        const localOptimistic = prev.filter(t => !serverIds.has(t.id))
+        return [...localOptimistic, ...freshRows]
+      })
     } catch {
       // Reconcile on subsequent refreshes
     }
@@ -550,8 +555,12 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
           realLegalName={profile?.real_legal_name || profile?.full_name || ''}
           userId={session.user.id}
           onClose={() => setWithdrawOpen(false)}
-          onSuccess={async (_withdrawnAmount: number, newBalance: number) => {
+          onSuccess={async (_withdrawnAmount: number, newBalance: number, newTx?: Transaction) => {
+            // Immediately update local React state for both balance and transaction history array
             setProfile(p => p ? { ...p, wallet_balance: newBalance } : p)
+            if (newTx) {
+              setTransactions(prev => [newTx, ...prev.filter(t => t.id !== newTx.id)])
+            }
             await refreshWalletAndTransactions(newBalance)
           }}
           onToast={showToast}
