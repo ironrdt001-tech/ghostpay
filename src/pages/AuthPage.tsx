@@ -14,6 +14,8 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
   const navigate = useNavigate()
   const [mode, setMode] = useState<'sign-in' | 'create-account'>(initialMode)
   const [handle, setHandle] = useState('')
+  const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
+  const [debouncedHandle, setDebouncedHandle] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -24,6 +26,73 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
   useEffect(() => () => {
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
   }, [])
+
+  // 500ms debounce on handle input value
+  useEffect(() => {
+    if (mode !== 'create-account') {
+      setHandleStatus('idle')
+      setDebouncedHandle('')
+      return
+    }
+
+    const clean = handle.trim().toLowerCase()
+    if (clean.length < 3) {
+      setHandleStatus('idle')
+      setDebouncedHandle('')
+      return
+    }
+
+    if (clean !== debouncedHandle) {
+      setHandleStatus('checking')
+    }
+
+    const timer = setTimeout(() => {
+      setDebouncedHandle(clean)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [handle, mode, debouncedHandle])
+
+  // Query Supabase profiles table when debounced value changes
+  useEffect(() => {
+    if (mode !== 'create-account' || !debouncedHandle) {
+      return
+    }
+
+    let isMounted = true
+
+    async function checkHandleAvailability() {
+      if (!supabase) return
+      setHandleStatus('checking')
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('alias_handle', debouncedHandle)
+          .maybeSingle()
+
+        if (!isMounted) return
+
+        if (error) {
+          console.error('Error checking handle availability:', error)
+          setHandleStatus('idle')
+          return
+        }
+
+        setHandleStatus(data ? 'taken' : 'available')
+      } catch (err) {
+        if (!isMounted) return
+        console.error('Failed to check handle availability:', err)
+        setHandleStatus('idle')
+      }
+    }
+
+    checkHandleAvailability()
+
+    return () => {
+      isMounted = false
+    }
+  }, [debouncedHandle, mode])
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -227,7 +296,7 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
               type="button"
               className={`segmented-tab ${!isCreating ? 'active' : ''}`}
               style={{ flex: 1 }}
-              onClick={() => { setMode('sign-in'); setError(''); setMessage('') }}
+              onClick={() => { setMode('sign-in'); setError(''); setMessage(''); setHandleStatus('idle') }}
             >
               Sign in
             </button>
@@ -235,7 +304,7 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
               type="button"
               className={`segmented-tab ${isCreating ? 'active' : ''}`}
               style={{ flex: 1 }}
-              onClick={() => { setMode('create-account'); setError(''); setMessage('') }}
+              onClick={() => { setMode('create-account'); setError(''); setMessage(''); setHandleStatus('idle') }}
             >
               Create account
             </button>
@@ -270,6 +339,21 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
                     required
                   />
                 </div>
+                {handleStatus !== 'idle' && (
+                  <p
+                    className={`text-xs mt-1 font-medium px-1 ${
+                      handleStatus === 'checking'
+                        ? 'text-gray-400'
+                        : handleStatus === 'available'
+                        ? 'text-emerald-400'
+                        : 'text-red-400'
+                    }`}
+                  >
+                    {handleStatus === 'checking' && 'Checking...'}
+                    {handleStatus === 'available' && '✅ Handle available'}
+                    {handleStatus === 'taken' && '❌ Handle taken'}
+                  </p>
+                )}
               </label>
             )}
 
