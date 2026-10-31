@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { CheckCircle2, XCircle } from 'lucide-react'
 
 import { Brand } from '../components/Brand'
 import { ArrowRightIcon, LockIcon, ShieldCheckIcon, SpinnerIcon } from '../components/Icons'
@@ -340,19 +341,29 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
                   />
                 </div>
                 {handleStatus !== 'idle' && (
-                  <p
-                    className={`text-xs mt-1 font-medium px-1 ${
+                  <div
+                    className={`flex items-center gap-1.5 mt-2 text-sm font-medium ${
                       handleStatus === 'checking'
                         ? 'text-gray-400'
                         : handleStatus === 'available'
-                        ? 'text-emerald-400'
-                        : 'text-red-400'
+                        ? 'text-emerald-500'
+                        : 'text-red-500'
                     }`}
                   >
-                    {handleStatus === 'checking' && 'Checking...'}
-                    {handleStatus === 'available' && '✅ Handle available'}
-                    {handleStatus === 'taken' && '❌ Handle taken'}
-                  </p>
+                    {handleStatus === 'checking' && <span>Checking...</span>}
+                    {handleStatus === 'available' && (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 shrink-0" size={16} stroke="currentColor" />
+                        <span>Handle available</span>
+                      </>
+                    )}
+                    {handleStatus === 'taken' && (
+                      <>
+                        <XCircle className="w-4 h-4 shrink-0" size={16} stroke="currentColor" />
+                        <span>Handle taken</span>
+                      </>
+                    )}
+                  </div>
                 )}
               </label>
             )}

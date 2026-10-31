@@ -813,6 +813,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .pr-4 { padding-right: 16px; }
 .pr-16 { padding-right: 64px; }
 .mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 8px; }
+.gap-1\.5 { gap: 6px; }
+.w-4 { width: 16px; }
+.h-4 { height: 16px; }
+.shrink-0 { flex-shrink: 0; }
 .self-stretch { align-self: stretch; }
 .select-none { user-select: none; }
 
@@ -822,7 +827,9 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .text-xs { font-size: 12px; line-height: 1rem; }
 .text-emerald-400 { color: #34d399; }
+.text-emerald-500 { color: #10b981; }
 .text-red-400 { color: #f87171; }
+.text-red-500 { color: #ef4444; }
 .text-white\/50 { color: rgba(255, 255, 255, 0.50); }
 .text-white\/70 { color: rgba(255, 255, 255, 0.70); }
 .bg-white\/5 {
@@ -888,6 +895,14 @@ html:not(.dark):not([data-theme="dark"]) .text-white\/50 {
 :root[data-theme="light"] .text-white\/70,
 html:not(.dark):not([data-theme="dark"]) .text-white\/70 {
   color: #475569;
+}
+:root[data-theme="light"] .text-emerald-500,
+html:not(.dark):not([data-theme="dark"]) .text-emerald-500 {
+  color: #059669;
+}
+:root[data-theme="light"] .text-red-500,
+html:not(.dark):not([data-theme="dark"]) .text-red-500 {
+  color: #dc2626;
 }
 :root[data-theme="light"] .bg-white\/5 input,
 html:not(.dark):not([data-theme="dark"]) .bg-white\/5 input {
