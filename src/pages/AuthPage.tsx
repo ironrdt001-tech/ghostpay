@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, XCircle } from 'lucide-react'
@@ -23,6 +23,38 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const toastTimer = useRef<number | null>(null)
+  const modePillRef = useRef<HTMLDivElement>(null)
+  const [modeIndicatorStyle, setModeIndicatorStyle] = useState<{ width: number; left: number }>({ width: 0, left: 0 })
+  const [isModeIndicatorReady, setIsModeIndicatorReady] = useState(false)
+
+  useLayoutEffect(() => {
+    function updateModeIndicator() {
+      if (!modePillRef.current) return
+      const activeBtn = modePillRef.current.querySelector<HTMLButtonElement>('.segmented-tab.active')
+      if (activeBtn) {
+        setModeIndicatorStyle({
+          width: activeBtn.offsetWidth,
+          left: activeBtn.offsetLeft,
+        })
+        if (!isModeIndicatorReady) {
+          requestAnimationFrame(() => setIsModeIndicatorReady(true))
+        }
+      }
+    }
+    updateModeIndicator()
+    window.addEventListener('resize', updateModeIndicator)
+
+    let observer: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined' && modePillRef.current) {
+      observer = new ResizeObserver(updateModeIndicator)
+      observer.observe(modePillRef.current)
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateModeIndicator)
+      observer?.disconnect()
+    }
+  }, [mode, isModeIndicatorReady])
 
   useEffect(() => () => {
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
@@ -292,10 +324,19 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
           </div>
 
           {/* Mode switch */}
-          <div className="segmented-pill" style={{ width: '100%', marginBottom: 'var(--space-5)' }}>
+          <div ref={modePillRef} className="segmented-pill relative" style={{ width: '100%', marginBottom: 'var(--space-5)' }}>
+            <div
+              className={`segmented-indicator transition-all duration-250 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none pointer-events-none ${!isModeIndicatorReady ? 'transition-none' : ''}`}
+              style={{
+                width: `${modeIndicatorStyle.width}px`,
+                transform: `translateX(${modeIndicatorStyle.left}px)`,
+                ...(!isModeIndicatorReady ? { transition: 'none' } : {}),
+                opacity: modeIndicatorStyle.width > 0 ? 1 : 0,
+              }}
+            />
             <button
               type="button"
-              className={`segmented-tab ${!isCreating ? 'active' : ''}`}
+              className={`segmented-tab relative z-10 transition-colors duration-250 ${!isCreating ? 'active' : ''}`}
               style={{ flex: 1 }}
               onClick={() => { setMode('sign-in'); setError(''); setMessage(''); setHandleStatus('idle') }}
             >
@@ -303,7 +344,7 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
             </button>
             <button
               type="button"
-              className={`segmented-tab ${isCreating ? 'active' : ''}`}
+              className={`segmented-tab relative z-10 transition-colors duration-250 ${isCreating ? 'active' : ''}`}
               style={{ flex: 1 }}
               onClick={() => { setMode('create-account'); setError(''); setMessage(''); setHandleStatus('idle') }}
             >

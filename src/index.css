@@ -545,6 +545,7 @@ input[name="handle"]::placeholder,
   background-color: var(--bg-inset);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
+  position: relative;
 }
 
 .segmented-tab {
@@ -556,13 +557,36 @@ input[name="handle"]::placeholder,
   background: transparent;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: all var(--duration-interaction) var(--ease-standard);
+  position: relative;
+  z-index: 2;
+  transition: color 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .segmented-tab.active {
-  background-color: var(--bg-surface);
+  background: transparent;
   color: var(--text-primary);
+  border: 1px solid transparent;
+}
+
+.segmented-indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
+  pointer-events: none;
+  z-index: 1;
+  will-change: transform, width;
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
+              width 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root[data-theme="light"] .segmented-indicator {
+  background-color: #ffffff;
+  border-color: var(--border-subtle);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 @media (max-width: 480px) {
@@ -1683,6 +1707,7 @@ html:not(.dark):not([data-theme="dark"]) .bg-white\/5 input::placeholder {
   border: 1px solid var(--border-strong, rgba(255, 255, 255, .10));
   overflow: visible;
   max-width: 100%;
+  position: relative;
 }
 
 .activity-tab {
@@ -1700,7 +1725,9 @@ html:not(.dark):not([data-theme="dark"]) .bg-white\/5 input::placeholder {
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: background .15s, color .15s, border-color .15s;
+  position: relative;
+  z-index: 2;
+  transition: color 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .activity-tab:hover {
@@ -1728,9 +1755,38 @@ html:not(.dark):not([data-theme="dark"]) .bg-white\/5 input::placeholder {
 
 .activity-tab[aria-selected="true"],
 .activity-tab[data-active="true"] {
-  background: var(--tab-tint);
-  border-color: var(--tab-c);
+  background: transparent;
+  border-color: transparent;
   color: var(--tab-c);
+}
+
+.activity-tab-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 1;
+  --tab-c: #3b82f6;
+  --tab-tint: rgba(59, 130, 246, .14);
+  background: var(--tab-tint);
+  border: 1px solid var(--tab-c);
+  will-change: transform, width;
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
+              width 250ms cubic-bezier(0.4, 0, 0.2, 1),
+              background 250ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.activity-tab-indicator[data-tone="positive"] {
+  --tab-c: #10b981;
+  --tab-tint: rgba(16, 185, 129, .14);
+}
+
+.activity-tab-indicator[data-tone="negative"] {
+  --tab-c: #f43f5e;
+  --tab-tint: rgba(244, 63, 94, .14);
 }
 
 /* Light mode overrides */
@@ -1775,9 +1831,30 @@ html:not(.dark):not([data-theme="dark"]) .activity-tab[data-tone="negative"] {
 :root.light .activity-tab[data-active="true"],
 html:not(.dark):not([data-theme="dark"]) .activity-tab[aria-selected="true"],
 html:not(.dark):not([data-theme="dark"]) .activity-tab[data-active="true"] {
-  background: var(--tab-tint);
-  border-color: var(--tab-c);
+  background: transparent;
+  border-color: transparent;
   color: var(--tab-c);
+}
+
+:root[data-theme="light"] .activity-tab-indicator,
+:root.light .activity-tab-indicator,
+html:not(.dark):not([data-theme="dark"]) .activity-tab-indicator {
+  --tab-c: #2563eb;
+  --tab-tint: rgba(37, 99, 235, .09);
+}
+
+:root[data-theme="light"] .activity-tab-indicator[data-tone="positive"],
+:root.light .activity-tab-indicator[data-tone="positive"],
+html:not(.dark):not([data-theme="dark"]) .activity-tab-indicator[data-tone="positive"] {
+  --tab-c: #059669;
+  --tab-tint: rgba(5, 150, 105, .09);
+}
+
+:root[data-theme="light"] .activity-tab-indicator[data-tone="negative"],
+:root.light .activity-tab-indicator[data-tone="negative"],
+html:not(.dark):not([data-theme="dark"]) .activity-tab-indicator[data-tone="negative"] {
+  --tab-c: #e11d48;
+  --tab-tint: rgba(225, 29, 72, .09);
 }
 
 @media (max-width: 480px) {
@@ -1787,5 +1864,44 @@ html:not(.dark):not([data-theme="dark"]) .activity-tab[data-active="true"] {
   }
   .activity-tabs::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* Sliding pill animation utilities */
+.duration-250 {
+  transition-duration: 250ms !important;
+}
+
+.ease-\[cubic-bezier\(0\.4\,0\,0\.2\,1\)\] {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.transition-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke !important;
+}
+
+.transition-all {
+  transition-property: all !important;
+}
+
+.transition-none {
+  transition: none !important;
+}
+
+.relative {
+  position: relative !important;
+}
+
+.z-10 {
+  z-index: 10 !important;
+}
+
+.pointer-events-none {
+  pointer-events: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-reduce\:transition-none {
+    transition: none !important;
   }
 }

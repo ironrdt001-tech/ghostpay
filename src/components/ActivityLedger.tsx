@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { formatCompactRupee, formatIstTime, formatMoneyParts, groupTransactionsByDate } from '../lib/formatters'
 import type { ActivityFilter, Transaction } from '../lib/types'
@@ -93,6 +93,41 @@ export function ActivityLedger({
 }: ActivityLedgerProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedDayKey, setExpandedDayKey] = useState<string | null>(null)
+  const tabsRef = useRef<HTMLDivElement>(null)
+  const [indicatorStyle, setIndicatorStyle] = useState<{ width: number; left: number }>({ width: 0, left: 0 })
+  const [isIndicatorReady, setIsIndicatorReady] = useState(false)
+
+  useLayoutEffect(() => {
+    function updateIndicator() {
+      if (!tabsRef.current) return
+      const activeBtn = tabsRef.current.querySelector<HTMLButtonElement>('[data-active="true"]')
+      if (activeBtn) {
+        setIndicatorStyle({
+          width: activeBtn.offsetWidth,
+          left: activeBtn.offsetLeft,
+        })
+        if (!isIndicatorReady) {
+          requestAnimationFrame(() => {
+            setIsIndicatorReady(true)
+          })
+        }
+      }
+    }
+
+    updateIndicator()
+    window.addEventListener('resize', updateIndicator)
+
+    let observer: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined' && tabsRef.current) {
+      observer = new ResizeObserver(updateIndicator)
+      observer.observe(tabsRef.current)
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateIndicator)
+      observer?.disconnect()
+    }
+  }, [activeFilter, isIndicatorReady])
 
   const toggleDay = (key: string) => setExpandedDayKey(prev => (prev === key ? null : key))
 
@@ -227,13 +262,23 @@ export function ActivityLedger({
 
         {/* 1. Locked Segmented Pill Bar directly below header and ABOVE summary card */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-          <div className="activity-tabs" role="tablist" aria-label="Filter activity">
+          <div ref={tabsRef} className="activity-tabs relative" role="tablist" aria-label="Filter activity">
+            <div
+              className={`activity-tab-indicator transition-all duration-250 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none pointer-events-none ${!isIndicatorReady ? 'transition-none' : ''}`}
+              data-tone={activeFilter === 'received' ? 'positive' : activeFilter === 'sent' ? 'negative' : undefined}
+              style={{
+                width: `${indicatorStyle.width}px`,
+                transform: `translateX(${indicatorStyle.left}px)`,
+                ...(!isIndicatorReady ? { transition: 'none' } : {}),
+                opacity: indicatorStyle.width > 0 ? 1 : 0,
+              }}
+            />
             <button
               type="button"
               role="tab"
               aria-selected={activeFilter === 'all'}
               data-active={activeFilter === 'all' ? 'true' : undefined}
-              className="activity-tab"
+              className="activity-tab relative z-10 transition-colors duration-250"
               onClick={() => onChangeFilter('all')}
             >
               All
@@ -244,7 +289,7 @@ export function ActivityLedger({
               aria-selected={activeFilter === 'received'}
               data-active={activeFilter === 'received' ? 'true' : undefined}
               data-tone="positive"
-              className="activity-tab"
+              className="activity-tab relative z-10 transition-colors duration-250"
               onClick={() => onChangeFilter('received')}
             >
               Received
@@ -255,7 +300,7 @@ export function ActivityLedger({
               aria-selected={activeFilter === 'sent'}
               data-active={activeFilter === 'sent' ? 'true' : undefined}
               data-tone="negative"
-              className="activity-tab"
+              className="activity-tab relative z-10 transition-colors duration-250"
               onClick={() => onChangeFilter('sent')}
             >
               Sent
@@ -265,7 +310,7 @@ export function ActivityLedger({
               role="tab"
               aria-selected={activeFilter === '7d'}
               data-active={activeFilter === '7d' ? 'true' : undefined}
-              className="activity-tab"
+              className="activity-tab relative z-10 transition-colors duration-250"
               onClick={() => onChangeFilter('7d')}
             >
               7 days
