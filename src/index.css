@@ -424,6 +424,21 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   color: var(--text-muted);
 }
 
+.font-normal {
+  font-weight: 400;
+}
+
+input[name="handle"]::placeholder,
+.placeholder\:text-gray-400::placeholder,
+.placeholder\:text-white\/40::placeholder {
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: inherit;
+  font-family: inherit;
+  letter-spacing: inherit;
+  opacity: 1;
+}
+
 .field-input:focus,
 .field-input:focus-within {
   border-color: var(--accent-primary);

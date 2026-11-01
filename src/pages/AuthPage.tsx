@@ -335,8 +335,8 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
                     placeholder="yourhandle"
                     value={handle}
                     onChange={e => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))}
-                    className="bg-transparent border-none outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 w-full px-3 py-2 text-white"
-                    style={{ outline: 'none', boxShadow: 'none', background: 'transparent' }}
+                    className="bg-transparent border-none outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 w-full px-3 py-2 text-white text-sm font-normal placeholder:text-gray-400"
+                    style={{ outline: 'none', boxShadow: 'none', background: 'transparent', fontSize: '15px', fontFamily: 'inherit' }}
                     required
                   />
                 </div>
