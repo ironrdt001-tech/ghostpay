@@ -97,11 +97,14 @@ export function KycVerificationModal({
 
       if (insertError) throw insertError
 
-      // Sync user profile state
-      await supabase.from('users').update({
-        kyc_verified: true,
-        real_legal_name: cleanName,
-      }).eq('id', userId)
+      // Update real_legal_name on users profile safely
+      try {
+        await supabase.from('users').update({
+          real_legal_name: cleanName,
+        }).eq('id', userId)
+      } catch (userUpdateErr) {
+        console.warn('Could not update users.real_legal_name:', userUpdateErr)
+      }
 
       const savedRecord: KycVerification = (data as KycVerification) || payload
       onToast('success', 'Identity submitted securely')

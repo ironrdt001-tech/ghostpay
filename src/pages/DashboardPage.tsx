@@ -160,28 +160,27 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
     }
 
     try {
-      const [profileRes, txRes, demoRes, kycRes] = await Promise.all([
-        supabase.from('users').select('id, alias_handle, real_legal_name, real_upi_id, avatar_url, wallet_balance, kyc_verified').eq('id', session.user.id).maybeSingle(),
+      const [profileRes, txRes, demoRes] = await Promise.all([
+        supabase
+          .from('users')
+          .select('id, alias_handle, real_legal_name, real_upi_id, avatar_url, wallet_balance')
+          .eq('id', session.user.id)
+          .maybeSingle(),
         fetchLedgerTransactions(session.user.id),
-        supabase.from('demo_transactions').select('id, amount_inr, sender_alias, status, created_at').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).limit(500),
-        supabase.from('kyc_verifications').select('*').eq('user_id', session.user.id).maybeSingle(),
+        supabase
+          .from('demo_transactions')
+          .select('id, amount_inr, sender_alias, status, created_at')
+          .eq('receiver_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(500),
       ])
 
-      if (profileRes.data) {
+      if (profileRes?.data) {
         setProfile(profileRes.data as Profile)
+      } else if (profileRes?.error) {
+        console.warn('Profile fetch warning:', profileRes.error.message)
       }
-      if (kycRes?.data) {
-        setKycRecord(kycRes.data as KycVerification)
-      } else if (profileRes?.data?.kyc_verified) {
-        setKycRecord({
-          id: 'user-kyc',
-          user_id: session.user.id,
-          legal_full_name: profileRes.data.real_legal_name || 'Verified User',
-          pan_number: '••••••••••',
-          status: 'verified',
-          created_at: new Date().toISOString(),
-        })
-      }
+
       if (txRes) {
         setTransactions(prev => {
           const serverIds = new Set(txRes.map(r => r.id))
@@ -189,8 +188,24 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
           return [...localOptimistic, ...txRes]
         })
       }
-      if (demoRes.data) {
+
+      if (demoRes?.data) {
         setDemoTransactions(demoRes.data as DemoTransaction[])
+      }
+
+      // Separately fetch KYC verification so any missing table or network glitch never blocks profile/balance
+      try {
+        const { data: kycData } = await supabase
+          .from('kyc_verifications')
+          .select('id, user_id, legal_full_name, pan_number, status, created_at')
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+
+        if (kycData) {
+          setKycRecord(kycData as KycVerification)
+        }
+      } catch (kycErr) {
+        console.warn('KYC check skipped:', kycErr)
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not load data.'
@@ -663,18 +678,19 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
         />
       )}
 
-      <KycVerificationModal
-        isOpen={kycModalOpen}
-        onClose={() => setKycModalOpen(false)}
-        userId={session.user.id}
-        initialLegalName={profile?.real_legal_name || profile?.full_name || ''}
-        kycRecord={kycRecord}
-        onSuccess={record => {
-          setKycRecord(record)
-          setProfile(prev => prev ? { ...prev, kyc_verified: true, real_legal_name: record.legal_full_name } : prev)
-        }}
-        onToast={showToast}
-      />
+      {kycModalOpen && (
+        <KycVerificationModal
+          isOpen={kycModalOpen}
+          onClose={() => setKycModalOpen(false)}
+          userId={session.user.id}
+          initialLegalName={profile?.real_legal_name || profile?.full_name || ''}
+          kycRecord={kycRecord}
+          onSuccess={record => {
+            setKycRecord(record)
+          }}
+          onToast={showToast}
+        />
+      )}
 
       {selectedTx && (
         <ReceiptModal
