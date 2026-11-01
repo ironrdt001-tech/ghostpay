@@ -262,7 +262,8 @@ export function KycVerificationModal({
                 value={legalName}
                 onChange={e => { setLegalName(e.target.value); setError('') }}
                 placeholder="Name as per PAN card"
-                className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full"
+                className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full"
+                style={{ color: 'var(--text-primary)' }}
                 required
                 disabled={loading}
               />
@@ -283,7 +284,8 @@ export function KycVerificationModal({
                 }}
                 placeholder="ABCDE1234F"
                 maxLength={10}
-                className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono uppercase placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full"
+                className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono uppercase placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full"
+                style={{ color: 'var(--text-primary)' }}
                 required
                 disabled={loading}
               />

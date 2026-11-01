@@ -947,12 +947,16 @@ html:not(.dark):not([data-theme="dark"]) .text-red-500 {
   color: #dc2626;
 }
 :root[data-theme="light"] .bg-white\/5 input,
-html:not(.dark):not([data-theme="dark"]) .bg-white\/5 input {
-  color: #0f172a !important;
+html:not(.dark):not([data-theme="dark"]) .bg-white\/5 input,
+:root[data-theme="light"] input.bg-white\/5,
+html:not(.dark):not([data-theme="dark"]) input.bg-white\/5 {
+  color: var(--text-primary, #0f172a) !important;
 }
 :root[data-theme="light"] .bg-white\/5 input::placeholder,
-html:not(.dark):not([data-theme="dark"]) .bg-white\/5 input::placeholder {
-  color: #64748b !important;
+html:not(.dark):not([data-theme="dark"]) .bg-white\/5 input::placeholder,
+:root[data-theme="light"] input.bg-white\/5::placeholder,
+html:not(.dark):not([data-theme="dark"]) input.bg-white\/5::placeholder {
+  color: var(--text-muted, #64748b) !important;
 }
 
 .border { border-width: 1px; border-style: solid; }
