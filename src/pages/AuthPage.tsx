@@ -316,12 +316,16 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
               <label className="field-label">
                 <span>Claim your @handle</span>
                 <div
-                  className="field-input flex items-center rounded-xl overflow-hidden transition-all"
-                  style={{ padding: 0 }}
+                  className="field-input flex items-center"
+                  style={{ gap: '2px' }}
                 >
                   <span
-                    className="px-3 text-white/50 bg-transparent self-stretch flex items-center select-none"
-                    style={{ borderRight: '1px solid var(--border-subtle)' }}
+                    className="select-none"
+                    style={{
+                      color: 'var(--text-muted)',
+                      fontSize: '15px',
+                      lineHeight: 1,
+                    }}
                   >
                     @
                   </span>
@@ -335,8 +339,20 @@ export function AuthPage({ initialMode = 'sign-in' }: AuthPageProps) {
                     placeholder="yourhandle"
                     value={handle}
                     onChange={e => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))}
-                    className="bg-transparent border-none outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 w-full px-3 py-2 text-white text-sm font-normal placeholder:text-gray-400"
-                    style={{ outline: 'none', boxShadow: 'none', background: 'transparent', fontSize: '15px', fontFamily: 'inherit' }}
+                    className="bg-transparent border-none outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 w-full"
+                    style={{
+                      outline: 'none',
+                      boxShadow: 'none',
+                      border: 'none',
+                      background: 'transparent',
+                      padding: 0,
+                      width: '100%',
+                      minHeight: '100%',
+                      height: '100%',
+                      fontSize: '15px',
+                      fontFamily: 'inherit',
+                      color: 'var(--text-primary)',
+                    }}
                     required
                   />
                 </div>
