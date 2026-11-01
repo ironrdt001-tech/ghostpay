@@ -7,6 +7,17 @@ export interface Profile {
   upi_id?: string
   avatar_url?: string | null
   wallet_balance?: number
+  kyc_verified?: boolean
+}
+
+export interface KycVerification {
+  id: string
+  user_id: string
+  legal_full_name: string
+  pan_number: string
+  status: 'pending' | 'verified' | 'rejected'
+  created_at: string
+  updated_at?: string
 }
 
 export interface Transaction {

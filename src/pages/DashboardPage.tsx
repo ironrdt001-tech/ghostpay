@@ -6,7 +6,8 @@ import { ActivityLedger } from '../components/ActivityLedger'
 import { BalanceHeader } from '../components/BalanceHeader'
 import { Brand } from '../components/Brand'
 import { EditProfileModal } from '../components/EditProfileModal'
-import { CheckIcon, MoonIcon, SunIcon } from '../components/Icons'
+import { ArrowRightIcon, CheckIcon, MoonIcon, ShieldCheckIcon, ShieldIcon, SunIcon, UserIcon } from '../components/Icons'
+import { KycVerificationModal } from '../components/KycVerificationModal'
 import { MobileBottomNav } from '../components/MobileBottomNav'
 import { QrScannerModal } from '../components/QrScannerModal'
 import { ReceiptModal } from '../components/ReceiptModal'
@@ -19,7 +20,7 @@ import { formatHandle } from '../lib/formatters'
 import { parsePaymentQrCode } from '../lib/qr'
 import { supabase } from '../lib/supabase'
 import { fetchLedgerTransactions } from '../lib/transactions'
-import type { ActivityFilter, DemoTransaction, Profile, RecentPerson, Transaction } from '../lib/types'
+import type { ActivityFilter, DemoTransaction, KycVerification, Profile, RecentPerson, Transaction } from '../lib/types'
 
 interface DashboardPageProps {
   session: Session
@@ -57,6 +58,8 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
   const [topUpOpen, setTopUpOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [editProfileOpen, setEditProfileOpen] = useState(false)
+  const [kycModalOpen, setKycModalOpen] = useState(false)
+  const [kycRecord, setKycRecord] = useState<KycVerification | null>(null)
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null)
 
   // Scanner prefill state for Send form
@@ -157,14 +160,27 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
     }
 
     try {
-      const [profileRes, txRes, demoRes] = await Promise.all([
-        supabase.from('users').select('id, alias_handle, real_legal_name, real_upi_id, avatar_url, wallet_balance').eq('id', session.user.id).maybeSingle(),
+      const [profileRes, txRes, demoRes, kycRes] = await Promise.all([
+        supabase.from('users').select('id, alias_handle, real_legal_name, real_upi_id, avatar_url, wallet_balance, kyc_verified').eq('id', session.user.id).maybeSingle(),
         fetchLedgerTransactions(session.user.id),
         supabase.from('demo_transactions').select('id, amount_inr, sender_alias, status, created_at').eq('receiver_id', session.user.id).order('created_at', { ascending: false }).limit(500),
+        supabase.from('kyc_verifications').select('*').eq('user_id', session.user.id).maybeSingle(),
       ])
 
       if (profileRes.data) {
         setProfile(profileRes.data as Profile)
+      }
+      if (kycRes?.data) {
+        setKycRecord(kycRes.data as KycVerification)
+      } else if (profileRes?.data?.kyc_verified) {
+        setKycRecord({
+          id: 'user-kyc',
+          user_id: session.user.id,
+          legal_full_name: profileRes.data.real_legal_name || 'Verified User',
+          pan_number: '••••••••••',
+          status: 'verified',
+          created_at: new Date().toISOString(),
+        })
       }
       if (txRes) {
         setTransactions(prev => {
@@ -423,9 +439,53 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
                     setEditProfileOpen(true)
                   }}
                   className="btn-ghost"
-                  style={{ width: '100%', justifyContent: 'flex-start', minHeight: '36px', fontSize: '13px' }}
+                  style={{
+                    width: '100%',
+                    justifyContent: 'flex-start',
+                    minHeight: '36px',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
                 >
-                  Edit profile
+                  <UserIcon size={15} />
+                  <span>Edit profile</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setProfileMenuOpen(false)
+                    setKycModalOpen(true)
+                  }}
+                  disabled={kycRecord?.status === 'verified'}
+                  className="btn-ghost"
+                  style={{
+                    width: '100%',
+                    justifyContent: 'flex-start',
+                    minHeight: '36px',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    ...(kycRecord?.status === 'verified'
+                      ? { color: 'var(--semantic-credit-text, #10b981)', cursor: 'default', opacity: 0.95 }
+                      : {}),
+                  }}
+                >
+                  {kycRecord?.status === 'verified' ? (
+                    <>
+                      <ShieldCheckIcon size={15} />
+                      <span>Identity Verified</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldIcon size={15} />
+                      <span>Verify Identity</span>
+                    </>
+                  )}
                 </button>
 
                 <button
@@ -433,9 +493,19 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
                   role="menuitem"
                   onClick={handleSignOut}
                   className="btn-ghost"
-                  style={{ width: '100%', justifyContent: 'flex-start', minHeight: '36px', fontSize: '13px', color: 'var(--semantic-debit-text)' }}
+                  style={{
+                    width: '100%',
+                    justifyContent: 'flex-start',
+                    minHeight: '36px',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    color: 'var(--semantic-debit-text)',
+                  }}
                 >
-                  Sign out
+                  <ArrowRightIcon size={15} />
+                  <span>Sign out</span>
                 </button>
               </div>
             )}
@@ -592,6 +662,19 @@ export function DashboardPage({ session, theme, onToggleTheme, onResetTheme }: D
           onToast={showToast}
         />
       )}
+
+      <KycVerificationModal
+        isOpen={kycModalOpen}
+        onClose={() => setKycModalOpen(false)}
+        userId={session.user.id}
+        initialLegalName={profile?.real_legal_name || profile?.full_name || ''}
+        kycRecord={kycRecord}
+        onSuccess={record => {
+          setKycRecord(record)
+          setProfile(prev => prev ? { ...prev, kyc_verified: true, real_legal_name: record.legal_full_name } : prev)
+        }}
+        onToast={showToast}
+      />
 
       {selectedTx && (
         <ReceiptModal

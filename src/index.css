@@ -893,8 +893,11 @@ input[name="handle"]::placeholder,
 }
 .focus\:outline-none:focus { outline: none !important; }
 .focus\:ring-0:focus { box-shadow: none !important; }
+.focus\:ring-1:focus { box-shadow: 0 0 0 1px #3b82f6 !important; }
+.focus\:ring-blue-500:focus { border-color: #3b82f6 !important; }
 .focus-visible\:outline-none:focus-visible { outline: none !important; }
 .focus-visible\:ring-0:focus-visible { box-shadow: none !important; }
+.bg-emerald-500\/10 { background-color: rgba(16, 185, 129, 0.10) !important; }
 
 .focus-within\:border-blue-500:focus-within {
   border-color: #3b82f6 !important;
